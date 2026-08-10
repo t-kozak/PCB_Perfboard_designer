@@ -47,120 +47,203 @@
   <main class="app-layout" id="mainAppLayout">
     
     <!-- Left Sidebar: Tools & Controls -->
-    <aside id="controls" class="tool-panel">
+    <aside id="controls" class="tool-panel sidebar-scroll">
       
-      <!-- Interactive Tool Mode Selector -->
-      <div>
-        <div class="section-title">Tool Mode</div>
-        <div class="btn-group" id="toolModeSelector">
-          <button class="tool-mode-btn active-mode" data-mode="select">🖐 Select</button>
-          <button class="tool-mode-btn" data-mode="wire">✏ Wire</button>
-          <button class="tool-mode-btn" data-mode="eraser">🧹 Eraser</button>
-          <button class="tool-mode-btn" data-mode="note">📝 Note</button>
+      <!-- Tool Mode Selector -->
+      <div class="sidebar-section">
+        <div class="section-title" data-collapse="toolModeSection">
+          <span class="section-icon">🔧</span>
+          <span>Tool Mode</span>
+          <span class="collapse-chevron">▾</span>
+        </div>
+        <div class="section-body" id="toolModeSection">
+          <div class="tool-mode-grid" id="toolModeSelector">
+            <button class="tool-mode-btn active-mode" data-mode="select">
+              <span class="tool-icon">🖐</span>
+              <span class="tool-label">Select</span>
+            </button>
+            <button class="tool-mode-btn" data-mode="wire">
+              <span class="tool-icon">✏</span>
+              <span class="tool-label">Wire</span>
+            </button>
+            <button class="tool-mode-btn" data-mode="eraser">
+              <span class="tool-icon">🧹</span>
+              <span class="tool-label">Eraser</span>
+            </button>
+            <button class="tool-mode-btn" data-mode="note">
+              <span class="tool-icon">📝</span>
+              <span class="tool-label">Note</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      <div class="sidebar-divider"></div>
 
       <!-- Wire Gauge Selector -->
-      <div>
-        <div class="section-title">Wire Thickness</div>
-        <div class="btn-group" id="wireGaugeSelector">
-          <button class="gauge-btn" data-width="2">Thin (2px)</button>
-          <button class="gauge-btn active-mode" data-width="4">Normal (4px)</button>
-          <button class="gauge-btn" data-width="7">Thick (7px)</button>
+      <div class="sidebar-section">
+        <div class="section-title" data-collapse="wireGaugeSection">
+          <span class="section-icon">〰</span>
+          <span>Wire Thickness</span>
+          <span class="collapse-chevron">▾</span>
+        </div>
+        <div class="section-body" id="wireGaugeSection">
+          <div class="gauge-selector" id="wireGaugeSelector">
+            <button class="gauge-btn" data-width="2">
+              <span class="gauge-line gauge-thin"></span>
+              <span>Thin</span>
+            </button>
+            <button class="gauge-btn active-mode" data-width="4">
+              <span class="gauge-line gauge-normal"></span>
+              <span>Normal</span>
+            </button>
+            <button class="gauge-btn" data-width="7">
+              <span class="gauge-line gauge-thick"></span>
+              <span>Thick</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- History & Navigation -->
-      <div>
-        <div class="section-title">History</div>
-        <div class="btn-group">
-          <button id="backBtn">↩ Undo</button>
-          <button id="forwardBtn">↪ Redo</button>
+      <div class="sidebar-divider"></div>
+
+      <!-- History -->
+      <div class="sidebar-section">
+        <div class="section-title" data-collapse="historySection">
+          <span class="section-icon">⏱</span>
+          <span>History</span>
+          <span class="collapse-chevron">▾</span>
+        </div>
+        <div class="section-body" id="historySection">
+          <div class="btn-group">
+            <button id="backBtn" class="icon-btn">↩ Undo</button>
+            <button id="forwardBtn" class="icon-btn">↪ Redo</button>
+          </div>
         </div>
       </div>
+
+      <div class="sidebar-divider"></div>
 
       <!-- Styling & Color Palette -->
-      <div>
-        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="sidebar-section">
+        <div class="section-title" data-collapse="colorSection">
+          <span class="section-icon">🎨</span>
           <span>Styling & Colors</span>
-          <span style="font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
-            Active Color:
-            <span id="activeColorBadge" style="display:inline-block; width:16px; height:16px; border-radius:50%; background:#3b82f6; border:2px solid #ffffff; box-shadow:0 0 6px rgba(59,130,246,0.5);" title="Active Wire Color"></span>
+          <span style="margin-left:auto; display:flex; align-items:center; gap:4px; font-size:0.7rem; color:var(--text-muted); font-weight:400; text-transform:none; letter-spacing:0;">
+            <span id="activeColorBadge" class="active-color-dot" title="Active Wire Color"></span>
           </span>
+          <span class="collapse-chevron">▾</span>
         </div>
-        <input type="color" id="colorPicker" style="display:none">
-        <div class="btn-group">
-          <button id="changeLineColorBtn">🎨 Line Color</button>
-          <button id="changeDotColorBtn">🎨 Dot Color</button>
-          <button id="toggleCustomColorPanelBtn" class="btn-accent" style="font-size:0.75rem;">➕ Add Custom Color</button>
-          <button id="deleteLineBtn" class="btn-danger">🗑 Delete Line</button>
-        </div>
-        
-        <!-- Mouse-Interactive 2D Color Spectrum Selector Panel -->
-        <div id="customColorPanel" style="display:none; margin-top:0.6rem; padding:0.75rem; background:#111827; border:1px solid #374151; border-radius:10px; flex-direction:column; gap:0.6rem;">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted);">VISUAL COLOR PICKER</span>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-size:0.75rem; color:var(--text-muted);">HEX:</span>
-              <input type="text" id="hexColorInput" value="#38bdf8" style="width:75px; padding:0.2rem 0.4rem; font-size:0.75rem; font-family:monospace;">
-              <div id="colorPreviewBox" style="width:24px; height:24px; border-radius:6px; background:#38bdf8; border:2px solid #ffffff; box-shadow:0 0 6px rgba(0,0,0,0.4);"></div>
-            </div>
+        <div class="section-body" id="colorSection">
+          <input type="color" id="colorPicker" style="display:none">
+          <div class="color-actions">
+            <button id="changeLineColorBtn" class="color-action-btn">
+              <span class="color-action-icon" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);"></span>
+              Line Color
+            </button>
+            <button id="changeDotColorBtn" class="color-action-btn">
+              <span class="color-action-icon" style="background:linear-gradient(135deg,#10b981,#06b6d4);"></span>
+              Dot Color
+            </button>
+            <button id="toggleCustomColorPanelBtn" class="color-action-btn color-action-add">
+              <span>＋</span>
+              Custom
+            </button>
+            <button id="deleteLineBtn" class="color-action-btn color-action-delete">
+              <span>✕</span>
+              Delete
+            </button>
           </div>
           
-          <!-- 2D Color Canvas Spectrum (Mouse Click & Drag) -->
-          <div style="position:relative; width:100%; height:130px; border-radius:6px; overflow:hidden; cursor:crosshair; border:1px solid #374151;" id="spectrumContainer">
-            <canvas id="colorSpectrumCanvas" width="280" height="130" style="display:block; width:100%; height:100%;"></canvas>
-            <div id="spectrumHandle" style="position:absolute; width:12px; height:12px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 4px rgba(0,0,0,0.8); pointer-events:none; transform:translate(-50%, -50%); top:20px; left:240px;"></div>
+          <!-- Mouse-Interactive 2D Color Spectrum Selector Panel -->
+          <div id="customColorPanel" style="display:none; margin-top:0.6rem; padding:0.75rem; background:#111827; border:1px solid #374151; border-radius:10px; flex-direction:column; gap:0.6rem;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted);">VISUAL COLOR PICKER</span>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:0.75rem; color:var(--text-muted);">HEX:</span>
+                <input type="text" id="hexColorInput" value="#38bdf8" style="width:75px; padding:0.2rem 0.4rem; font-size:0.75rem; font-family:monospace;">
+                <div id="colorPreviewBox" style="width:24px; height:24px; border-radius:6px; background:#38bdf8; border:2px solid #ffffff; box-shadow:0 0 6px rgba(0,0,0,0.4);"></div>
+              </div>
+            </div>
+            
+            <!-- 2D Color Canvas Spectrum (Mouse Click & Drag) -->
+            <div style="position:relative; width:100%; height:130px; border-radius:6px; overflow:hidden; cursor:crosshair; border:1px solid #374151;" id="spectrumContainer">
+              <canvas id="colorSpectrumCanvas" width="280" height="130" style="display:block; width:100%; height:100%;"></canvas>
+              <div id="spectrumHandle" style="position:absolute; width:12px; height:12px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 4px rgba(0,0,0,0.8); pointer-events:none; transform:translate(-50%, -50%); top:20px; left:240px;"></div>
+            </div>
+
+            <!-- Rainbow Hue Slider -->
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span style="font-size:0.75rem; color:var(--text-muted); font-weight:bold;">HUE:</span>
+              <input type="range" id="hueBar" min="0" max="360" value="195" style="flex:1; cursor:pointer;" class="rainbow-slider">
+            </div>
+
+            <button id="addCustomColorToPaletteBtn" class="btn-primary" style="padding:0.4rem; font-size:0.8rem; width:100%;">🎨 Add Color to Palette</button>
           </div>
 
-          <!-- Rainbow Hue Slider -->
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:bold;">HUE:</span>
-            <input type="range" id="hueBar" min="0" max="360" value="195" style="flex:1; cursor:pointer;" class="rainbow-slider">
-          </div>
-
-          <button id="addCustomColorToPaletteBtn" class="btn-primary" style="padding:0.4rem; font-size:0.8rem; width:100%;">🎨 Add Color to Palette</button>
+          <!-- Quick Color Palette Swatches -->
+          <div class="swatch-grid" id="quickSwatches"></div>
         </div>
-
-        <!-- Quick Color Palette Swatches -->
-        <div class="swatch-grid" id="quickSwatches" style="margin-top:0.6rem;"></div>
       </div>
+
+      <div class="sidebar-divider"></div>
 
       <!-- Annotations -->
-      <div>
-        <div class="section-title">Annotations</div>
-        <div class="btn-group">
-          <button id="addDescriptionBtn">📝 Add Note</button>
-          <button id="deleteDescriptionBtn" class="btn-danger">❌ Remove Note</button>
+      <div class="sidebar-section">
+        <div class="section-title" data-collapse="annotationSection">
+          <span class="section-icon">💬</span>
+          <span>Annotations</span>
+          <span class="collapse-chevron">▾</span>
+        </div>
+        <div class="section-body" id="annotationSection">
+          <div class="btn-group">
+            <button id="addDescriptionBtn" class="icon-btn">📝 Add Note</button>
+            <button id="deleteDescriptionBtn" class="btn-danger icon-btn">✕ Remove Note</button>
+          </div>
         </div>
       </div>
 
-      <!-- Grid Dimensions -->
-      <div>
-        <div class="section-title">Grid Configuration</div>
-        <div class="grid-inputs">
-          <label style="font-size:0.8rem; color:var(--text-muted);">W:</label>
-          <input type="number" id="dotMatrixWidth" min="1" value="10">
-          <label style="font-size:0.8rem; color:var(--text-muted);">H:</label>
-          <input type="number" id="dotMatrixHeight" min="1" value="10">
-          <button id="resizeGridBtn" class="btn-accent">Resize</button>
+      <div class="sidebar-divider"></div>
+
+      <!-- Grid Configuration -->
+      <div class="sidebar-section">
+        <div class="section-title" data-collapse="gridSection">
+          <span class="section-icon">⊞</span>
+          <span>Grid Configuration</span>
+          <span class="collapse-chevron">▾</span>
         </div>
-        <!-- Grid Presets -->
-        <div class="btn-group" style="margin-top: 0.5rem;" id="gridPresets">
-          <button class="preset-btn" data-w="10" data-h="10">10×10</button>
-          <button class="preset-btn" data-w="16" data-h="16">16×16</button>
-          <button class="preset-btn" data-w="24" data-h="16">24×16</button>
-          <button class="preset-btn" data-w="30" data-h="20">30×20</button>
+        <div class="section-body" id="gridSection">
+          <div class="grid-inputs">
+            <label style="font-size:0.8rem; color:var(--text-muted);">W:</label>
+            <input type="number" id="dotMatrixWidth" min="1" value="10">
+            <span style="color:var(--text-muted);">×</span>
+            <label style="font-size:0.8rem; color:var(--text-muted);">H:</label>
+            <input type="number" id="dotMatrixHeight" min="1" value="10">
+            <button id="resizeGridBtn" class="btn-accent" style="padding:0.35rem 0.65rem;">Resize</button>
+          </div>
+          <!-- Grid Presets -->
+          <div class="grid-presets" id="gridPresets">
+            <button class="preset-btn" data-w="10" data-h="10">10×10</button>
+            <button class="preset-btn" data-w="16" data-h="16">16×16</button>
+            <button class="preset-btn" data-w="24" data-h="16">24×16</button>
+            <button class="preset-btn" data-w="30" data-h="20">30×20</button>
+          </div>
         </div>
       </div>
+
+      <div class="sidebar-divider"></div>
 
       <!-- IC Components Container -->
-      <div id="ic">
-        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
-          <span>Integrated Circuits (ICs)</span>
-          <button id="createCustomIcTrigger" class="btn-accent" style="padding:0.25rem 0.5rem; font-size:0.75rem;">➕ Custom IC</button>
+      <div class="sidebar-section" id="ic">
+        <div class="section-title" data-collapse="icSection">
+          <span class="section-icon">🔌</span>
+          <span>Integrated Circuits</span>
+          <button id="createCustomIcTrigger" class="ic-add-btn" onclick="event.stopPropagation()">＋</button>
+          <span class="collapse-chevron">▾</span>
         </div>
-        <div id="ic-items"></div>
+        <div class="section-body" id="icSection">
+          <div id="ic-items"></div>
+        </div>
       </div>
 
     </aside>
@@ -202,6 +285,7 @@
 
   <!-- Right-Click Canvas Context Menu -->
   <div id="contextMenu" class="context-menu" style="display:none;">
+    <button id="ctxRotateBtn">🔄 Rotate Component</button>
     <button id="ctxColorBtn">🎨 Change Color</button>
     <button id="ctxNoteBtn">📝 Add/Edit Note</button>
     <button id="ctxDeleteBtn" class="ctx-danger">🗑 Delete Item</button>

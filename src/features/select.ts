@@ -77,14 +77,11 @@ Canvas.c.addEventListener('mousedown', function(e) {
       return;
     }
 
-    // Relocate an already selected IC to target pad
-    if (State.selectedPlacedIc && State.hoverDot) {
-      State.selectedPlacedIc.updatePosition(State.hoverDot.x, State.hoverDot.y);
+    // Deselect placed IC if clicking on empty space
+    if (State.selectedPlacedIc) {
       State.selectedPlacedIc = undefined;
       redrawCanvas();
-      return;
-    } else {
-      State.selectedPlacedIc = undefined;
+      // Fall through to normal dot/line selection
     }
 
     setSelection(e);
@@ -265,5 +262,8 @@ ShortcutRegistry.add({key: "Escape", description: "Unselect dot or line", event:
   State.selectedDot = undefined;
   State.selectedLine = undefined;
   State.selectedIc = undefined;
+  State.selectedPlacedIc = undefined;
+  State.isDraggingIc = false;
   hideContextMenu();
+  redrawCanvas();
 }});

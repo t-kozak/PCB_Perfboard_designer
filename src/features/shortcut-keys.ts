@@ -1,9 +1,14 @@
 import {Utils} from "../utils/utils";
 
 window.addEventListener('keydown', (event) => {
-  console.log(event);
+  const target = event.target as HTMLElement;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+    return;
+  }
+
+  const keyLower = event.key.toLowerCase();
   for (const shortcut of ShortcutRegistry.sohortcuts) {
-    if (event.key == shortcut.key && event.ctrlKey == !!shortcut.ctrl){
+    if (keyLower === shortcut.key.toLowerCase() && event.ctrlKey === !!shortcut.ctrl){
       shortcut.event(event);
     }
   }

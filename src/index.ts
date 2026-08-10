@@ -21,6 +21,7 @@ import {setLineColor, deleteLine} from "./features/line";
 import {addDescriptionToDot} from "./features/description";
 import {hideContextMenu} from "./features/select";
 import {Ic} from "./features/ic";
+import {Canvas} from "./state/Canvas";
 
 createDotGrid(parseInt(widthInput.value || "10"), parseInt(heightInput.value || "10"));
 resetCanvas();
@@ -122,7 +123,14 @@ document.querySelectorAll('#wireGaugeSelector .gauge-btn').forEach((btn) => {
   });
 });
 
-// Context Menu Actions
+import {rotateSelectedIc} from "./features/ic";
+
+// Context Menu item handlers
+document.getElementById('ctxRotateBtn')?.addEventListener('click', () => {
+  rotateSelectedIc();
+  hideContextMenu();
+});
+
 document.getElementById('ctxColorBtn')?.addEventListener('click', () => {
   hideContextMenu();
   if (State.selectedLine || State.selectedDot) {
@@ -391,6 +399,7 @@ window.addEventListener('click', () => {
 let currentZoom = 1.0;
 let isFullscreenMode = false;
 let isSidebarVisible = true;
+let isFitMode = false;
 
 function applyZoom(zoom: number) {
   currentZoom = Math.min(3.0, Math.max(0.2, zoom));
@@ -416,7 +425,14 @@ function zoomOut() {
   applyZoom(currentZoom - 0.15);
 }
 
-function fitToScreen() {
+function fitToScreen(forcefit?: boolean) {
+  const fitBtn = document.getElementById('zoomFitBtn');
+  if (!forcefit && isFitMode) {
+    isFitMode = false;
+    applyZoom(1.0);
+    if (fitBtn) { fitBtn.innerText = '🎯 Fit'; fitBtn.className = 'btn-accent'; }
+    return;
+  }
   const container = document.getElementById('canvas-container');
   if (!container || !Canvas.c) return;
   const rect = container.getBoundingClientRect();
@@ -431,6 +447,8 @@ function fitToScreen() {
   const scaleY = availableHeight / canvasH;
   const fitScale = Math.min(scaleX, scaleY);
   applyZoom(fitScale);
+  isFitMode = true;
+  if (fitBtn) { fitBtn.innerText = '✕ Reset'; fitBtn.className = 'btn-danger'; }
 }
 
 function toggleSidebar(show?: boolean) {
@@ -447,7 +465,7 @@ function toggleSidebar(show?: boolean) {
       if (btn1) btn1.innerText = '▶ Sidebar';
     }
   }
-  setTimeout(fitToScreen, 80);
+  setTimeout(() => fitToScreen(true), 80);
 }
 
 function toggleFullscreenMode(enable?: boolean) {
@@ -465,7 +483,7 @@ function toggleFullscreenMode(enable?: boolean) {
       btn2.className = 'btn-danger';
     }
     setTimeout(() => {
-      fitToScreen();
+      fitToScreen(true);
     }, 50);
   } else {
     document.body.classList.remove('fullscreen-active');
@@ -482,7 +500,7 @@ function toggleFullscreenMode(enable?: boolean) {
 // Bind Zoom, Sidebar & Fullscreen buttons
 document.getElementById('zoomInBtn')?.addEventListener('click', zoomIn);
 document.getElementById('zoomOutBtn')?.addEventListener('click', zoomOut);
-document.getElementById('zoomFitBtn')?.addEventListener('click', fitToScreen);
+document.getElementById('zoomFitBtn')?.addEventListener('click', () => fitToScreen());
 
 document.getElementById('toggleSidebarBtn')?.addEventListener('click', () => toggleSidebar());
 
@@ -501,7 +519,7 @@ Canvas.c?.addEventListener('wheel', (e: WheelEvent) => {
 
 window.addEventListener('resize', () => {
   if (isFullscreenMode) {
-    fitToScreen();
+    fitToScreen(true);
   }
 });
 
@@ -512,4 +530,16 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'f' || e.key === 'F') && (e.target === document.body || e.target === Canvas.c)) {
     toggleFullscreenMode();
   }
+});
+
+// Collapsible sidebar sections
+document.querySelectorAll('.section-title[data-collapse]').forEach(title => {
+  title.addEventListener('click', (e) => {
+    const targetId = (title as HTMLElement).getAttribute('data-collapse');
+    if (!targetId) return;
+    const body = document.getElementById(targetId);
+    if (!body) return;
+    body.classList.toggle('collapsed');
+    title.classList.toggle('section-collapsed');
+  });
 });

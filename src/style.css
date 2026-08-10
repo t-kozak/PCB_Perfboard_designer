@@ -88,33 +88,53 @@ body {
   gap: 0.5rem;
 }
 
-/* Main Layout Grid */
+/* Main Layout */
 .app-layout {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 300px;
+  display: flex;
+  flex-direction: row;
   gap: 1.25rem;
   padding: 1.25rem;
   flex: 1;
   max-width: 1800px;
   width: 100%;
   margin: 0 auto;
+  align-items: stretch;
+}
+
+#controls {
+  width: 320px;
+  min-width: 320px;
+  flex-shrink: 0;
+}
+
+.canvas-viewport {
+  flex: 1;
+  min-width: 0;
+}
+
+.right-sidebar {
+  width: 300px;
+  min-width: 300px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 1200px) {
   .app-layout {
-    grid-template-columns: 300px minmax(0, 1fr);
+    flex-wrap: wrap;
   }
-  .app-layout > .right-sidebar {
-    grid-column: span 2;
+  .right-sidebar {
+    width: 100%;
+    min-width: 100%;
   }
 }
 
 @media (max-width: 850px) {
   .app-layout {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
-  .app-layout > .right-sidebar {
-    grid-column: span 1;
+  #controls {
+    width: 100%;
+    min-width: 100%;
   }
 }
 
@@ -152,9 +172,252 @@ body {
 #controls {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0;
   background: transparent;
   padding: 0;
+}
+
+/* Sidebar scrollable container */
+.sidebar-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100vh - 80px);
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 10px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Sidebar Sections */
+.sidebar-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sidebar-section .section-title {
+  cursor: pointer;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0;
+  user-select: none;
+  transition: background 0.15s ease;
+  border-radius: 10px;
+}
+
+.sidebar-section .section-title:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.section-body {
+  padding: 0 0.75rem 0.75rem;
+  transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
+  max-height: 600px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.section-body.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.section-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.collapse-chevron {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  line-height: 1;
+}
+
+.section-body.collapsed ~ .collapse-chevron,
+.section-title.section-collapsed .collapse-chevron {
+  transform: rotate(-90deg);
+}
+
+.sidebar-divider {
+  height: 4px;
+  flex-shrink: 0;
+}
+
+/* Tool Mode Grid (2x2) */
+.tool-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.tool-mode-grid .tool-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+.tool-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.tool-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Gauge visual line indicators */
+.gauge-selector {
+  display: flex;
+  gap: 6px;
+}
+
+.gauge-selector .gauge-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0.45rem 0.4rem;
+  font-size: 0.75rem;
+  border-radius: 8px;
+}
+
+.gauge-line {
+  display: block;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--text-muted);
+  transition: background 0.15s ease;
+}
+
+.gauge-thin { height: 1px; }
+.gauge-normal { height: 3px; }
+.gauge-thick { height: 5px; }
+
+.gauge-btn.active-mode .gauge-line {
+  background: #38bdf8;
+}
+
+/* Color action buttons - compact grid */
+.color-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.color-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+  background: #1a2332;
+  border: 1px solid var(--border-light);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.color-action-btn:hover {
+  background: #243044;
+  border-color: #4b5563;
+}
+
+.color-action-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.color-action-add {
+  color: #06b6d4;
+  border-color: rgba(6, 182, 212, 0.25);
+}
+
+.color-action-add:hover {
+  background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.5);
+}
+
+.color-action-delete {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.color-action-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Active color dot in section header */
+.active-color-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  flex-shrink: 0;
+}
+
+/* Icon button style */
+.icon-btn {
+  flex: 1;
+}
+
+/* Grid presets row */
+.grid-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 0.5rem;
+}
+
+/* IC add button in section title */
+.ic-add-btn {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  background: linear-gradient(135deg, #0891b2, #0e7490);
+  border: 1px solid #06b6d4;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: auto;
+}
+
+.ic-add-btn:hover {
+  background: linear-gradient(135deg, #0e7490, #155e75);
+  transform: translateY(-1px);
 }
 
 /* Button Styling */
@@ -377,13 +640,6 @@ kbd {
 }
 
 /* IC container styling */
-#ic {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1rem;
-}
-
 #ic-items {
   display: flex;
   flex-wrap: wrap;

@@ -3,6 +3,7 @@ import {State} from "../state/State";
 import {IDot} from "../interfaces/dot.interface";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {Utils} from "../utils/utils";
+import {redrawCanvas} from "./draw-canvas";
 
 
 export class Ic{
@@ -10,6 +11,7 @@ export class Ic{
 
   public id = Math.random() * 100;
   public isCustom?: boolean = false;
+  public rotationAngle: number = 0; // 0, 90, 180, 270
   topLeftDot: IDot | null = null;
 
   constructor(
@@ -107,6 +109,40 @@ export class Ic{
     Canvas.ctx.stroke();
     Canvas.ctx.fill();
 
+    // Draw Pin 1 orientation notch
+    const notchRadius = 6;
+    Canvas.ctx.beginPath();
+    Canvas.ctx.fillStyle = "#38bdf8";
+    if (this.rotationAngle === 0) {
+      Canvas.ctx.arc(this.topLeftDot.x + (w / 2), this.topLeftDot.y, notchRadius, 0, Math.PI);
+    } else if (this.rotationAngle === 90) {
+      Canvas.ctx.arc(this.topLeftDot.x + w, this.topLeftDot.y + (h / 2), notchRadius, 0.5 * Math.PI, 1.5 * Math.PI);
+    } else if (this.rotationAngle === 180) {
+      Canvas.ctx.arc(this.topLeftDot.x + (w / 2), this.topLeftDot.y + h, notchRadius, Math.PI, 2 * Math.PI);
+    } else if (this.rotationAngle === 270) {
+      Canvas.ctx.arc(this.topLeftDot.x, this.topLeftDot.y + (h / 2), notchRadius, 1.5 * Math.PI, 0.5 * Math.PI);
+    }
+    Canvas.ctx.fill();
+    Canvas.ctx.stroke();
+
+    // Draw Pin 1 dot marker
+    Canvas.ctx.beginPath();
+    let p1x = this.topLeftDot.x + 10;
+    let p1y = this.topLeftDot.y + 10;
+    if (this.rotationAngle === 90) {
+      p1x = this.topLeftDot.x + w - 10;
+      p1y = this.topLeftDot.y + 10;
+    } else if (this.rotationAngle === 180) {
+      p1x = this.topLeftDot.x + w - 10;
+      p1y = this.topLeftDot.y + h - 10;
+    } else if (this.rotationAngle === 270) {
+      p1x = this.topLeftDot.x + 10;
+      p1y = this.topLeftDot.y + h - 10;
+    }
+    Canvas.ctx.arc(p1x, p1y, 3, 0, Math.PI * 2);
+    Canvas.ctx.fillStyle = "#38bdf8";
+    Canvas.ctx.fill();
+
     if (isSelected) {
       // Draw selection corner handles
       Canvas.ctx.fillStyle = "#38bdf8";
@@ -115,6 +151,81 @@ export class Ic{
       Canvas.ctx.fillRect(this.topLeftDot.x - 4, this.topLeftDot.y + h - 4, 8, 8);
       Canvas.ctx.fillRect(this.topLeftDot.x + w - 4, this.topLeftDot.y + h - 4, 8, 8);
     }
+  }
+
+  drawPinLabels() {
+    if (!this.topLeftDot) return;
+    Canvas.ctx.save();
+    Canvas.ctx.font = "600 9px monospace, sans-serif";
+    Canvas.ctx.fillStyle = "#cbd5e1";
+
+    if (this.rotationAngle === 0) {
+      // 0°: Vertical (Left: 1..N, Right: 2N..N+1)
+      const pinsPerSide = this.heightPin;
+      const rightX = this.topLeftDot.x + 50 * (this.widthPin - 1);
+      for (let i = 0; i < pinsPerSide; i++) {
+        const py = this.topLeftDot.y + i * 50;
+        const leftPinNum = i + 1;
+        const leftDesc = this.pinDescription[leftPinNum];
+        Canvas.ctx.textAlign = "left";
+        Canvas.ctx.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, py + 3);
+
+        const rightPinNum = pinsPerSide * 2 - i;
+        const rightDesc = this.pinDescription[rightPinNum];
+        Canvas.ctx.textAlign = "right";
+        Canvas.ctx.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, py + 3);
+      }
+    } else if (this.rotationAngle === 90) {
+      // 90°: Top: 1..N, Bottom: 2N..N+1
+      const pinsPerSide = this.widthPin;
+      const bottomY = this.topLeftDot.y + 50 * (this.heightPin - 1);
+      for (let i = 0; i < pinsPerSide; i++) {
+        const px = this.topLeftDot.x + i * 50;
+        const topPinNum = i + 1;
+        const topDesc = this.pinDescription[topPinNum];
+        Canvas.ctx.textAlign = "center";
+        Canvas.ctx.fillText(topDesc ? `${topPinNum}:${topDesc}` : `${topPinNum}`, px, this.topLeftDot.y + 16);
+
+        const bottomPinNum = pinsPerSide * 2 - i;
+        const bottomDesc = this.pinDescription[bottomPinNum];
+        Canvas.ctx.textAlign = "center";
+        Canvas.ctx.fillText(bottomDesc ? `${bottomDesc}:${bottomPinNum}` : `${bottomPinNum}`, px, bottomY - 10);
+      }
+    } else if (this.rotationAngle === 180) {
+      // 180°: Left: 2N..N+1, Right: 1..N
+      const pinsPerSide = this.heightPin;
+      const rightX = this.topLeftDot.x + 50 * (this.widthPin - 1);
+      for (let i = 0; i < pinsPerSide; i++) {
+        const py = this.topLeftDot.y + i * 50;
+        const leftPinNum = pinsPerSide * 2 - i;
+        const leftDesc = this.pinDescription[leftPinNum];
+        Canvas.ctx.textAlign = "left";
+        Canvas.ctx.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, py + 3);
+
+        const rightPinNum = i + 1;
+        const rightDesc = this.pinDescription[rightPinNum];
+        Canvas.ctx.textAlign = "right";
+        Canvas.ctx.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, py + 3);
+      }
+    } else if (this.rotationAngle === 270) {
+      // 270°: Top: 2N..N+1, Bottom: 1..N
+      const pinsPerSide = this.widthPin;
+      const bottomY = this.topLeftDot.y + 50 * (this.heightPin - 1);
+      for (let i = 0; i < pinsPerSide; i++) {
+        const px = this.topLeftDot.x + i * 50;
+        const topPinNum = pinsPerSide * 2 - i;
+        const topDesc = this.pinDescription[topPinNum];
+        Canvas.ctx.textAlign = "center";
+        Canvas.ctx.fillText(topDesc ? `${topPinNum}:${topDesc}` : `${topPinNum}`, px, this.topLeftDot.y + 16);
+
+        const bottomPinNum = i + 1;
+        const bottomDesc = this.pinDescription[bottomPinNum];
+        Canvas.ctx.textAlign = "center";
+        Canvas.ctx.fillText(bottomDesc ? `${bottomDesc}:${bottomPinNum}` : `${bottomPinNum}`, px, bottomY - 10);
+      }
+    }
+
+    Canvas.ctx.restore();
   }
 
   drawLabel(){
@@ -147,6 +258,8 @@ export class Ic{
     Canvas.ctx.textAlign = "center";
     Canvas.ctx.fillText(this.name, centerX, centerY + 4);
     Canvas.ctx.restore();
+
+    this.drawPinLabels();
   }
 
   draw(){
@@ -172,25 +285,60 @@ export class Ic{
   }
 
   getPinPositionOnIC(dot: IDot) {
-    if (this.topLeftDot == null){
-      return false;
-    }
-    const isOnLeftSide = dot.x == this.topLeftDot.x && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin-1)*50 ) ;
-    const isOnRightSide = dot.x == this.topLeftDot.x + 50 * (this.widthPin-1) && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin-1)*50 ) ;
-    if (!( isOnLeftSide || isOnRightSide)){
+    if (this.topLeftDot == null) {
       return null;
     }
 
-      const relativeY = dot.y - this.topLeftDot.y;
-      const pinNumber = Math.floor(relativeY / 50) + 1;
+    if (this.rotationAngle === 0) {
+      // 0°: Vertical (Side A = Left: 1..N, Side B = Right: 2N..N+1)
+      const isOnLeftSide = dot.x === this.topLeftDot.x && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin - 1) * 50);
+      const isOnRightSide = dot.x === this.topLeftDot.x + 50 * (this.widthPin - 1) && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin - 1) * 50);
+      if (!(isOnLeftSide || isOnRightSide)) return null;
 
-      if (pinNumber > 0 && pinNumber <= this.heightPin) {
-        if (isOnRightSide){
-          const pinNbr = (this.heightPin * 2 - pinNumber + 1)
-          return { pin: pinNbr, info: this.pinDescription[pinNbr]};
-        }
-        return { pin: pinNumber, info: this.pinDescription[pinNumber]};
+      const relativeY = dot.y - this.topLeftDot.y;
+      const i = Math.round(relativeY / 50);
+      if (i >= 0 && i < this.heightPin) {
+        const pinNbr = isOnLeftSide ? (i + 1) : (this.heightPin * 2 - i);
+        return { pin: pinNbr, info: this.pinDescription[pinNbr] };
       }
+    } else if (this.rotationAngle === 90) {
+      // 90°: Horizontal (Side A = Top: 1..N, Side B = Bottom: 2N..N+1)
+      const isOnTopSide = dot.y === this.topLeftDot.y && dot.x >= this.topLeftDot.x && dot.x <= this.topLeftDot.x + ((this.widthPin - 1) * 50);
+      const isOnBottomSide = dot.y === this.topLeftDot.y + 50 * (this.heightPin - 1) && dot.x >= this.topLeftDot.x && dot.x <= this.topLeftDot.x + ((this.widthPin - 1) * 50);
+      if (!(isOnTopSide || isOnBottomSide)) return null;
+
+      const relativeX = dot.x - this.topLeftDot.x;
+      const i = Math.round(relativeX / 50);
+      if (i >= 0 && i < this.widthPin) {
+        const pinNbr = isOnTopSide ? (i + 1) : (this.widthPin * 2 - i);
+        return { pin: pinNbr, info: this.pinDescription[pinNbr] };
+      }
+    } else if (this.rotationAngle === 180) {
+      // 180°: Vertical (Side A = Right: 1..N, Side B = Left: 2N..N+1)
+      const isOnLeftSide = dot.x === this.topLeftDot.x && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin - 1) * 50);
+      const isOnRightSide = dot.x === this.topLeftDot.x + 50 * (this.widthPin - 1) && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin - 1) * 50);
+      if (!(isOnLeftSide || isOnRightSide)) return null;
+
+      const relativeY = dot.y - this.topLeftDot.y;
+      const i = Math.round(relativeY / 50);
+      if (i >= 0 && i < this.heightPin) {
+        const pinNbr = isOnRightSide ? (i + 1) : (this.heightPin * 2 - i);
+        return { pin: pinNbr, info: this.pinDescription[pinNbr] };
+      }
+    } else if (this.rotationAngle === 270) {
+      // 270°: Horizontal (Side A = Bottom: 1..N, Side B = Top: 2N..N+1)
+      const isOnTopSide = dot.y === this.topLeftDot.y && dot.x >= this.topLeftDot.x && dot.x <= this.topLeftDot.x + ((this.widthPin - 1) * 50);
+      const isOnBottomSide = dot.y === this.topLeftDot.y + 50 * (this.heightPin - 1) && dot.x >= this.topLeftDot.x && dot.x <= this.topLeftDot.x + ((this.widthPin - 1) * 50);
+      if (!(isOnTopSide || isOnBottomSide)) return null;
+
+      const relativeX = dot.x - this.topLeftDot.x;
+      const i = Math.round(relativeX / 50);
+      if (i >= 0 && i < this.widthPin) {
+        const pinNbr = isOnBottomSide ? (i + 1) : (this.widthPin * 2 - i);
+        return { pin: pinNbr, info: this.pinDescription[pinNbr] };
+      }
+    }
+    return null;
   }
 
   getPinNumber(dot: IDot){
@@ -213,6 +361,7 @@ export class Ic{
   }
 
   rotate(){
+    this.rotationAngle = ((this.rotationAngle + 90) % 360) as 0 | 90 | 180 | 270;
     const tmp = this.widthPin;
     this.widthPin = this.heightPin;
     this.heightPin = tmp;
@@ -246,5 +395,34 @@ export function selectIc(id: number | string){
   State.selectedIc = ic;
 }
 
+export function rotateSelectedIc() {
+  if (State.selectedPlacedIc) {
+    State.selectedPlacedIc.rotate();
+    redrawCanvas();
+    return;
+  }
+  if (State.selectedIc) {
+    State.selectedIc.rotate();
+    redrawCanvas();
+    return;
+  }
+  if (State.hoverDot) {
+    const hoveredIc = State.placedIcs.find(ic => ic.containsPoint(State.hoverDot!.x, State.hoverDot!.y));
+    if (hoveredIc) {
+      hoveredIc.rotate();
+      State.selectedPlacedIc = hoveredIc;
+      redrawCanvas();
+      return;
+    }
+  }
+}
+
+ShortcutRegistry.add({
+  key: "r",
+  description: "Rotate selected IC component.",
+  event: rotateSelectedIc
+});
+
 (window as any).selectIc = selectIc;
 (window as any).deleteCustomIc = deleteCustomIc;
+(window as any).rotateSelectedIc = rotateSelectedIc;

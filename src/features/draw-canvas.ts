@@ -33,15 +33,7 @@ function drawDot(dot: IDot){
     Canvas.ctx.stroke();
   }
 
-  for (const ic of State.placedIcs) {
-    const pin = ic.getPinPositionOnIC(dot);
-    if (pin) {
-      Canvas.ctx.fillStyle = "#f472b6";
-      Canvas.ctx.font = "bold 9px Inter, Arial";
-      Canvas.ctx.fillText(((pin.pin + " " + (pin.info || "")) || "n").substring(0, 6), dot.x, dot.y + State.dotRadius + 11);
-      Canvas.ctx.fill();
-    }
-  }
+
 
   if (dot.description) {
     Canvas.ctx.font = "10px Inter, Arial";
