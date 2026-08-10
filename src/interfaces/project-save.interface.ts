@@ -3,8 +3,9 @@ import {IDot} from "./dot.interface";
 import {Ic} from "../features/ic";
 
 export interface IProjectSave {
-  lines: ILine[]
+  lines: ILine[];
   dots: IDot[];
   ICs: Ic[];
-  canvas: {width: number, height: number}
+  placedIcs?: any[];
+  canvas: {width: number, height: number};
 }

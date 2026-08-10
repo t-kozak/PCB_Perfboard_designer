@@ -63,8 +63,10 @@ export function deleteLine(){
       return;
     }
   }
-  if (State.selectedDot && State.selectedDot.description) {
+  if (State.selectedDot) {
+    State.selectedDot.color = "#a4a0a0";
     State.selectedDot.description = undefined;
+    State.selectedDot = undefined;
     redrawCanvas();
   }
 }

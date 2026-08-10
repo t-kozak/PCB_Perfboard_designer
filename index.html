@@ -30,6 +30,7 @@
     </div>
     
     <div class="header-actions">
+      <button id="toggleFullscreenBtn" class="btn-accent">⛶ Fullscreen</button>
       <button id="downloadBtn" class="btn-primary">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download Image
@@ -43,7 +44,7 @@
   </header>
 
   <!-- Main App Layout -->
-  <main class="app-layout">
+  <main class="app-layout" id="mainAppLayout">
     
     <!-- Left Sidebar: Tools & Controls -->
     <aside id="controls" class="tool-panel">
@@ -52,7 +53,8 @@
       <div>
         <div class="section-title">Tool Mode</div>
         <div class="btn-group" id="toolModeSelector">
-          <button class="tool-mode-btn active-mode" data-mode="wire">✏ Wire</button>
+          <button class="tool-mode-btn active-mode" data-mode="select">🖐 Select</button>
+          <button class="tool-mode-btn" data-mode="wire">✏ Wire</button>
           <button class="tool-mode-btn" data-mode="eraser">🧹 Eraser</button>
           <button class="tool-mode-btn" data-mode="note">📝 Note</button>
         </div>
@@ -164,18 +166,25 @@
     </aside>
 
     <!-- Center Workspace: Canvas Viewport -->
-    <section class="canvas-viewport">
+    <section class="canvas-viewport" id="canvasViewportSection">
       <div class="status-bar">
         <div id="activeSelectionStatus" class="status-badge">
           <span>Pointer: Idle / Select</span>
         </div>
-        <div style="color:var(--text-muted); font-size:0.75rem;">
-          Click pad to draw wire • Right-click item for options
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button id="toggleSidebarBtn" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;">◀ Sidebar</button>
+          <button id="zoomOutBtn" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;">🔍 -</button>
+          <span id="zoomLevelText" style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; min-width:40px; text-align:center;">100%</span>
+          <button id="zoomInBtn" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;">🔍 +</button>
+          <button id="zoomFitBtn" class="btn-accent" style="padding:0.25rem 0.5rem; font-size:0.75rem;">🎯 Fit</button>
+          <button id="canvasFullscreenTrigger" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;">⛶ Fullscreen</button>
         </div>
       </div>
 
-      <div id="canvas-container">
+      <div id="canvas-container" style="overflow:auto; flex:1; display:flex; justify-content:center; align-items:center; width:100%; height:100%; min-height:400px; padding:1rem;">
+        <div id="canvasZoomWrapper" style="display:inline-block; transform-origin: center center; transition: transform 0.15s ease-out;">
           <canvas id="myCanvas" width="500" height="500"></canvas>
+        </div>
       </div>
 
       <div id="dotDescription" style="width: 100%;">

@@ -19,6 +19,25 @@ saveBtn.addEventListener('click', function() {
 });
 
 
-export function getSaveJson(): IProjectSave{
-  return {dots: State.dots, lines: State.lines, canvas: { width: Canvas.c.width, height: Canvas.c.height}, ICs: Ic.IC_CONTAINER || []}
+export function serializePlacedIc(ic: Ic) {
+  return {
+    id: ic.id,
+    widthPin: ic.widthPin,
+    heightPin: ic.heightPin,
+    pinDescription: ic.pinDescription || {},
+    name: ic.name,
+    isCustom: !!ic.isCustom,
+    topLeftDotX: ic.topLeftDot ? ic.topLeftDot.x : null,
+    topLeftDotY: ic.topLeftDot ? ic.topLeftDot.y : null,
+  };
+}
+
+export function getSaveJson(): IProjectSave {
+  return {
+    dots: State.dots,
+    lines: State.lines,
+    canvas: { width: Canvas.c.width, height: Canvas.c.height },
+    ICs: Ic.IC_CONTAINER || [],
+    placedIcs: State.placedIcs.map(ic => serializePlacedIc(ic))
+  };
 }

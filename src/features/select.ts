@@ -3,12 +3,36 @@ import {redrawCanvas} from "./draw-canvas";
 import {Canvas} from "../state/Canvas";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {ILine} from "../interfaces/line.interface";
+import {addDescriptionToDot} from "./description";
+let isPanningBoard = false;
+let panStartX = 0;
+let panStartY = 0;
+let startScrollLeft = 0;
+let startScrollTop = 0;
+
 Canvas.c.addEventListener('mousedown', function(e) {
+  // Middle mouse click canvas panning
+  if (e.button === 1) {
+    e.preventDefault();
+    const container = document.getElementById('canvas-container');
+    if (container) {
+      isPanningBoard = true;
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+      startScrollLeft = container.scrollLeft;
+      startScrollTop = container.scrollTop;
+      Canvas.c.style.cursor = 'grabbing';
+    }
+    return;
+  }
+
   if (e.button === 0) {
     hideContextMenu();
     const rect = Canvas.c.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = Canvas.c.width / rect.width;
+    const scaleY = Canvas.c.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
     
     // Eraser Tool Mode
     if (State.activeToolMode === 'eraser') {
@@ -20,6 +44,14 @@ Canvas.c.addEventListener('mousedown', function(e) {
         return;
       }
       handleEraserClick(e);
+      return;
+    }
+
+    // Note Tool Mode
+    if (State.activeToolMode === 'note') {
+      if (State.hoverDot) {
+        addDescriptionToDot(State.hoverDot);
+      }
       return;
     }
 
@@ -59,7 +91,23 @@ Canvas.c.addEventListener('mousedown', function(e) {
   }
 });
 
+window.addEventListener('mousemove', (e) => {
+  if (isPanningBoard) {
+    const container = document.getElementById('canvas-container');
+    if (container) {
+      const dx = e.clientX - panStartX;
+      const dy = e.clientY - panStartY;
+      container.scrollLeft = startScrollLeft - dx;
+      container.scrollTop = startScrollTop - dy;
+    }
+  }
+});
+
 window.addEventListener('mouseup', () => {
+  if (isPanningBoard) {
+    isPanningBoard = false;
+    Canvas.c.style.cursor = 'crosshair';
+  }
   State.isDraggingIc = false;
 });
 
@@ -134,6 +182,9 @@ window.addEventListener('click', (e) => {
 });
 
 function addNewLineIfNeeded(){
+    if (State.activeToolMode !== 'wire') {
+      return;
+    }
     if (!State.hoverDot){
       return;
     }
@@ -165,14 +216,16 @@ function selectDot(){
   redrawCanvas();
 }
 
-export function selectLine(event) {
+export function selectLine(event: MouseEvent) {
   if (State.hoverDot) {
     return;
   }
 
   const rect = Canvas.c.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
+  const scaleX = Canvas.c.width / rect.width;
+  const scaleY = Canvas.c.height / rect.height;
+  const x = (event.clientX - rect.left) * scaleX;
+  const y = (event.clientY - rect.top) * scaleY;
 
   for (let i = 0; i < State.lines.length; i++) {
     const line = State.lines[i];

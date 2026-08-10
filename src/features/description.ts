@@ -12,14 +12,18 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('deleteDescriptionBtn').addEventList
   removeDescriptionFromDot();
 });
 
-export function addDescriptionToDot(){
-  if(State.selectedDot){
-    const description = prompt("Enter a description for the dot");
-    State.selectedDot.description = description;
-    State.selectedDot = undefined;
-    redrawCanvas();
+export function addDescriptionToDot(targetDot?: any){
+  const dot = targetDot || State.selectedDot || State.hoverDot;
+  if(dot){
+    const current = dot.description || "";
+    const description = prompt("Enter a note / annotation for this pad:", current);
+    if (description !== null) {
+      dot.description = description.trim() ? description.trim() : undefined;
+      State.selectedDot = undefined;
+      redrawCanvas();
+    }
   } else {
-    alert("Please select a dot first by clicking on it");
+    alert("Please click on a pad first to add a note.");
   }
 }
 

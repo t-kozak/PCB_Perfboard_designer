@@ -7,8 +7,10 @@ import {ShortcutRegistry} from "./shortcut-keys";
 
 Canvas.c.addEventListener('mousemove', function(e) {
   const rect = Canvas.c.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  const scaleX = Canvas.c.width / rect.width;
+  const scaleY = Canvas.c.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
 
   // Check if mouse is within a dot
   State.hoverDot = undefined;

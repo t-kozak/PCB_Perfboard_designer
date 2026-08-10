@@ -1,41 +1,94 @@
-# PCB_Perfboard_designer
+# ⚡ PCB Perfboard Designer
 
-https://maurerkrisztian.github.io/PCB_Perfboard_designer/
+[![Live Demo](https://img.shields.io/badge/Live-Demo%20App-brightgreen?style=for-the-badge&logo=github)](https://maurerkrisztian.github.io/PCB_Perfboard_designer/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![HTML5 Canvas](https://img.shields.io/badge/HTML5-Canvas-E34F26?style=for-the-badge&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API)
 
-The PCB Perfboard Designer is a user-friendly tool that lets you design circuit prototypes on a virtual perfboard. It helps electronics enthusiasts, hobbyists, and professionals visualize and test their designs before actually building them.
+The **PCB Perfboard Designer** is an advanced, user-friendly web CAD application for designing and prototyping electronic circuits on virtual perfboard grids. It allows electronics engineers, makers, and hobbyists to visualize component placements, trace wire connections, and eliminate desoldering mistakes before assembling physical hardware.
 
-With an interactive canvas, you can easily draw soldering paths and position components. This prevents mistakes and saves time by allowing you to make changes without soldering and desoldering.
+---
 
-You can also share your designs with others for collaboration and feedback. The project provides a design archive feature, allowing you to save and reuse your designs later.
+## ✨ Key Features
 
+- ✏ **Interactive Wire Tracing & Gauges**: Draw custom wire paths with selectable line thickness gauges (`2px Thin`, `4px Normal`, `7px Thick`).
+- 📦 **Integrated Circuits (ICs) Catalog & Editor**: Place built-in chips (`NE555 Timer`, `DIP-14 Logic`, `ATmega328P`) or open the **IC Editor** to create custom chips with dynamic pin labels.
+- 🎨 **Visual 2D Color Selector & LocalStorage Palette**: Click and drag across a 2D color spectrum box with rainbow hue slider to pick active wire colors. Save custom color swatches permanently to `localStorage`.
+- ⛶ **Fullscreen Focus Mode & Widescreen Auto-Fit**: Expand the canvas workspace to `100vw` × `100vh` for distraction-free designing. Includes auto-fit scale calculation (`🎯 Fit`) to display large boards (`30×20`, `40×30`, `50×50`) with zero scrollbars.
+- 🖱 **Middle Mouse Button Board Panning**: Pan across large perfboard grids by holding the middle mouse wheel button and dragging.
+- 🔍 **Smooth Board Zooming**: Zoom in and out smoothly from `20%` up to `300%` using `Ctrl + Mouse Wheel` or dedicated zoom buttons.
+- 💾 **Full Progress & Project File Persistence**: Save your progress locally (`Save Progress`) or export/import complete circuit designs as JSON project files (`Save Project` / `Load Project`).
+- 🛠 **Dedicated Tool Modes**: Toggle between `🖐 Select` (inspection only), `✏ Wire`, `🧹 Eraser`, and `📝 Note` annotation modes.
+- 🖱 **Right-Click Context Menu**: Quick access to color changes, text note editing, and component deletion.
 
-# Why is the PCB Perfboard Designer?
+---
 
-The PCB Perfboard Designer is a powerful and practical tool that offers several key advantages for electronics enthusiasts, hobbyists, and professionals. Here are some of the reasons why it's highly useful:
+## 🛠 Tech Stack
 
-1. **Error Prevention and Visual Planning**: The PCB Perfboard Designer allows you to plan and visualize your circuit design before physically implementing it on a perfboard. By utilizing the interactive HTML canvas, you can draw the soldering paths and position the components with precision. This helps prevent errors and ensures that your design aligns with your expectations.
+- **Core**: HTML5 Canvas, Vanilla JavaScript & TypeScript (ESNext)
+- **Bundler & Build Tool**: Vite v3
+- **Styling**: Custom Dark Engineering Layout System (CSS3 Tokens & Glassmorphic Components)
+- **Storage**: Browser LocalStorage & Native File API
 
-2. **Time Efficiency and Flexibility**: Designing directly on a physical perfboard can be time-consuming, especially when changes or modifications are required. With the PCB Perfboard Designer, you can easily make adjustments, rearrange components, and experiment with different layouts in a virtual environment. This saves you valuable time by eliminating the need for desoldering and resoldering components when changes are needed.
+---
 
-3. **Collaboration and Sharing**: The ability to share your designs with others is a significant advantage of the PCB Perfboard Designer. You can easily showcase your projects, seek feedback, or collaborate with teammates by sharing your design files. This fosters knowledge exchange, enables peer review, and enhances the overall learning and development experience.
+## 🚀 Getting Started
 
-4. **Design Archive and Reusability**: The PCB Perfboard Designer allows you to save and archive your designs for future reference. This feature is particularly beneficial when working on multiple projects or iterating on existing designs. You can revisit, modify, or reuse your previous designs, which streamlines the design process and reduces repetitive work.
+### Prerequisites
 
-5. **Accessibility and Platform Independence**: As the PCB Perfboard Designer is web-based, it is accessible on various platforms and devices. You can use it on any modern web browser without the need for additional software installations. This flexibility allows you to work on your designs wherever and whenever inspiration strikes, making it a convenient tool for hobbyists, students, and professionals alike.
+Ensure you have [Node.js](https://nodejs.org/) (v16+) installed.
 
+### Installation & Local Development
 
-The PCB Perfboard Designer offers numerous benefits, including error prevention, time savings, collaboration opportunities, design archive capabilities, accessibility, cost efficiency, and effective component planning. Whether you're a beginner or an experienced electronics enthusiast, this tool empowers you to design, validate, and refine your circuit prototypes with ease and confidence.
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/maurerkrisztian/PCB_Perfboard_designer.git
+   cd PCB_Perfboard_designer
+   ```
 
-# Contribution
+2. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-You can contribute to the PCB Perfboard Designer project in the following ways:
+3. **Start Development Server**:
+   ```bash
+   npm run start
+   ```
+   Open `http://localhost:5173` in your browser.
 
-1. **Issue Reporting**: Report bugs or suggest improvements by creating issues on GitHub.
+4. **Build Production Bundle**:
+   ```bash
+   npm run build
+   ```
 
-2. **Feature Requests**: Share your ideas for new features or enhancements.
+---
 
-3. **Pull Requests**: Contribute code by forking the repository and submitting pull requests.
+## ⌨ Keyboard Shortcuts & Controls
 
-4. **Documentation**: Improve the project's documentation and provide helpful tutorials or examples.
+| Action | Shortcut / Gesture |
+| :--- | :--- |
+| **Pan Canvas View** | `Middle Mouse Click + Drag` |
+| **Zoom In / Zoom Out** | `Mouse Wheel` or `🔍 +` / `🔍 -` |
+| **Toggle Fullscreen Mode** | `f` / `F` or `⛶ Fullscreen` |
+| **Unselect / Exit Fullscreen** | `Escape` |
+| **Delete Selected Item** | `Delete` key or `🧹 Eraser` |
+| **Undo Last Change** | `Ctrl + Z` |
+| **Redo Last Action** | `Ctrl + Y` |
+| **Rotate Placed IC** | `r` |
+| **Add Text Note** | `d` |
+| **Remove Text Note** | `D` |
 
-Your contributions, whether big or small, are greatly appreciated and help make the PCB Perfboard Designer even better.
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+1. **Report Issues**: Submit bug reports or feature requests via GitHub Issues.
+2. **Pull Requests**: Fork the repository and open pull requests for new tools or improvements.
+
+---
+
+## 📜 License
+
+Distributed under the **ISC License**.

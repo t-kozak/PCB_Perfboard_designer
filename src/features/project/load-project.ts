@@ -33,12 +33,46 @@ loadInput.addEventListener('change', function(e) {
   reader.readAsText(file);
 });
 
+export function deserializePlacedIc(data: any): Ic | null {
+  if (!data || data.widthPin == null || data.heightPin == null) return null;
+  const ic = new Ic(
+    Number(data.widthPin),
+    Number(data.heightPin),
+    data.pinDescription || {},
+    String(data.name || 'Component'),
+    Boolean(data.isCustom)
+  );
+  if (data.id) {
+    ic.id = Number(data.id);
+  }
+  if (data.topLeftDotX !== null && data.topLeftDotY !== null) {
+    const targetDot = State.dots.find(d => d.x === data.topLeftDotX && d.y === data.topLeftDotY);
+    if (targetDot) {
+      ic.topLeftDot = targetDot;
+    } else {
+      ic.updatePosition(data.topLeftDotX, data.topLeftDotY);
+    }
+  }
+  return ic;
+}
+
 export function loadProject(project: IProjectSave){
-  Canvas.c.width = project.canvas.width
-  Canvas.c.height = project.canvas.height
+  Canvas.c.width = project.canvas.width;
+  Canvas.c.height = project.canvas.height;
   State.dots = project.dots;
   State.lines = project.lines;
-  Ic.IC_CONTAINER = project.ICs.map(ic => unserialize(ic, Ic));// unserialize(project.ICs, Ic);
-  console.log(Ic.IC_CONTAINER)
-  Ic.showICs()
+  if (project.ICs) {
+    Ic.IC_CONTAINER = project.ICs.map(ic => unserialize(ic, Ic));
+    Ic.showICs();
+  }
+  if (project.placedIcs) {
+    State.placedIcs = project.placedIcs.map(data => deserializePlacedIc(data)).filter(ic => ic !== null) as Ic[];
+  } else {
+    State.placedIcs = [];
+  }
+  State.selectedPlacedIc = undefined;
+  State.selectedDot = undefined;
+  State.selectedLine = undefined;
+  State.selectedIc = undefined;
+  redrawCanvas();
 }
