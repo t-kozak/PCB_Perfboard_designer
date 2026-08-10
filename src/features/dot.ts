@@ -6,15 +6,27 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('changeDotColorBtn').addEventListene
   changeSelectedDotColor()
 });
 
+export function setDotColor(color: string){
+  if (State.selectedDot){
+    State.selectedDot.color = color;
+    redrawCanvas();
+  }
+}
+
 export function changeSelectedDotColor(){
   if (!State.selectedDot){
     return;
   }
-  Utils.getSafeHtmlElement<any>('colorPicker').onchange = function() {
+  const colorPicker = Utils.getSafeHtmlElement<HTMLInputElement>('colorPicker');
+  colorPicker.value = Utils.normalizeColor(State.selectedDot.color, "#a4a0a0");
+  colorPicker.oninput = colorPicker.onchange = function() {
+    State.activeWireColor = colorPicker.value;
+    const badge = document.getElementById('activeColorBadge');
+    if (badge) badge.style.background = colorPicker.value;
     if(State.selectedDot){
-      State.selectedDot.color = this.value;
+      State.selectedDot.color = colorPicker.value;
       redrawCanvas();
     }
-  }
-  Utils.getSafeHtmlElement('colorPicker').click();
+  };
+  colorPicker.click();
 }

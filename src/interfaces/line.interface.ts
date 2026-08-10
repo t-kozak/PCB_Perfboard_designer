@@ -4,4 +4,5 @@ export interface ILine {
   start: IDot,
   end: IDot,
   color?: string;
+  width?: number;
 }

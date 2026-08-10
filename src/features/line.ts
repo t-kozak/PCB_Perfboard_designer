@@ -14,20 +14,41 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('deleteLineBtn').addEventListener('c
  deleteLine();
 });
 
+export function setLineColor(color: string){
+  if (State.selectedLine){
+    State.selectedLine.color = color;
+    redrawCanvas();
+  }
+}
+
 function addColorToSelectedLine(){
   if (!State.selectedLine) {
     return;
   }
-  Utils.getSafeHtmlElement<any>('colorPicker').onchange = function() {
+  const colorPicker = Utils.getSafeHtmlElement<HTMLInputElement>('colorPicker');
+  colorPicker.value = Utils.normalizeColor(State.selectedLine.color, "#777676");
+  colorPicker.oninput = colorPicker.onchange = function() {
+    State.activeWireColor = colorPicker.value;
+    const badge = document.getElementById('activeColorBadge');
+    if (badge) badge.style.background = colorPicker.value;
     if(State.selectedLine){
-      State.selectedLine.color = this.value;
+      State.selectedLine.color = colorPicker.value;
       redrawCanvas();
     }
-  }
-  Utils.getSafeHtmlElement('colorPicker').click();
+  };
+  colorPicker.click();
 }
 
 export function deleteLine(){
+  if (State.selectedPlacedIc) {
+    const index = State.placedIcs.indexOf(State.selectedPlacedIc);
+    if (index > -1) {
+      State.placedIcs.splice(index, 1);
+      State.selectedPlacedIc = undefined;
+      redrawCanvas();
+      return;
+    }
+  }
   if(State.selectedLine) {
     const index = State.lines.indexOf(State.selectedLine);
     if(index > -1){
@@ -39,9 +60,12 @@ export function deleteLine(){
       State.lines.splice(index, 1);
       State.selectedLine = undefined;
       redrawCanvas();
+      return;
     }
-  } else {
-    alert("Please select a line first by clicking on it");
+  }
+  if (State.selectedDot && State.selectedDot.description) {
+    State.selectedDot.description = undefined;
+    redrawCanvas();
   }
 }
 

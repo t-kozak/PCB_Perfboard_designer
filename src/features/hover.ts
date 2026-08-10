@@ -40,20 +40,18 @@ Canvas.c.addEventListener('mousemove', function(e) {
   }
 
 
+  if (State.isDraggingIc && State.selectedPlacedIc) {
+    State.selectedPlacedIc.updatePosition(x, y);
+  }
+
   redrawCanvas();
 
-
-  for (const ic of Ic.IC_CONTAINER) {
-    if (ic.id == State.selectedIc?.id){
-      ic.updatePosition(x,y);
-    }
-  }
   if(State.hoverDot && State.hoverDot.description){
     Utils.getSafeHtmlElement('dotDescription').innerText = State.hoverDot.description;
   } else {
     Utils.getSafeHtmlElement('dotDescription').innerText = '';
   }
-})
+});
 
 
 ShortcutRegistry.add({key: "m", description: "Move the point. select a point, then move the mouse pointer to another point, then press 'm'", event: ()=>{

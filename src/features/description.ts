@@ -12,7 +12,7 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('deleteDescriptionBtn').addEventList
   removeDescriptionFromDot();
 });
 
-function addDescriptionToDot(){
+export function addDescriptionToDot(){
   if(State.selectedDot){
     const description = prompt("Enter a description for the dot");
     State.selectedDot.description = description;

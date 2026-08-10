@@ -19,6 +19,13 @@ export class State {
   static changeIndex = -1;
 
   static selectedIc?: Ic;
+  static placedIcs: Ic[] = [];
+  static selectedPlacedIc?: Ic;
+  static isDraggingIc: boolean = false;
+
+  static activeToolMode: 'wire' | 'eraser' | 'note' | 'ic' = 'wire';
+  static selectedWireWidth: number = 4;
+  static activeWireColor: string = "#3b82f6";
 
 
   static extraSelectionRatio = 4;
