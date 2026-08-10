@@ -208,7 +208,6 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  overflow: hidden;
 }
 
 .sidebar-section .section-title {
@@ -227,9 +226,9 @@ body {
 .section-body {
   padding: 0 0.75rem 0.75rem;
   transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
-  max-height: 600px;
+  max-height: 1200px;
   opacity: 1;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .section-body.collapsed {
@@ -237,6 +236,7 @@ body {
   opacity: 0;
   padding-top: 0;
   padding-bottom: 0;
+  overflow: hidden;
 }
 
 .section-icon {

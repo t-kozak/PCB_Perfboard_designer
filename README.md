@@ -7,6 +7,8 @@
 
 The **PCB Perfboard Designer** is an advanced, user-friendly web CAD application for designing and prototyping electronic circuits on virtual perfboard grids. It allows electronics engineers, makers, and hobbyists to visualize component placements, trace wire connections, and eliminate desoldering mistakes before assembling physical hardware.
 
+![Perfboard Designer Screenshot](screenshot.png)
+
 ---
 
 ## ✨ Key Features
