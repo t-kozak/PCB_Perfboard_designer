@@ -14,6 +14,9 @@ export class Ic{
   public rotationAngle = 0; // 0, 90, 180, 270
   topLeftDot: IDot | null = null;
 
+  /** Free-text annotation attached to this placed component (not to catalog templates). */
+  public description?: string;
+
   /**
    * Cache of decoded component artwork, keyed by source URL / data URI.
    * A freshly created image redraws the canvas once it finishes loading.
@@ -386,6 +389,46 @@ export class Ic{
     Canvas.ctx.restore();
 
     this.drawPinLabels();
+    this.drawNote();
+  }
+
+  /**
+   * Draws the component's annotation in a pill just below its body. Shows the
+   * full text while the component is hovered, a truncated form otherwise
+   * (mirrors how pad notes render in draw-canvas.ts).
+   */
+  drawNote() {
+    if (!this.topLeftDot || !this.description) return;
+    const ctx = Canvas.ctx;
+    const w = 50 * (this.widthPin - 1);
+    const h = 50 * (this.heightPin - 1);
+    const centerX = this.topLeftDot.x + (w / 2);
+    const baselineY = this.topLeftDot.y + h + 18;
+
+    const isHover = this === State.hoverIc;
+    const body = isHover || this.description.length <= 24
+      ? this.description
+      : `${this.description.substring(0, 24)}…`;
+    const text = `📝 ${body}`;
+
+    ctx.save();
+    ctx.font = "10px Inter, Arial";
+    ctx.textAlign = "center";
+    const textWidth = ctx.measureText(text).width;
+    const badgeW = textWidth + 14;
+    const badgeH = 16;
+
+    ctx.beginPath();
+    ctx.fillStyle = "#0f172a";
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 1;
+    ctx.rect(centerX - (badgeW / 2), baselineY - badgeH + 4, badgeW, badgeH);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillText(text, centerX, baselineY);
+    ctx.restore();
   }
 
   draw(){

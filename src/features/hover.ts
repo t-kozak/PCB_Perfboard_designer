@@ -37,17 +37,17 @@ Canvas.c.addEventListener('mousemove', function(e) {
   }
 
 
+  // Check if mouse is over a placed component body
+  State.hoverIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
+
   if (State.isDraggingIc && State.selectedPlacedIc) {
     State.selectedPlacedIc.updatePosition(x, y);
   }
 
   redrawCanvas();
 
-  if(State.hoverDot && State.hoverDot.description){
-    Utils.getSafeHtmlElement('dotDescription').innerText = State.hoverDot.description;
-  } else {
-    Utils.getSafeHtmlElement('dotDescription').innerText = '';
-  }
+  const hoverNote = State.hoverIc?.description || State.hoverDot?.description;
+  Utils.getSafeHtmlElement('dotDescription').innerText = hoverNote || '';
 });
 
 

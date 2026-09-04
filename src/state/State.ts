@@ -21,6 +21,7 @@ export class State {
   static selectedIc?: Ic;
   static placedIcs: Ic[] = [];
   static selectedPlacedIc?: Ic;
+  static hoverIc?: Ic;
   static isDraggingIc = false;
 
   static activeToolMode: 'select' | 'wire' | 'eraser' | 'note' | 'ic' = 'select';

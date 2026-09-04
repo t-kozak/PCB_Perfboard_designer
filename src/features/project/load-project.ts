@@ -47,6 +47,9 @@ export function deserializePlacedIc(data: any): Ic | null {
     ic.id = Number(data.id);
   }
   ic.rotationAngle = Number(data.rotationAngle || 0);
+  if (data.description) {
+    ic.description = String(data.description);
+  }
   if (data.topLeftDotX !== null && data.topLeftDotY !== null) {
     const targetDot = State.dots.find(d => d.x === data.topLeftDotX && d.y === data.topLeftDotY);
     if (targetDot) {

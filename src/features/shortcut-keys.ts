@@ -6,9 +6,14 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  const keyLower = event.key.toLowerCase();
   for (const shortcut of ShortcutRegistry.shortcuts) {
-    if (keyLower === shortcut.key.toLowerCase() && event.ctrlKey === !!shortcut.ctrl){
+    if (event.ctrlKey !== !!shortcut.ctrl) continue;
+    // Single-character keys match case-sensitively so `d` and `D` stay
+    // distinct; named keys (Delete, Escape, …) stay case-insensitive.
+    const match = shortcut.key.length === 1
+      ? event.key === shortcut.key
+      : event.key.toLowerCase() === shortcut.key.toLowerCase();
+    if (match) {
       shortcut.event(event);
     }
   }

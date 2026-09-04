@@ -30,6 +30,7 @@ export function serializePlacedIc(ic: Ic) {
     kind: ic.kind || "chip",
     imageSrc: ic.imageSrc,
     rotationAngle: ic.rotationAngle || 0,
+    description: ic.description,
     topLeftDotX: ic.topLeftDot ? ic.topLeftDot.x : null,
     topLeftDotY: ic.topLeftDot ? ic.topLeftDot.y : null,
   };

@@ -18,7 +18,7 @@ import {redrawCanvas} from "./features/draw-canvas";
 import {State} from "./state/State";
 import {changeSelectedDotColor, setDotColor} from "./features/dot";
 import {setLineColor, deleteLine} from "./features/line";
-import {addDescriptionToDot} from "./features/description";
+import {addNote} from "./features/description";
 import {hideContextMenu} from "./features/select";
 import {Ic} from "./features/ic";
 import {Canvas} from "./state/Canvas";
@@ -141,14 +141,14 @@ document.getElementById('ctxColorBtn')?.addEventListener('click', () => {
 
 document.getElementById('ctxNoteBtn')?.addEventListener('click', () => {
   hideContextMenu();
-  if (State.selectedDot) {
-    addDescriptionToDot();
+  if (State.selectedDot || State.selectedPlacedIc) {
+    addNote();
   }
 });
 
 document.getElementById('ctxDeleteBtn')?.addEventListener('click', () => {
   hideContextMenu();
-  if (State.selectedLine) {
+  if (State.selectedLine || State.selectedPlacedIc) {
     deleteLine();
   } else if (State.selectedDot && State.selectedDot.description) {
     State.selectedDot.description = undefined;

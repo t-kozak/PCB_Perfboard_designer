@@ -3,7 +3,7 @@ import {redrawCanvas} from "./draw-canvas";
 import {Canvas} from "../state/Canvas";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {ILine} from "../interfaces/line.interface";
-import {addDescriptionToDot} from "./description";
+import {addNote} from "./description";
 import {panBy} from "./viewport";
 let isPanningBoard = false;
 let panLastX = 0;
@@ -39,8 +39,11 @@ Canvas.c.addEventListener('mousedown', function(e) {
 
     // Note Tool Mode
     if (State.activeToolMode === 'note') {
-      if (State.hoverDot) {
-        addDescriptionToDot(State.hoverDot);
+      const hitIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
+      if (hitIc) {
+        addNote(hitIc);
+      } else if (State.hoverDot) {
+        addNote(State.hoverDot);
       }
       return;
     }
@@ -97,13 +100,23 @@ window.addEventListener('mouseup', () => {
 // Right click context menu handler
 Canvas.c.addEventListener('contextmenu', function(e) {
   e.preventDefault();
+  const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
   selectLine(e);
   if (!State.selectedLine && State.hoverDot) {
     State.selectedDot = State.hoverDot;
     redrawCanvas();
   }
 
-  if (State.selectedLine || State.selectedDot) {
+  // Right-click on a component body (away from its pins) targets the component.
+  if (!State.selectedLine && !State.selectedDot) {
+    const hitIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
+    if (hitIc) {
+      State.selectedPlacedIc = hitIc;
+      redrawCanvas();
+    }
+  }
+
+  if (State.selectedLine || State.selectedDot || State.selectedPlacedIc) {
     showContextMenu(e.clientX, e.clientY);
   } else {
     hideContextMenu();
