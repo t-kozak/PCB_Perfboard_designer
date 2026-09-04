@@ -1,7 +1,6 @@
 import {resetCanvas} from "./reset-canvas";
 import {State} from "../state/State";
 import {Canvas} from "../state/Canvas";
-import {Ic} from "./ic";
 import {IDot} from "../interfaces/dot.interface";
 import {ILine} from "../interfaces/line.interface";
 

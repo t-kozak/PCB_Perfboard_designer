@@ -14,14 +14,13 @@ loadTrigger.addEventListener('click', function() {
 });
 
 loadInput.addEventListener('change', function(e) {
-  // @ts-ignore
-  const file = e.target.files[0];
+  const file = (e.target as HTMLInputElement).files?.[0];
 
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    const contents = e.target.result;
+    const contents = String(e.target?.result ?? "");
     const data = JSON.parse(contents) as IProjectSave;
 
     // Load the state of the canvas from the uploaded file

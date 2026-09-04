@@ -1,5 +1,13 @@
+node_modules/
+dist/
+pnpm-lock.yaml
+package-lock.json
+.idea/
+assets/
+*.png
 .editorconfig
 .gitignore
 .prettierignore
+.npmrc
+.nvmrc
 LICENSE
-dist/

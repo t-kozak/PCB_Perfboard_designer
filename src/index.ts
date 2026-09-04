@@ -281,8 +281,8 @@ function drawColorSpectrum() {
 function updatePickedColorFromMouse(clientX: number, clientY: number) {
   if (!spectrumCanvas) return;
   const rect = spectrumCanvas.getBoundingClientRect();
-  let x = Math.max(0, Math.min(rect.width, clientX - rect.left));
-  let y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+  const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+  const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
 
   if (spectrumHandle) {
     spectrumHandle.style.left = `${x}px`;
@@ -534,7 +534,7 @@ window.addEventListener('keydown', (e) => {
 
 // Collapsible sidebar sections
 document.querySelectorAll('.section-title[data-collapse]').forEach(title => {
-  title.addEventListener('click', (e) => {
+  title.addEventListener('click', () => {
     const targetId = (title as HTMLElement).getAttribute('data-collapse');
     if (!targetId) return;
     const body = document.getElementById(targetId);

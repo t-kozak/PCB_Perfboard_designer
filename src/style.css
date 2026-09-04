@@ -1,8 +1,46 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Minimal reset (replaces the former Tailwind preflight) */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+img,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
 
 :root {
   --bg-dark: #090d16;
@@ -15,10 +53,6 @@
   --accent-indigo: #6366f1;
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
-}
-
-* {
-  box-sizing: border-box;
 }
 
 body {

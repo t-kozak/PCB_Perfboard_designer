@@ -21,11 +21,11 @@ export class State {
   static selectedIc?: Ic;
   static placedIcs: Ic[] = [];
   static selectedPlacedIc?: Ic;
-  static isDraggingIc: boolean = false;
+  static isDraggingIc = false;
 
   static activeToolMode: 'select' | 'wire' | 'eraser' | 'note' | 'ic' = 'select';
-  static selectedWireWidth: number = 4;
-  static activeWireColor: string = "#3b82f6";
+  static selectedWireWidth = 4;
+  static activeWireColor = "#3b82f6";
 
 
   static extraSelectionRatio = 4;

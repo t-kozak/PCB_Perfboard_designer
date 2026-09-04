@@ -11,7 +11,7 @@ export class Ic{
 
   public id = Math.random() * 100;
   public isCustom?: boolean = false;
-  public rotationAngle: number = 0; // 0, 90, 180, 270
+  public rotationAngle = 0; // 0, 90, 180, 270
   topLeftDot: IDot | null = null;
 
   constructor(
@@ -19,12 +19,12 @@ export class Ic{
     public heightPin: number, 
     public pinDescription: Record<number, string>,
     public name: string,
-    isCustom: boolean = false
+    isCustom = false
   ) {
     this.isCustom = isCustom;
   }
 
-  static add(ic: Ic, saveToStorage: boolean = false){
+  static add(ic: Ic, saveToStorage = false){
     this.IC_CONTAINER.push(ic);
     if (saveToStorage) {
       this.saveCustomIcsToLocalStorage();
@@ -368,14 +368,20 @@ export class Ic{
   }
 }
 
-// Predefined IC components
-Ic.add(new Ic(4, 4, {1: "GND", 2: "TRIG", 3: "OUT", 4: "RESET", 5: "CTRL", 6: "THRESH", 7: "DISCH", 8: "VCC"}, "NE555 Timer"));
-Ic.add(new Ic(4, 7, {1: "1A", 2: "1B", 3: "1Y", 4: "2A", 5: "2B", 6: "2Y", 7: "GND", 14: "VCC"}, "DIP-14 Logic"));
-Ic.add(new Ic(4, 8, {1: "EN", 2: "1D", 3: "1Q", 4: "2D", 5: "2Q", 8: "GND", 16: "VCC"}, "DIP-16 Logic"));
-Ic.add(new Ic(4, 14, {1: "RESET", 2: "RX", 3: "TX", 7: "VCC", 8: "GND", 22: "GND", 20: "AVCC"}, "ATmega328P"));
+/**
+ * Reset the IC catalog to the built-in components plus any custom ICs saved
+ * in localStorage. Called once at startup and again after a project reset.
+ */
+export function loadDefaultIcs() {
+  Ic.IC_CONTAINER = [];
+  Ic.add(new Ic(4, 4, {1: "GND", 2: "TRIG", 3: "OUT", 4: "RESET", 5: "CTRL", 6: "THRESH", 7: "DISCH", 8: "VCC"}, "NE555 Timer"));
+  Ic.add(new Ic(4, 7, {1: "1A", 2: "1B", 3: "1Y", 4: "2A", 5: "2B", 6: "2Y", 7: "GND", 14: "VCC"}, "DIP-14 Logic"));
+  Ic.add(new Ic(4, 8, {1: "EN", 2: "1D", 3: "1Q", 4: "2D", 5: "2Q", 8: "GND", 16: "VCC"}, "DIP-16 Logic"));
+  Ic.add(new Ic(4, 14, {1: "RESET", 2: "RX", 3: "TX", 7: "VCC", 8: "GND", 22: "GND", 20: "AVCC"}, "ATmega328P"));
+  Ic.loadCustomIcsFromLocalStorage();
+}
 
-// Load custom ICs from localStorage on load
-Ic.loadCustomIcsFromLocalStorage();
+loadDefaultIcs();
 
 export function deleteCustomIc(id: number | string) {
   const index = Ic.IC_CONTAINER.findIndex(ic => String(ic.id) === String(id));

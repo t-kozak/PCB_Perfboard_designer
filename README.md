@@ -14,7 +14,7 @@ The **PCB Perfboard Designer** is an advanced, user-friendly web CAD application
 ## ✨ Key Features
 
 - ✏ **Interactive Wire Tracing & Gauges**: Draw custom wire paths with selectable line thickness gauges (`2px Thin`, `4px Normal`, `7px Thick`).
-- 📦 **Integrated Circuits (ICs) Catalog & Editor**: Place built-in chips (`NE555 Timer`, `DIP-14 Logic`, `ATmega328P`) or open the **IC Editor** to create custom chips with dynamic pin labels.
+- 📦 **Integrated Circuits (ICs) Catalog & Editor**: Place built-in chips (`NE555 Timer`, `DIP-14 Logic`, `DIP-16 Logic`, `ATmega328P`) or open the **IC Editor** to create custom chips with dynamic pin labels. Custom chips persist in `localStorage`.
 - 🎨 **Visual 2D Color Selector & LocalStorage Palette**: Click and drag across a 2D color spectrum box with rainbow hue slider to pick active wire colors. Save custom color swatches permanently to `localStorage`.
 - ⛶ **Fullscreen Focus Mode & Widescreen Auto-Fit**: Expand the canvas workspace to `100vw` × `100vh` for distraction-free designing. Includes auto-fit scale calculation (`🎯 Fit`) to display large boards (`30×20`, `40×30`, `50×50`) with zero scrollbars.
 - 🖱 **Middle Mouse Button Board Panning**: Pan across large perfboard grids by holding the middle mouse wheel button and dragging.
@@ -57,7 +57,7 @@ Ensure you have [Node.js](https://nodejs.org/) (v16+) installed.
    ```bash
    npm run start
    ```
-   Open `http://localhost:5173` in your browser.
+   Open `http://localhost:3000` in your browser (port is set in `vite.config.ts`).
 
 4. **Build Production Bundle**:
    ```bash
@@ -80,6 +80,9 @@ Ensure you have [Node.js](https://nodejs.org/) (v16+) installed.
 | **Rotate Placed IC** | `r` |
 | **Add Text Note** | `d` |
 | **Remove Text Note** | `D` |
+| **Change Selected Dot / Wire Color** | `c` |
+| **Move Pad** (select source, hover target, press) | `m` |
+| **Download Board as PNG** | `p` |
 
 ---
 

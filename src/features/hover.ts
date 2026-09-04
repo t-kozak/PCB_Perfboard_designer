@@ -2,7 +2,6 @@ import {State} from "../state/State";
 import {redrawCanvas} from "./draw-canvas";
 import {Canvas} from "../state/Canvas";
 import {Utils} from "../utils/utils";
-import {Ic} from "./ic";
 import {ShortcutRegistry} from "./shortcut-keys";
 
 Canvas.c.addEventListener('mousemove', function(e) {
