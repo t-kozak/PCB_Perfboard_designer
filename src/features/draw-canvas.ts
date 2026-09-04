@@ -89,8 +89,13 @@ function drawLine(line: ILine){
 function drawIcPlacementPreview() {
   if (!State.selectedIc || !State.hoverDot) return;
   const targetDot = State.hoverDot;
-  const w = 50 * (State.selectedIc.widthPin - 1);
-  const h = 50 * (State.selectedIc.heightPin - 1);
+  const spanW = 50 * (State.selectedIc.widthPin - 1);
+  const spanH = 50 * (State.selectedIc.heightPin - 1);
+  // Leaded parts have a zero-height/width pin span — give the preview a body.
+  const w = spanW || 30;
+  const h = spanH || 30;
+  const originX = targetDot.x - (spanW ? 0 : w / 2);
+  const originY = targetDot.y - (spanH ? 0 : h / 2);
 
   Canvas.ctx.save();
   Canvas.ctx.beginPath();
@@ -99,7 +104,7 @@ function drawIcPlacementPreview() {
   Canvas.ctx.lineWidth = 2;
   Canvas.ctx.setLineDash([6, 4]);
 
-  Canvas.ctx.rect(targetDot.x, targetDot.y, w, h);
+  Canvas.ctx.rect(originX, originY, w, h);
   Canvas.ctx.stroke();
   Canvas.ctx.fill();
 
@@ -108,7 +113,7 @@ function drawIcPlacementPreview() {
   Canvas.ctx.fillStyle = "#ffffff";
   Canvas.ctx.font = "bold 11px Inter, Arial";
   Canvas.ctx.textAlign = "center";
-  Canvas.ctx.fillText(`➕ Place ${State.selectedIc.name}`, targetDot.x + (w / 2), targetDot.y + (h / 2) + 4);
+  Canvas.ctx.fillText(`➕ Place ${State.selectedIc.name}`, originX + (w / 2), originY + (h / 2) + 4);
 
   Canvas.ctx.restore();
 }

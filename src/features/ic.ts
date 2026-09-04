@@ -31,8 +31,10 @@ export class Ic{
     isCustom = false,
     /**
      * Visual family of the component. "chip" (default) draws the black DIP
-     * package below. Future kinds (e.g. "resistor") can add their own vector
-     * art in drawPackage(). Ignored when imageSrc is set.
+     * package. The "leaded" kinds — "resistor", "cap-ceramic",
+     * "cap-electrolytic" — are 2-terminal parts drawn as schematic-style
+     * artwork between their two end pads (see drawLeadedBody). Ignored when
+     * imageSrc is set.
      */
     public kind: string = "chip",
     /**
@@ -43,6 +45,24 @@ export class Ic{
     public imageSrc?: string,
   ) {
     this.isCustom = isCustom;
+  }
+
+  /** Kinds rendered as 2-terminal leaded parts rather than a chip package. */
+  private static LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic"];
+
+  /** True for resistors / capacitors — drawn as artwork spanning two end pads. */
+  get isLeaded(): boolean {
+    return Ic.LEADED_KINDS.includes(this.kind);
+  }
+
+  /** Emoji shown next to the component name in the sidebar catalog. */
+  get icon(): string {
+    switch (this.kind) {
+      case "resistor": return "🟫";
+      case "cap-ceramic": return "🔵";
+      case "cap-electrolytic": return "🛢️";
+      default: return "📦";
+    }
   }
 
   private static getImage(src: string): HTMLImageElement | null {
@@ -71,7 +91,7 @@ export class Ic{
       const deleteBtn = item.isCustom 
         ? `<span onclick="event.stopPropagation(); deleteCustomIc('${item.id}')" title="Delete custom component" style="margin-left:6px;cursor:pointer;color:#f87171;font-weight:bold;">✕</span>` 
         : '';
-      return `<button class="btn btn-accent" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick='selectIc("${item.id}")'>📦 ${item.name}${deleteBtn}</button>`;
+      return `<button class="btn btn-accent" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick='selectIc("${item.id}")'>${item.icon} ${item.name}${deleteBtn}</button>`;
     }).join(" ");
   }
 
@@ -202,6 +222,148 @@ export class Ic{
     }
   }
 
+  /**
+   * Screen-space box of the drawn body. For chips this is exactly the pin-span
+   * rectangle; for leaded parts (whose pin span is a zero-height line) it is
+   * widened to the visible artwork so hit-testing and labels line up.
+   */
+  private bodyRect(): { x: number; y: number; w: number; h: number } {
+    const spanW = 50 * (this.widthPin - 1);
+    const spanH = 50 * (this.heightPin - 1);
+    if (!this.topLeftDot) return { x: 0, y: 0, w: spanW, h: spanH };
+    if (this.isLeaded) {
+      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : 30;
+      if (spanW >= spanH) {
+        return { x: this.topLeftDot.x, y: this.topLeftDot.y - t / 2, w: spanW, h: t };
+      }
+      return { x: this.topLeftDot.x - t / 2, y: this.topLeftDot.y, w: t, h: spanH };
+    }
+    return { x: this.topLeftDot.x, y: this.topLeftDot.y, w: spanW, h: spanH };
+  }
+
+  /** Blue selection squares at the four corners of the drawn body box. */
+  private drawSelectionHandles() {
+    const { x, y, w, h } = this.bodyRect();
+    const ctx = Canvas.ctx;
+    ctx.fillStyle = "#38bdf8";
+    ctx.fillRect(x - 4, y - 4, 8, 8);
+    ctx.fillRect(x + w - 4, y - 4, 8, 8);
+    ctx.fillRect(x - 4, y + h - 4, 8, 8);
+    ctx.fillRect(x + w - 4, y + h - 4, 8, 8);
+  }
+
+  /**
+   * Draws a 2-terminal part: two leads running to the end pads with schematic
+   * artwork in the middle. Everything is drawn in a part-local frame (x along
+   * the leads) then rotated by rotationAngle, so the four rotations fall out
+   * for free.
+   */
+  private drawLeadedBody(isSelected: boolean) {
+    if (!this.topLeftDot) return;
+    const ctx = Canvas.ctx;
+    const spanW = 50 * (this.widthPin - 1);
+    const spanH = 50 * (this.heightPin - 1);
+    const length = Math.max(spanW, spanH, 50);
+    const cx = this.topLeftDot.x + spanW / 2;
+    const cy = this.topLeftDot.y + spanH / 2;
+    const bodyHalf = this.kind === "cap-electrolytic" ? 12 : Math.max(16, length * 0.3);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((this.rotationAngle * Math.PI) / 180);
+
+    // Metal leads
+    ctx.beginPath();
+    ctx.moveTo(-length / 2, 0);
+    ctx.lineTo(-bodyHalf, 0);
+    ctx.moveTo(bodyHalf, 0);
+    ctx.lineTo(length / 2, 0);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#cbd5e1";
+    ctx.stroke();
+
+    if (this.kind === "resistor") this.drawResistorArt(bodyHalf, isSelected);
+    else if (this.kind === "cap-ceramic") this.drawCeramicCapArt(bodyHalf, isSelected);
+    else this.drawElectrolyticCapArt(isSelected);
+
+    ctx.restore();
+  }
+
+  /** Beige axial resistor body with four colour bands. */
+  private drawResistorArt(half: number, isSelected: boolean) {
+    const ctx = Canvas.ctx;
+    const h = 20;
+    ctx.beginPath();
+    this.roundRectPath(-half, -h / 2, half * 2, h, 6);
+    ctx.fillStyle = "#d9b382";
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#7c5c33";
+    ctx.stroke();
+
+    ctx.save();
+    ctx.beginPath();
+    this.roundRectPath(-half, -h / 2, half * 2, h, 6);
+    ctx.clip();
+    const bands = ["#5b3a1e", "#d62828", "#f4a300", "#c9a227"];
+    const step = (half * 2) / 6;
+    bands.forEach((c, i) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(-half + step * (i + 1), -h / 2, step * 0.5, h);
+    });
+    ctx.restore();
+  }
+
+  /** Tan ceramic-disc capacitor drawn edge-on as a rounded lozenge. */
+  private drawCeramicCapArt(half: number, isSelected: boolean) {
+    const ctx = Canvas.ctx;
+    const w = Math.max(half * 2, 24);
+    const h = 24;
+    ctx.beginPath();
+    ctx.ellipse(0, -2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#d8a05a";
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#9c5a26";
+    ctx.stroke();
+  }
+
+  /** Dark-blue electrolytic can with a polarity stripe on the pin-2 (−) side. */
+  private drawElectrolyticCapArt(isSelected: boolean) {
+    const ctx = Canvas.ctx;
+    const r = 20;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = "#1f2a44";
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#94a3b8";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, r - 4, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Negative-terminal stripe (part-local +x is pin 2)
+    ctx.beginPath();
+    ctx.arc(0, 0, r, -0.35 * Math.PI, 0.35 * Math.PI);
+    ctx.arc(0, 0, r - 9, 0.35 * Math.PI, -0.35 * Math.PI, true);
+    ctx.closePath();
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fill();
+
+    ctx.font = "bold 11px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#1f2a44";
+    ctx.fillText("−", r - 4, 0);
+    ctx.fillStyle = isSelected ? "#38bdf8" : "#cbd5e1";
+    ctx.fillText("+", -r + 5, 0);
+    ctx.textBaseline = "alphabetic";
+  }
+
   /** Renders the component body: artwork if present, otherwise the chip package. */
   private drawPackage(x: number, y: number, w: number, h: number, isSelected: boolean) {
     const img = this.imageSrc ? Ic.getImage(this.imageSrc) : null;
@@ -216,6 +378,13 @@ export class Ic{
   drawBody(){
     if (!this.topLeftDot) return;
     const isSelected = this === State.selectedPlacedIc;
+
+    if (this.isLeaded) {
+      this.drawLeadedBody(isSelected);
+      if (isSelected) this.drawSelectionHandles();
+      return;
+    }
+
     const w = 50 * (this.widthPin - 1);
     const h = 50 * (this.heightPin - 1);
     const x = this.topLeftDot.x;
@@ -360,10 +529,9 @@ export class Ic{
   drawLabel(){
     if (!this.topLeftDot) return;
     const isSelected = this === State.selectedPlacedIc;
-    const w = 50 * (this.widthPin - 1);
-    const h = 50 * (this.heightPin - 1);
-    const centerX = this.topLeftDot.x + (w / 2);
-    const centerY = this.topLeftDot.y + (h / 2);
+    const rect = this.bodyRect();
+    const centerX = rect.x + (rect.w / 2);
+    const centerY = this.isLeaded ? rect.y - 12 : rect.y + (rect.h / 2);
 
     Canvas.ctx.save();
     Canvas.ctx.font = "bold 11px Inter, Arial";
@@ -388,7 +556,7 @@ export class Ic{
     Canvas.ctx.fillText(this.name, centerX, centerY + 4);
     Canvas.ctx.restore();
 
-    this.drawPinLabels();
+    if (!this.isLeaded) this.drawPinLabels();
     this.drawNote();
   }
 
@@ -400,10 +568,9 @@ export class Ic{
   drawNote() {
     if (!this.topLeftDot || !this.description) return;
     const ctx = Canvas.ctx;
-    const w = 50 * (this.widthPin - 1);
-    const h = 50 * (this.heightPin - 1);
-    const centerX = this.topLeftDot.x + (w / 2);
-    const baselineY = this.topLeftDot.y + h + 18;
+    const rect = this.bodyRect();
+    const centerX = rect.x + (rect.w / 2);
+    const baselineY = rect.y + rect.h + 16;
 
     const isHover = this === State.hoverIc;
     const body = isHover || this.description.length <= 24
@@ -438,14 +605,8 @@ export class Ic{
 
   containsPoint(x: number, y: number): boolean {
     if (!this.topLeftDot) return false;
-    const w = 50 * (this.widthPin - 1);
-    const h = 50 * (this.heightPin - 1);
-    return (
-      x >= this.topLeftDot.x &&
-      x <= this.topLeftDot.x + w &&
-      y >= this.topLeftDot.y &&
-      y <= this.topLeftDot.y + h
-    );
+    const { x: bx, y: by, w, h } = this.bodyRect();
+    return x >= bx && x <= bx + w && y >= by && y <= by + h;
   }
 
   /**
@@ -453,6 +614,9 @@ export class Ic{
    * so the render loop can hide it (concealed by the chip package).
    */
   hidesDot(dot: IDot): boolean {
+    // Leaded parts float above the board — their end pads stay wireable and the
+    // holes they straddle stay visible.
+    if (this.isLeaded) return false;
     return this.containsPoint(dot.x, dot.y) && this.getPinPositionOnIC(dot) === null;
   }
 
@@ -555,6 +719,12 @@ export function loadDefaultIcs() {
   Ic.add(new Ic(4, 7, {1: "1A", 2: "1B", 3: "1Y", 4: "2A", 5: "2B", 6: "2Y", 7: "GND", 14: "VCC"}, "DIP-14 Logic"));
   Ic.add(new Ic(4, 8, {1: "EN", 2: "1D", 3: "1Q", 4: "2D", 5: "2Q", 8: "GND", 16: "VCC"}, "DIP-16 Logic"));
   Ic.add(new Ic(4, 14, {1: "RESET", 2: "RX", 3: "TX", 7: "VCC", 8: "GND", 22: "GND", 20: "AVCC"}, "ATmega328P"));
+
+  // Static 2-terminal parts. The actual value is entered by the user as a note.
+  Ic.add(new Ic(3, 1, {1: "", 2: ""}, "Resistor", false, "resistor"));
+  Ic.add(new Ic(2, 1, {1: "", 2: ""}, "Ceramic Capacitor", false, "cap-ceramic"));
+  Ic.add(new Ic(2, 1, {1: "+", 2: "−"}, "Electrolytic Capacitor", false, "cap-electrolytic"));
+
   Ic.loadCustomIcsFromLocalStorage();
 }
 
