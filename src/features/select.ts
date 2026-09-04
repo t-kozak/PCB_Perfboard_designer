@@ -5,6 +5,7 @@ import {ShortcutRegistry} from "./shortcut-keys";
 import {ILine} from "../interfaces/line.interface";
 import {addNote} from "./description";
 import {panBy} from "./viewport";
+import {recordChange} from "./project/undo-redo";
 let isPanningBoard = false;
 let panLastX = 0;
 let panLastY = 0;
@@ -23,10 +24,12 @@ Canvas.c.addEventListener('mousedown', function(e) {
   if (e.button === 0) {
     hideContextMenu();
     const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
-    
+    // On the solder side components are hidden and not interactive.
+    const solder = Canvas.solderSide;
+
     // Eraser Tool Mode
     if (State.activeToolMode === 'eraser') {
-      const placedIcIndex = State.placedIcs.findIndex(ic => ic.containsPoint(x, y));
+      const placedIcIndex = solder ? -1 : State.placedIcs.findIndex(ic => ic.containsPoint(x, y));
       if (placedIcIndex > -1) {
         State.placedIcs.splice(placedIcIndex, 1);
         State.selectedPlacedIc = undefined;
@@ -39,7 +42,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
 
     // Note Tool Mode
     if (State.activeToolMode === 'note') {
-      const hitIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
+      const hitIc = solder ? undefined : State.placedIcs.find(ic => ic.containsPoint(x, y));
       if (hitIc) {
         addNote(hitIc);
       } else if (State.hoverDot) {
@@ -49,7 +52,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
     }
 
     // Placing a new IC from catalog template
-    if (State.selectedIc && State.hoverDot) {
+    if (!solder && State.selectedIc && State.hoverDot) {
       const newInstance = State.selectedIc.clone();
       newInstance.updatePosition(State.hoverDot.x, State.hoverDot.y);
       State.placedIcs.push(newInstance);
@@ -60,7 +63,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
     }
 
     // Check hit on an existing placed IC on canvas (Enable Drag & Drop)
-    const hitPlacedIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
+    const hitPlacedIc = solder ? undefined : State.placedIcs.find(ic => ic.containsPoint(x, y));
     if (hitPlacedIc) {
       State.selectedPlacedIc = hitPlacedIc;
       State.isDraggingIc = true;
@@ -108,12 +111,21 @@ Canvas.c.addEventListener('contextmenu', function(e) {
   }
 
   // Right-click on a component body (away from its pins) targets the component.
-  if (!State.selectedLine && !State.selectedDot) {
+  if (!Canvas.solderSide && !State.selectedLine && !State.selectedDot) {
     const hitIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
     if (hitIc) {
       State.selectedPlacedIc = hitIc;
       redrawCanvas();
     }
+  }
+
+  // "Unlock & re-route net" only makes sense for a wire on a locked net.
+  const unlockBtn = document.getElementById('ctxUnlockNetBtn');
+  if (unlockBtn) {
+    const net = State.selectedLine?.netId
+      ? State.nets.find(n => n.id === State.selectedLine!.netId)
+      : undefined;
+    unlockBtn.style.display = net?.locked ? 'block' : 'none';
   }
 
   if (State.selectedLine || State.selectedDot || State.selectedPlacedIc) {
@@ -129,12 +141,11 @@ function handleEraserClick(event: MouseEvent) {
   if (State.selectedLine) {
     const index = State.lines.indexOf(State.selectedLine);
     if (index > -1) {
-      State.changes.splice(State.changeIndex + 1);
-      State.changes.push({type: 'remove', line: State.selectedLine});
-      State.changeIndex++;
+      recordChange({ removed: [State.selectedLine] });
       State.lines.splice(index, 1);
       State.selectedLine = undefined;
       redrawCanvas();
+      window.dispatchEvent(new Event('nets-changed'));
       return;
     }
   }
@@ -192,14 +203,13 @@ function addNewLineIfNeeded(){
         width: State.selectedWireWidth || 4
       };
       State.lines.push(newLine);
-      State.changes.splice(State.changeIndex + 1);
-      State.changes.push({type: 'add', line: newLine});
-      State.changeIndex++;
+      recordChange({ added: [newLine] });
 
       // Reset selection
       State.selectedDot = undefined;
       State.selectedLine = newLine;
       redrawCanvas();
+      window.dispatchEvent(new Event('nets-changed'));
     }
 }
 

@@ -1,6 +1,7 @@
 import {IDot} from "../interfaces/dot.interface";
 import {ILine} from "../interfaces/line.interface";
 import {IChange} from "../interfaces/change.interface";
+import {INet} from "../interfaces/net.interface";
 import {Ic} from "../features/ic";
 
 export class State {
@@ -14,6 +15,11 @@ export class State {
   static lines: ILine[] = [];
   static selectedLine?: ILine;
   static hoverLine?: ILine;
+
+  /** Logical net layer, derived from `lines` and persisted. See src/nets/. */
+  static nets: INet[] = [];
+  /** When true, wires are drawn in their net's colour instead of their own. */
+  static showNetColors = false;
 
   static changes: IChange[] = []
   static changeIndex = -1;

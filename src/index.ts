@@ -11,6 +11,8 @@ import "./features/project/undo-redo";
 import "./features/project/load-from-local-storage";
 import "./features/shortcut-keys";
 import "./features/dot";
+import "./features/nets-ui";
+import "./features/routing";
 import "./features/project/reset-project";
 import {resetCanvas} from "./features/reset-canvas";
 import {createDotGrid, heightInput, widthInput} from "./features/project/resize-grid";
@@ -20,6 +22,7 @@ import {changeSelectedDotColor, setDotColor} from "./features/dot";
 import {setLineColor, deleteLine} from "./features/line";
 import {addNote} from "./features/description";
 import {hideContextMenu} from "./features/select";
+import {lockNetOf, unlockAndReroute} from "./features/routing";
 import {Ic} from "./features/ic";
 import {Canvas} from "./state/Canvas";
 import {applyZoom, nudgeZoom, resetPan, initViewportGestures} from "./features/viewport";
@@ -118,6 +121,7 @@ document.querySelectorAll('#wireGaugeSelector .gauge-btn').forEach((btn) => {
       State.selectedWireWidth = parseInt(widthStr);
       if (State.selectedLine) {
         State.selectedLine.width = State.selectedWireWidth;
+        lockNetOf(State.selectedLine); // hand-editing a wire locks its net
         redrawCanvas();
       }
     }
@@ -144,6 +148,11 @@ document.getElementById('ctxNoteBtn')?.addEventListener('click', () => {
   if (State.selectedDot || State.selectedPlacedIc) {
     addNote();
   }
+});
+
+document.getElementById('ctxUnlockNetBtn')?.addEventListener('click', () => {
+  hideContextMenu();
+  unlockAndReroute(State.selectedLine);
 });
 
 document.getElementById('ctxDeleteBtn')?.addEventListener('click', () => {
@@ -491,6 +500,37 @@ document.getElementById('zoomOutBtn')?.addEventListener('click', zoomOut);
 document.getElementById('zoomFitBtn')?.addEventListener('click', () => fitToScreen());
 
 document.getElementById('toggleSidebarBtn')?.addEventListener('click', () => toggleSidebar());
+
+// Solder-side view toggle. Component side = logical connections (components +
+// hand-drawn wires); solder side = physical wiring (mirrored, components hidden,
+// nets / tidy / routing live here).
+let solderSide = false;
+document.getElementById('toggleSolderSideBtn')?.addEventListener('click', () => {
+  solderSide = !solderSide;
+  Canvas.setSolderSide(solderSide);
+
+  // Component tooling only makes sense on the component side.
+  if (solderSide) {
+    State.selectedPlacedIc = undefined;
+    State.selectedIc = undefined;
+    State.isDraggingIc = false;
+  }
+
+  document.getElementById('netsPanelWrap')?.toggleAttribute('hidden', !solderSide);
+  document.getElementById('componentsPanelWrap')?.toggleAttribute('hidden', solderSide);
+
+  redrawCanvas();
+  window.dispatchEvent(new Event('nets-changed'));
+
+  const badge = document.getElementById('solderSideBadge');
+  if (badge) badge.style.display = solderSide ? 'block' : 'none';
+  const btn = document.getElementById('toggleSolderSideBtn');
+  if (btn) {
+    btn.classList.toggle('btn-danger', solderSide);
+    btn.classList.toggle('btn', !solderSide);
+  }
+  updateSelectionStatus();
+});
 
 document.getElementById('toggleFullscreenBtn')?.addEventListener('click', () => toggleFullscreenMode());
 document.getElementById('canvasFullscreenTrigger')?.addEventListener('click', () => toggleFullscreenMode());

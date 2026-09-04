@@ -9,6 +9,7 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click'
   State.lines = [];
   State.dots = [];
   State.placedIcs = [];
+  State.nets = [];
   State.changes = [];
   State.changeIndex = -1;
   State.selectedDot = undefined;
@@ -20,4 +21,5 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click'
   createDotGrid(parseInt(widthInput.value || "10"), parseInt(heightInput.value || "10"));
   resetCanvas()
   redrawCanvas()
+  window.dispatchEvent(new Event('nets-changed'));
 });

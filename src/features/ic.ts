@@ -9,7 +9,8 @@ import {redrawCanvas} from "./draw-canvas";
 export class Ic{
   static IC_CONTAINER: Ic[] = [];
 
-  public id = Math.random() * 100;
+  /** Stable unique identity for a placed component; survives save/load. */
+  public id: string = crypto.randomUUID();
   public isCustom?: boolean = false;
   public rotationAngle = 0; // 0, 90, 180, 270
   topLeftDot: IDot | null = null;
@@ -98,7 +99,7 @@ export class Ic{
   static saveCustomIcsToLocalStorage() {
     try {
       const customIcs = Ic.IC_CONTAINER.filter(ic => ic.isCustom).map(ic => ({
-        id: ic.id,
+        id: String(ic.id),
         name: ic.name,
         widthPin: ic.widthPin,
         heightPin: ic.heightPin,
@@ -118,7 +119,7 @@ export class Ic{
       const stored = localStorage.getItem('custom_ics');
       if (!stored) return;
       const customIcs = JSON.parse(stored) as Array<{
-        id: number;
+        id: number | string;
         name: string;
         widthPin: number;
         heightPin: number;
@@ -129,7 +130,7 @@ export class Ic{
       for (const data of customIcs) {
         if (!Ic.IC_CONTAINER.some(ic => String(ic.id) === String(data.id))) {
           const newIc = new Ic(data.widthPin, data.heightPin, data.pinDescription || {}, data.name, true, data.kind || "chip", data.imageSrc);
-          newIc.id = data.id;
+          newIc.id = String(data.id);
           Ic.IC_CONTAINER.push(newIc);
         }
       }
@@ -358,9 +359,9 @@ export class Ic{
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#1f2a44";
-    ctx.fillText("−", r - 4, 0);
+    Canvas.fillText("−", r - 4, 0);
     ctx.fillStyle = isSelected ? "#38bdf8" : "#cbd5e1";
-    ctx.fillText("+", -r + 5, 0);
+    Canvas.fillText("+", -r + 5, 0);
     ctx.textBaseline = "alphabetic";
   }
 
@@ -465,12 +466,12 @@ export class Ic{
         const leftPinNum = i + 1;
         const leftDesc = this.pinDescription[leftPinNum];
         Canvas.ctx.textAlign = "left";
-        Canvas.ctx.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, labelY);
+        Canvas.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, labelY);
 
         const rightPinNum = pinsPerSide * 2 - i;
         const rightDesc = this.pinDescription[rightPinNum];
         Canvas.ctx.textAlign = "right";
-        Canvas.ctx.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, labelY);
+        Canvas.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, labelY);
       }
     } else if (this.rotationAngle === 90) {
       // 90°: Top: 1..N, Bottom: 2N..N+1
@@ -481,12 +482,12 @@ export class Ic{
         const topPinNum = i + 1;
         const topDesc = this.pinDescription[topPinNum];
         Canvas.ctx.textAlign = "center";
-        Canvas.ctx.fillText(topDesc ? `${topPinNum}:${topDesc}` : `${topPinNum}`, px, this.topLeftDot.y + 16);
+        Canvas.fillText(topDesc ? `${topPinNum}:${topDesc}` : `${topPinNum}`, px, this.topLeftDot.y + 16);
 
         const bottomPinNum = pinsPerSide * 2 - i;
         const bottomDesc = this.pinDescription[bottomPinNum];
         Canvas.ctx.textAlign = "center";
-        Canvas.ctx.fillText(bottomDesc ? `${bottomDesc}:${bottomPinNum}` : `${bottomPinNum}`, px, bottomY - 10);
+        Canvas.fillText(bottomDesc ? `${bottomDesc}:${bottomPinNum}` : `${bottomPinNum}`, px, bottomY - 10);
       }
     } else if (this.rotationAngle === 180) {
       // 180°: Left: 2N..N+1, Right: 1..N
@@ -498,12 +499,12 @@ export class Ic{
         const leftPinNum = pinsPerSide * 2 - i;
         const leftDesc = this.pinDescription[leftPinNum];
         Canvas.ctx.textAlign = "left";
-        Canvas.ctx.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, labelY);
+        Canvas.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, labelY);
 
         const rightPinNum = i + 1;
         const rightDesc = this.pinDescription[rightPinNum];
         Canvas.ctx.textAlign = "right";
-        Canvas.ctx.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, labelY);
+        Canvas.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, labelY);
       }
     } else if (this.rotationAngle === 270) {
       // 270°: Top: 2N..N+1, Bottom: 1..N
@@ -514,12 +515,12 @@ export class Ic{
         const topPinNum = pinsPerSide * 2 - i;
         const topDesc = this.pinDescription[topPinNum];
         Canvas.ctx.textAlign = "center";
-        Canvas.ctx.fillText(topDesc ? `${topPinNum}:${topDesc}` : `${topPinNum}`, px, this.topLeftDot.y + 16);
+        Canvas.fillText(topDesc ? `${topPinNum}:${topDesc}` : `${topPinNum}`, px, this.topLeftDot.y + 16);
 
         const bottomPinNum = i + 1;
         const bottomDesc = this.pinDescription[bottomPinNum];
         Canvas.ctx.textAlign = "center";
-        Canvas.ctx.fillText(bottomDesc ? `${bottomDesc}:${bottomPinNum}` : `${bottomPinNum}`, px, bottomY - 10);
+        Canvas.fillText(bottomDesc ? `${bottomDesc}:${bottomPinNum}` : `${bottomPinNum}`, px, bottomY - 10);
       }
     }
 
@@ -553,7 +554,7 @@ export class Ic{
     // Draw high-contrast text
     Canvas.ctx.fillStyle = isSelected ? "#38bdf8" : "#ffffff";
     Canvas.ctx.textAlign = "center";
-    Canvas.ctx.fillText(this.name, centerX, centerY + 4);
+    Canvas.fillText(this.name, centerX, centerY + 4);
     Canvas.ctx.restore();
 
     if (!this.isLeaded) this.drawPinLabels();
@@ -594,7 +595,7 @@ export class Ic{
     ctx.stroke();
 
     ctx.fillStyle = "#fbbf24";
-    ctx.fillText(text, centerX, baselineY);
+    Canvas.fillText(text, centerX, baselineY);
     ctx.restore();
   }
 
@@ -730,7 +731,7 @@ export function loadDefaultIcs() {
 
 loadDefaultIcs();
 
-export function deleteCustomIc(id: number | string) {
+export function deleteCustomIc(id: string) {
   const index = Ic.IC_CONTAINER.findIndex(ic => String(ic.id) === String(id));
   if (index > -1) {
     Ic.IC_CONTAINER.splice(index, 1);
@@ -739,7 +740,7 @@ export function deleteCustomIc(id: number | string) {
   }
 }
 
-export function selectIc(id: number | string){
+export function selectIc(id: string){
   const ic = Ic.IC_CONTAINER.find(ic => String(ic.id) === String(id));
   if (!ic){
     console.error(`Ic with id: ${id} not found`);
@@ -749,6 +750,7 @@ export function selectIc(id: number | string){
 }
 
 export function rotateSelectedIc() {
+  if (Canvas.solderSide) return; // components are hidden / inert on the solder side
   if (State.selectedPlacedIc) {
     State.selectedPlacedIc.rotate();
     redrawCanvas();

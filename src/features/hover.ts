@@ -37,10 +37,13 @@ Canvas.c.addEventListener('mousemove', function(e) {
   }
 
 
-  // Check if mouse is over a placed component body
-  State.hoverIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
+  // Check if mouse is over a placed component body. Components are hidden and
+  // inert on the solder side — you are working on wires there.
+  State.hoverIc = Canvas.solderSide
+    ? undefined
+    : State.placedIcs.find(ic => ic.containsPoint(x, y));
 
-  if (State.isDraggingIc && State.selectedPlacedIc) {
+  if (!Canvas.solderSide && State.isDraggingIc && State.selectedPlacedIc) {
     State.selectedPlacedIc.updatePosition(x, y);
   }
 

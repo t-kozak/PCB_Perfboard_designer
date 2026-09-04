@@ -14,7 +14,9 @@ resizeBtn.addEventListener('click', function() {
 
   // Clear all lines and redraw the canvas
   State.lines = [];
+  State.nets = [];
   redrawCanvas();
+  window.dispatchEvent(new Event('nets-changed'));
 });
 
 export function createDotGrid(horizontalDotNumbers: number, verticalDotNumbers: number) {

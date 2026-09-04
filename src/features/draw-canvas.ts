@@ -3,8 +3,14 @@ import {State} from "../state/State";
 import {Canvas} from "../state/Canvas";
 import {IDot} from "../interfaces/dot.interface";
 import {ILine} from "../interfaces/line.interface";
+import {netAtLine, dotKey, findShorts, labelConflicts} from "../nets/derive";
 
-function drawDot(dot: IDot){
+function netColor(netId: string | undefined): string | undefined {
+  if (!netId) return undefined;
+  return State.nets.find(n => n.id === netId)?.color;
+}
+
+function drawDot(dot: IDot, onHoverNet: boolean, isShort: boolean){
   Canvas.ctx.beginPath();
   Canvas.ctx.arc(dot.x, dot.y, State.dotRadius, 0, Math.PI*2);
   Canvas.ctx.fillStyle = dot.color || "#a4a0a0";
@@ -30,24 +36,52 @@ function drawDot(dot: IDot){
     Canvas.ctx.strokeStyle = "#94a3b8";
     Canvas.ctx.lineWidth = 2;
     Canvas.ctx.stroke();
+  } else if (onHoverNet) {
+    // Part of the net currently under the cursor.
+    Canvas.ctx.beginPath();
+    Canvas.ctx.arc(dot.x, dot.y, State.dotRadius + 3, 0, Math.PI * 2);
+    Canvas.ctx.strokeStyle = "#38bdf8";
+    Canvas.ctx.lineWidth = 2;
+    Canvas.ctx.stroke();
   }
 
-
+  if (isShort) {
+    // A pad wired into two nets — a short circuit (autorouting.md §3).
+    Canvas.ctx.beginPath();
+    Canvas.ctx.arc(dot.x, dot.y, State.dotRadius + 6, 0, Math.PI * 2);
+    Canvas.ctx.strokeStyle = "#ef4444";
+    Canvas.ctx.lineWidth = 2.5;
+    Canvas.ctx.stroke();
+  }
 
   if (dot.description) {
     Canvas.ctx.font = "10px Inter, Arial";
     Canvas.ctx.textAlign = "center";
     Canvas.ctx.fillStyle = dot.color || "#38bdf8";
     if (dot === State.hoverDot) {
-      Canvas.ctx.fillText(dot.description, dot.x, dot.y + State.dotRadius + 12);
+      Canvas.fillText(dot.description, dot.x, dot.y + State.dotRadius + 12);
     } else {
-      Canvas.ctx.fillText(dot.description.substring(0, 5), dot.x, dot.y + State.dotRadius + 12);
+      Canvas.fillText(dot.description.substring(0, 5), dot.x, dot.y + State.dotRadius + 12);
     }
   }
 }
 
-function drawLine(line: ILine){
+function drawLine(line: ILine, onHoverNet: boolean){
   const baseWidth = line.width || 4;
+  // Net colours are a solder-side (physical) concern only.
+  const stroke = (Canvas.solderSide && State.showNetColors && netColor(line.netId))
+    || line.color || "#777676";
+
+  // Net highlight — everything electrically joined to the hovered wire.
+  if (onHoverNet && line !== State.selectedLine && line !== State.hoverLine) {
+    Canvas.ctx.beginPath();
+    Canvas.ctx.moveTo(line.start.x, line.start.y);
+    Canvas.ctx.lineTo(line.end.x, line.end.y);
+    Canvas.ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+    Canvas.ctx.lineWidth = baseWidth + 5;
+    Canvas.ctx.lineCap = "round";
+    Canvas.ctx.stroke();
+  }
 
   // Selected line glowing highlight & terminal node handles
   if (line === State.selectedLine) {
@@ -80,14 +114,14 @@ function drawLine(line: ILine){
   Canvas.ctx.beginPath();
   Canvas.ctx.moveTo(line.start.x, line.start.y);
   Canvas.ctx.lineTo(line.end.x, line.end.y);
-  Canvas.ctx.strokeStyle = line.color || "#777676";
+  Canvas.ctx.strokeStyle = stroke;
   Canvas.ctx.lineWidth = baseWidth;
   Canvas.ctx.lineCap = "round";
   Canvas.ctx.stroke();
 }
 
 function drawIcPlacementPreview() {
-  if (!State.selectedIc || !State.hoverDot) return;
+  if (Canvas.solderSide || !State.selectedIc || !State.hoverDot) return;
   const targetDot = State.hoverDot;
   const spanW = 50 * (State.selectedIc.widthPin - 1);
   const spanH = 50 * (State.selectedIc.heightPin - 1);
@@ -113,30 +147,60 @@ function drawIcPlacementPreview() {
   Canvas.ctx.fillStyle = "#ffffff";
   Canvas.ctx.font = "bold 11px Inter, Arial";
   Canvas.ctx.textAlign = "center";
-  Canvas.ctx.fillText(`➕ Place ${State.selectedIc.name}`, originX + (w / 2), originY + (h / 2) + 4);
+  Canvas.fillText(`➕ Place ${State.selectedIc.name}`, originX + (w / 2), originY + (h / 2) + 4);
 
   Canvas.ctx.restore();
 }
 
+/**
+ * Which wires the current face shows.
+ *  - Component side ("logical connections"): only the hand-drawn wires.
+ *  - Solder side ("physical wiring"): the router's `generated` wires, plus the
+ *    hand-drawn wires of any net that has not been routed yet.
+ */
+function wireVisible(line: ILine, routedNetIds: Set<string>): boolean {
+  if (!Canvas.solderSide) return !line.generated;
+  if (line.generated) return true;
+  return !(line.netId && routedNetIds.has(line.netId));
+}
+
 export function redrawCanvas() {
   resetCanvas();
-  // 1. Draw IC chip bodies
-  for (const ic of State.placedIcs) {
-    ic.drawBody();
+
+  const solder = Canvas.solderSide;
+
+  // Net highlight + short reporting are solder-side (physical) only.
+  const highlight = solder && State.hoverLine ? netAtLine(State.hoverLine, State.lines) : null;
+  const shortPads = solder
+    ? new Set<string>([...findShorts(State.lines), ...labelConflicts(State.lines, State.placedIcs)])
+    : new Set<string>();
+
+  const routedNetIds = new Set<string>();
+  for (const line of State.lines) {
+    if (line.generated && line.netId) routedNetIds.add(line.netId);
   }
-  // 2. Draw grid dots (skip ones concealed under an IC body that aren't pins)
+
+  // 1. IC bodies — component side only.
+  if (!solder) {
+    for (const ic of State.placedIcs) ic.drawBody();
+  }
+  // 2. Grid dots. On the component side, hide the ones a chip body conceals;
+  //    on the solder side every hole is exposed.
   for (let i = 0; i < State.dots.length; i++) {
     const dot = State.dots[i];
-    if (State.placedIcs.some((ic) => ic.hidesDot(dot))) continue;
-    drawDot(dot);
+    if (!solder && State.placedIcs.some((ic) => ic.hidesDot(dot))) continue;
+    const key = dotKey(dot);
+    drawDot(dot, highlight?.pads.has(key) ?? false, shortPads.has(key));
   }
-  // 3. Draw wires
+  // 3. Wires — filtered by which face we are on.
   for (let i = 0; i < State.lines.length; i++) {
-    drawLine(State.lines[i]);
+    const line = State.lines[i];
+    if (!wireVisible(line, routedNetIds)) continue;
+    drawLine(line, highlight?.lines.has(line) ?? false);
   }
-  // 4. Draw IC text badges on top of everything
-  for (const ic of State.placedIcs) {
-    ic.drawLabel();
+  // 4. IC text badges — component side only.
+  if (!solder) {
+    for (const ic of State.placedIcs) ic.drawLabel();
   }
   drawIcPlacementPreview();
 }

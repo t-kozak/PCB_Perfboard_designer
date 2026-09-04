@@ -3,6 +3,8 @@ import {redrawCanvas} from "./draw-canvas";
 import {Utils} from "../utils/utils";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {changeSelectedDotColor} from "./dot";
+import {recordChange} from "./project/undo-redo";
+import {lockNetOf} from "./routing";
 
 
 Utils.getSafeHtmlElement<HTMLButtonElement>('changeLineColorBtn').addEventListener('click', function() {
@@ -17,6 +19,7 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('deleteLineBtn').addEventListener('c
 export function setLineColor(color: string){
   if (State.selectedLine){
     State.selectedLine.color = color;
+    lockNetOf(State.selectedLine); // hand-editing a wire locks its net
     redrawCanvas();
   }
 }
@@ -33,6 +36,7 @@ function addColorToSelectedLine(){
     if (badge) badge.style.background = colorPicker.value;
     if(State.selectedLine){
       State.selectedLine.color = colorPicker.value;
+      lockNetOf(State.selectedLine);
       redrawCanvas();
     }
   };
@@ -52,14 +56,11 @@ export function deleteLine(){
   if(State.selectedLine) {
     const index = State.lines.indexOf(State.selectedLine);
     if(index > -1){
-      // Store change
-      State.changes.splice(State.changeIndex + 1);
-      State.changes.push({type: 'remove', line: State.selectedLine});
-      State.changeIndex++;
-      // Remove line
+      recordChange({ removed: [State.selectedLine] });
       State.lines.splice(index, 1);
       State.selectedLine = undefined;
       redrawCanvas();
+      window.dispatchEvent(new Event('nets-changed'));
       return;
     }
   }
