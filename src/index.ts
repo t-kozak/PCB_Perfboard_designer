@@ -22,6 +22,7 @@ import {addDescriptionToDot} from "./features/description";
 import {hideContextMenu} from "./features/select";
 import {Ic} from "./features/ic";
 import {Canvas} from "./state/Canvas";
+import {applyZoom, nudgeZoom, resetPan, initViewportGestures} from "./features/viewport";
 
 createDotGrid(parseInt(widthInput.value || "10"), parseInt(heightInput.value || "10"));
 resetCanvas();
@@ -395,41 +396,26 @@ window.addEventListener('click', () => {
   setTimeout(updateSelectionStatus, 50);
 });
 
-// Fullscreen Focus Mode & Board Zoom Management
-let currentZoom = 1.0;
+// Fullscreen Focus Mode & Board Zoom Management.
+// The pan/zoom transform itself lives in features/viewport.ts.
 let isFullscreenMode = false;
 let isSidebarVisible = true;
 let isFitMode = false;
 
-function applyZoom(zoom: number) {
-  currentZoom = Math.min(3.0, Math.max(0.2, zoom));
-  const wrapper = document.getElementById('canvasZoomWrapper');
-  if (wrapper) {
-    wrapper.style.transform = `scale(${currentZoom})`;
-  } else if (Canvas.c) {
-    Canvas.c.style.transformOrigin = 'center center';
-    Canvas.c.style.transform = `scale(${currentZoom})`;
-  }
-  const zoomText = `${Math.round(currentZoom * 100)}%`;
-  const text1 = document.getElementById('zoomLevelText');
-  const text2 = document.getElementById('fsZoomText');
-  if (text1) text1.innerText = zoomText;
-  if (text2) text2.innerText = zoomText;
-}
-
 function zoomIn() {
-  applyZoom(currentZoom + 0.15);
+  nudgeZoom(0.15);
 }
 
 function zoomOut() {
-  applyZoom(currentZoom - 0.15);
+  nudgeZoom(-0.15);
 }
 
 function fitToScreen(forcefit?: boolean) {
   const fitBtn = document.getElementById('zoomFitBtn');
   if (!forcefit && isFitMode) {
     isFitMode = false;
-    applyZoom(1.0);
+    resetPan();
+    applyZoom(1.0, true);
     if (fitBtn) { fitBtn.innerText = '🎯 Fit'; fitBtn.className = 'btn-accent'; }
     return;
   }
@@ -446,7 +432,8 @@ function fitToScreen(forcefit?: boolean) {
   const scaleX = availableWidth / canvasW;
   const scaleY = availableHeight / canvasH;
   const fitScale = Math.min(scaleX, scaleY);
-  applyZoom(fitScale);
+  resetPan();
+  applyZoom(fitScale, true);
   isFitMode = true;
   if (fitBtn) { fitBtn.innerText = '✕ Reset'; fitBtn.className = 'btn-danger'; }
 }
@@ -493,7 +480,8 @@ function toggleFullscreenMode(enable?: boolean) {
       btn2.innerText = '⛶ Fullscreen';
       btn2.className = 'btn';
     }
-    applyZoom(1.0);
+    resetPan();
+    applyZoom(1.0, true);
   }
 }
 
@@ -507,15 +495,8 @@ document.getElementById('toggleSidebarBtn')?.addEventListener('click', () => tog
 document.getElementById('toggleFullscreenBtn')?.addEventListener('click', () => toggleFullscreenMode());
 document.getElementById('canvasFullscreenTrigger')?.addEventListener('click', () => toggleFullscreenMode());
 
-// Mouse Wheel Zoom on canvas
-Canvas.c?.addEventListener('wheel', (e: WheelEvent) => {
-  e.preventDefault();
-  if (e.deltaY < 0) {
-    zoomIn();
-  } else {
-    zoomOut();
-  }
-}, { passive: false });
+// Trackpad pinch-zoom / two-finger-pan gestures (see features/viewport.ts).
+initViewportGestures();
 
 window.addEventListener('resize', () => {
   if (isFullscreenMode) {

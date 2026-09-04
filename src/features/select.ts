@@ -4,25 +4,19 @@ import {Canvas} from "../state/Canvas";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {ILine} from "../interfaces/line.interface";
 import {addDescriptionToDot} from "./description";
+import {panBy} from "./viewport";
 let isPanningBoard = false;
-let panStartX = 0;
-let panStartY = 0;
-let startScrollLeft = 0;
-let startScrollTop = 0;
+let panLastX = 0;
+let panLastY = 0;
 
 Canvas.c.addEventListener('mousedown', function(e) {
   // Middle mouse click canvas panning
   if (e.button === 1) {
     e.preventDefault();
-    const container = document.getElementById('canvas-container');
-    if (container) {
-      isPanningBoard = true;
-      panStartX = e.clientX;
-      panStartY = e.clientY;
-      startScrollLeft = container.scrollLeft;
-      startScrollTop = container.scrollTop;
-      Canvas.c.style.cursor = 'grabbing';
-    }
+    isPanningBoard = true;
+    panLastX = e.clientX;
+    panLastY = e.clientY;
+    Canvas.c.style.cursor = 'grabbing';
     return;
   }
 
@@ -90,13 +84,9 @@ Canvas.c.addEventListener('mousedown', function(e) {
 
 window.addEventListener('mousemove', (e) => {
   if (isPanningBoard) {
-    const container = document.getElementById('canvas-container');
-    if (container) {
-      const dx = e.clientX - panStartX;
-      const dy = e.clientY - panStartY;
-      container.scrollLeft = startScrollLeft - dx;
-      container.scrollTop = startScrollTop - dy;
-    }
+    panBy(e.clientX - panLastX, e.clientY - panLastY);
+    panLastX = e.clientX;
+    panLastY = e.clientY;
   }
 });
 
