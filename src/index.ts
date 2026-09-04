@@ -424,8 +424,8 @@ function fitToScreen(forcefit?: boolean) {
   const rect = container.getBoundingClientRect();
   const availableWidth = rect.width - 20;
   const availableHeight = rect.height - 20;
-  const canvasW = Canvas.c.width;
-  const canvasH = Canvas.c.height;
+  const canvasW = Canvas.boardWidth;
+  const canvasH = Canvas.boardHeight;
 
   if (availableWidth <= 0 || availableHeight <= 0) return;
 

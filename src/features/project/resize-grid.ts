@@ -18,12 +18,11 @@ resizeBtn.addEventListener('click', function() {
 });
 
 export function createDotGrid(horizontalDotNumbers: number, verticalDotNumbers: number) {
-  Canvas.c.width = horizontalDotNumbers * State.dotSpace;
-  Canvas.c.height = verticalDotNumbers * State.dotSpace;
+  Canvas.setBoardSize(horizontalDotNumbers * State.dotSpace, verticalDotNumbers * State.dotSpace);
 
   State.dots = [];
-  for(let x =  State.dotSpace / 2; x < Canvas.c.width; x +=  State.dotSpace){
-    for(let y =  State.dotSpace / 2; y < Canvas.c.height; y +=  State.dotSpace){
+  for(let x =  State.dotSpace / 2; x < Canvas.boardWidth; x +=  State.dotSpace){
+    for(let y =  State.dotSpace / 2; y < Canvas.boardHeight; y +=  State.dotSpace){
       State.dots.push({x: x, y: y, description: null, color: "#a4a0a0"});
     }
   }

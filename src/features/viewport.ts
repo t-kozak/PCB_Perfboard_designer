@@ -1,14 +1,15 @@
 import { Canvas } from "../state/Canvas";
+import { redrawCanvas } from "./draw-canvas";
 
 // ---------------------------------------------------------------------------
-// Board viewport: a single pan + zoom transform on #canvasZoomWrapper.
+// Board viewport: pan + zoom of #canvasZoomWrapper.
 //
-// The zoom is a CSS `transform: scale()`, which does NOT grow the element's
-// layout box, so the overflow:auto container can't scroll to the scaled-out
-// parts of the board. We therefore pan by translating the wrapper ourselves
-// (panX / panY, in screen pixels) rather than by scrolling the container.
-// Every way of moving the board — the +/- buttons, Fit, the trackpad, and the
-// middle-mouse drag in select.ts — goes through this one module.
+// Zoom is folded into the canvas render transform (Canvas.setZoom) and the
+// board is repainted, so every zoom level rasterises at native resolution
+// instead of the compositor upscaling a bitmap. The wrapper only ever gets a
+// CSS `translate()` for panning (panX / panY, in screen pixels) — never a
+// `scale()`. Every way of moving the board — the +/- buttons, Fit, the
+// trackpad, and the middle-mouse drag in select.ts — goes through this module.
 // ---------------------------------------------------------------------------
 
 const MIN_ZOOM = 0.2;
@@ -33,8 +34,8 @@ function getZoomTarget(): HTMLElement | null {
 function clampPan() {
   const container = document.getElementById('canvas-container');
   if (!container || !Canvas.c) return;
-  const limitX = Math.max(0, (Canvas.c.width * currentZoom + container.clientWidth) / 2 - PAN_MARGIN);
-  const limitY = Math.max(0, (Canvas.c.height * currentZoom + container.clientHeight) / 2 - PAN_MARGIN);
+  const limitX = Math.max(0, (Canvas.boardWidth * currentZoom + container.clientWidth) / 2 - PAN_MARGIN);
+  const limitY = Math.max(0, (Canvas.boardHeight * currentZoom + container.clientHeight) / 2 - PAN_MARGIN);
   panX = Math.max(-limitX, Math.min(limitX, panX));
   panY = Math.max(-limitY, Math.min(limitY, panY));
 }
@@ -48,7 +49,8 @@ function applyTransform(animate: boolean) {
   // stale, half-faded copy of the old state — the "ghost". Kill the transition
   // for continuous updates so each frame paints cleanly.
   target.style.transition = animate ? 'transform 0.15s ease-out' : 'none';
-  target.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
+  // Pan only — zoom lives in the canvas render transform, not here.
+  target.style.transform = `translate(${panX}px, ${panY}px)`;
 }
 
 function updateZoomReadout() {
@@ -61,6 +63,9 @@ function updateZoomReadout() {
 
 export function applyZoom(zoom: number, animate = false) {
   currentZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+  // Re-rasterise the board at the new zoom, then position it.
+  Canvas.setZoom(currentZoom);
+  redrawCanvas();
   clampPan();
   applyTransform(animate);
   updateZoomReadout();

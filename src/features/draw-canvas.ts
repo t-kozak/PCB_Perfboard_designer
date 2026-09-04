@@ -119,9 +119,11 @@ export function redrawCanvas() {
   for (const ic of State.placedIcs) {
     ic.drawBody();
   }
-  // 2. Draw grid dots
+  // 2. Draw grid dots (skip ones concealed under an IC body that aren't pins)
   for (let i = 0; i < State.dots.length; i++) {
-    drawDot(State.dots[i]);
+    const dot = State.dots[i];
+    if (State.placedIcs.some((ic) => ic.hidesDot(dot))) continue;
+    drawDot(dot);
   }
   // 3. Draw wires
   for (let i = 0; i < State.lines.length; i++) {

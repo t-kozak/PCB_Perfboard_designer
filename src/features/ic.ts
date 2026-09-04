@@ -153,6 +153,17 @@ export class Ic{
     }
   }
 
+  /**
+   * Pixel offset that pulls the first/last edge-pin label off the IC's
+   * perpendicular border line so it stays readable. Positive nudges the
+   * top pin down / left pin right; negative nudges the bottom / right one.
+   */
+  private edgePinLabelNudge(i: number, pinsPerSide: number): number {
+    if (i === 0) return 9;
+    if (i === pinsPerSide - 1) return -9;
+    return 0;
+  }
+
   drawPinLabels() {
     if (!this.topLeftDot) return;
     Canvas.ctx.save();
@@ -165,22 +176,23 @@ export class Ic{
       const rightX = this.topLeftDot.x + 50 * (this.widthPin - 1);
       for (let i = 0; i < pinsPerSide; i++) {
         const py = this.topLeftDot.y + i * 50;
+        const labelY = py + 3 + this.edgePinLabelNudge(i, pinsPerSide);
         const leftPinNum = i + 1;
         const leftDesc = this.pinDescription[leftPinNum];
         Canvas.ctx.textAlign = "left";
-        Canvas.ctx.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, py + 3);
+        Canvas.ctx.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, labelY);
 
         const rightPinNum = pinsPerSide * 2 - i;
         const rightDesc = this.pinDescription[rightPinNum];
         Canvas.ctx.textAlign = "right";
-        Canvas.ctx.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, py + 3);
+        Canvas.ctx.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, labelY);
       }
     } else if (this.rotationAngle === 90) {
       // 90°: Top: 1..N, Bottom: 2N..N+1
       const pinsPerSide = this.widthPin;
       const bottomY = this.topLeftDot.y + 50 * (this.heightPin - 1);
       for (let i = 0; i < pinsPerSide; i++) {
-        const px = this.topLeftDot.x + i * 50;
+        const px = this.topLeftDot.x + i * 50 + this.edgePinLabelNudge(i, pinsPerSide);
         const topPinNum = i + 1;
         const topDesc = this.pinDescription[topPinNum];
         Canvas.ctx.textAlign = "center";
@@ -197,22 +209,23 @@ export class Ic{
       const rightX = this.topLeftDot.x + 50 * (this.widthPin - 1);
       for (let i = 0; i < pinsPerSide; i++) {
         const py = this.topLeftDot.y + i * 50;
+        const labelY = py + 3 + this.edgePinLabelNudge(i, pinsPerSide);
         const leftPinNum = pinsPerSide * 2 - i;
         const leftDesc = this.pinDescription[leftPinNum];
         Canvas.ctx.textAlign = "left";
-        Canvas.ctx.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, py + 3);
+        Canvas.ctx.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, labelY);
 
         const rightPinNum = i + 1;
         const rightDesc = this.pinDescription[rightPinNum];
         Canvas.ctx.textAlign = "right";
-        Canvas.ctx.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, py + 3);
+        Canvas.ctx.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, labelY);
       }
     } else if (this.rotationAngle === 270) {
       // 270°: Top: 2N..N+1, Bottom: 1..N
       const pinsPerSide = this.widthPin;
       const bottomY = this.topLeftDot.y + 50 * (this.heightPin - 1);
       for (let i = 0; i < pinsPerSide; i++) {
-        const px = this.topLeftDot.x + i * 50;
+        const px = this.topLeftDot.x + i * 50 + this.edgePinLabelNudge(i, pinsPerSide);
         const topPinNum = pinsPerSide * 2 - i;
         const topDesc = this.pinDescription[topPinNum];
         Canvas.ctx.textAlign = "center";
@@ -277,6 +290,14 @@ export class Ic{
       y >= this.topLeftDot.y &&
       y <= this.topLeftDot.y + h
     );
+  }
+
+  /**
+   * True when the dot sits under this IC's body but is not one of its pins,
+   * so the render loop can hide it (concealed by the chip package).
+   */
+  hidesDot(dot: IDot): boolean {
+    return this.containsPoint(dot.x, dot.y) && this.getPinPositionOnIC(dot) === null;
   }
 
   clone(): Ic {

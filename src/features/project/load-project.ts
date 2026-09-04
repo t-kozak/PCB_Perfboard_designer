@@ -57,8 +57,7 @@ export function deserializePlacedIc(data: any): Ic | null {
 }
 
 export function loadProject(project: IProjectSave){
-  Canvas.c.width = project.canvas.width;
-  Canvas.c.height = project.canvas.height;
+  Canvas.setBoardSize(project.canvas.width, project.canvas.height);
   State.dots = project.dots;
   State.lines = project.lines;
   if (project.ICs) {

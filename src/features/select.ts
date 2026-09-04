@@ -22,11 +22,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
 
   if (e.button === 0) {
     hideContextMenu();
-    const rect = Canvas.c.getBoundingClientRect();
-    const scaleX = Canvas.c.width / rect.width;
-    const scaleY = Canvas.c.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
     
     // Eraser Tool Mode
     if (State.activeToolMode === 'eraser') {
@@ -208,11 +204,7 @@ export function selectLine(event: MouseEvent) {
     return;
   }
 
-  const rect = Canvas.c.getBoundingClientRect();
-  const scaleX = Canvas.c.width / rect.width;
-  const scaleY = Canvas.c.height / rect.height;
-  const x = (event.clientX - rect.left) * scaleX;
-  const y = (event.clientY - rect.top) * scaleY;
+  const {x, y} = Canvas.screenToBoard(event.clientX, event.clientY);
 
   for (let i = 0; i < State.lines.length; i++) {
     const line = State.lines[i];
