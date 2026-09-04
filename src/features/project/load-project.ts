@@ -39,7 +39,9 @@ export function deserializePlacedIc(data: any): Ic | null {
     Number(data.heightPin),
     data.pinDescription || {},
     String(data.name || 'Component'),
-    Boolean(data.isCustom)
+    Boolean(data.isCustom),
+    String(data.kind || 'chip'),
+    data.imageSrc || undefined
   );
   if (data.id) {
     ic.id = Number(data.id);

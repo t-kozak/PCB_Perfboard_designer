@@ -27,6 +27,8 @@ export function serializePlacedIc(ic: Ic) {
     pinDescription: ic.pinDescription || {},
     name: ic.name,
     isCustom: !!ic.isCustom,
+    kind: ic.kind || "chip",
+    imageSrc: ic.imageSrc,
     rotationAngle: ic.rotationAngle || 0,
     topLeftDotX: ic.topLeftDot ? ic.topLeftDot.x : null,
     topLeftDotY: ic.topLeftDot ? ic.topLeftDot.y : null,

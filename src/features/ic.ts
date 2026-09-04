@@ -14,14 +14,45 @@ export class Ic{
   public rotationAngle = 0; // 0, 90, 180, 270
   topLeftDot: IDot | null = null;
 
+  /**
+   * Cache of decoded component artwork, keyed by source URL / data URI.
+   * A freshly created image redraws the canvas once it finishes loading.
+   */
+  private static imageCache = new Map<string, HTMLImageElement>();
+
   constructor(
-    public widthPin: number, 
-    public heightPin: number, 
+    public widthPin: number,
+    public heightPin: number,
     public pinDescription: Record<number, string>,
     public name: string,
-    isCustom = false
+    isCustom = false,
+    /**
+     * Visual family of the component. "chip" (default) draws the black DIP
+     * package below. Future kinds (e.g. "resistor") can add their own vector
+     * art in drawPackage(). Ignored when imageSrc is set.
+     */
+    public kind: string = "chip",
+    /**
+     * Optional artwork (raster image or SVG, as a URL or data URI) drawn as
+     * the component body instead of the default package. Built-in ICs leave
+     * this unset and fall back to the chip rectangle.
+     */
+    public imageSrc?: string,
   ) {
     this.isCustom = isCustom;
+  }
+
+  private static getImage(src: string): HTMLImageElement | null {
+    const cached = Ic.imageCache.get(src);
+    if (cached) {
+      return cached.complete && cached.naturalWidth > 0 ? cached : null;
+    }
+    const img = new Image();
+    img.onload = () => redrawCanvas();
+    img.onerror = () => console.error("Failed to load component artwork", src);
+    img.src = src;
+    Ic.imageCache.set(src, img);
+    return null;
   }
 
   static add(ic: Ic, saveToStorage = false){
@@ -49,6 +80,8 @@ export class Ic{
         widthPin: ic.widthPin,
         heightPin: ic.heightPin,
         pinDescription: ic.pinDescription,
+        kind: ic.kind,
+        imageSrc: ic.imageSrc,
         isCustom: true
       }));
       localStorage.setItem('custom_ics', JSON.stringify(customIcs));
@@ -67,10 +100,12 @@ export class Ic{
         widthPin: number;
         heightPin: number;
         pinDescription: Record<number, string>;
+        kind?: string;
+        imageSrc?: string;
       }>;
       for (const data of customIcs) {
         if (!Ic.IC_CONTAINER.some(ic => String(ic.id) === String(data.id))) {
-          const newIc = new Ic(data.widthPin, data.heightPin, data.pinDescription || {}, data.name, true);
+          const newIc = new Ic(data.widthPin, data.heightPin, data.pinDescription || {}, data.name, true, data.kind || "chip", data.imageSrc);
           newIc.id = data.id;
           Ic.IC_CONTAINER.push(newIc);
         }
@@ -94,50 +129,128 @@ export class Ic{
     this.topLeftDot = minDot;
   }
 
+  private roundRectPath(x: number, y: number, w: number, h: number, r: number) {
+    const ctx = Canvas.ctx;
+    r = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /**
+   * Draws the default black DIP-style package: a near-black moulded body with
+   * a soft top-to-bottom sheen and a light border, so it reads as a chip.
+   */
+  private drawChipBody(x: number, y: number, w: number, h: number, isSelected: boolean) {
+    const ctx = Canvas.ctx;
+    const r = Math.min(8, w / 4, h / 4);
+
+    ctx.save();
+    const grad = ctx.createLinearGradient(x, y, x, y + h);
+    if (isSelected) {
+      grad.addColorStop(0, "#1e2b52");
+      grad.addColorStop(1, "#0a1330");
+    } else {
+      grad.addColorStop(0, "#20222a");
+      grad.addColorStop(1, "#050506");
+    }
+
+    ctx.beginPath();
+    this.roundRectPath(x, y, w, h, r);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#4b5563";
+    ctx.stroke();
+
+    // Faint inner highlight for a chamfered-edge look
+    ctx.beginPath();
+    this.roundRectPath(x + 2, y + 2, w - 4, h - 4, Math.max(0, r - 2));
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Draws component artwork (image/SVG) fitted to the body, rotated with the part. */
+  private drawImageBody(img: HTMLImageElement, x: number, y: number, w: number, h: number, isSelected: boolean) {
+    const ctx = Canvas.ctx;
+    const rot90 = this.rotationAngle === 90 || this.rotationAngle === 270;
+    // widthPin/heightPin are swapped on rotate, so undo that for the source box
+    const boxW = rot90 ? h : w;
+    const boxH = rot90 ? w : h;
+    const pad = 4;
+
+    ctx.save();
+    ctx.translate(x + w / 2, y + h / 2);
+    ctx.rotate((this.rotationAngle * Math.PI) / 180);
+    ctx.drawImage(img, -boxW / 2 - pad, -boxH / 2 - pad, boxW + pad * 2, boxH + pad * 2);
+    ctx.restore();
+
+    if (isSelected) {
+      ctx.save();
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+      ctx.restore();
+    }
+  }
+
+  /** Renders the component body: artwork if present, otherwise the chip package. */
+  private drawPackage(x: number, y: number, w: number, h: number, isSelected: boolean) {
+    const img = this.imageSrc ? Ic.getImage(this.imageSrc) : null;
+    if (img) {
+      this.drawImageBody(img, x, y, w, h, isSelected);
+      return;
+    }
+    // Room for kind-specific vector art here later (e.g. this.kind === "resistor").
+    this.drawChipBody(x, y, w, h, isSelected);
+  }
+
   drawBody(){
     if (!this.topLeftDot) return;
-    Canvas.ctx.beginPath();
     const isSelected = this === State.selectedPlacedIc;
-    
-    Canvas.ctx.fillStyle = isSelected ? "rgba(30,58,138,0.9)" : "rgba(17,24,39,0.85)";
-    Canvas.ctx.strokeStyle = isSelected ? "#38bdf8" : "#475569";
-    Canvas.ctx.lineWidth = isSelected ? 3 : 2;
-
     const w = 50 * (this.widthPin - 1);
     const h = 50 * (this.heightPin - 1);
-    Canvas.ctx.rect(this.topLeftDot.x, this.topLeftDot.y, w, h);
-    Canvas.ctx.stroke();
-    Canvas.ctx.fill();
+    const x = this.topLeftDot.x;
+    const y = this.topLeftDot.y;
+
+    this.drawPackage(x, y, w, h, isSelected);
 
     // Draw Pin 1 orientation notch
     const notchRadius = 6;
     Canvas.ctx.beginPath();
     Canvas.ctx.fillStyle = "#38bdf8";
     if (this.rotationAngle === 0) {
-      Canvas.ctx.arc(this.topLeftDot.x + (w / 2), this.topLeftDot.y, notchRadius, 0, Math.PI);
+      Canvas.ctx.arc(x + (w / 2), y, notchRadius, 0, Math.PI);
     } else if (this.rotationAngle === 90) {
-      Canvas.ctx.arc(this.topLeftDot.x + w, this.topLeftDot.y + (h / 2), notchRadius, 0.5 * Math.PI, 1.5 * Math.PI);
+      Canvas.ctx.arc(x + w, y + (h / 2), notchRadius, 0.5 * Math.PI, 1.5 * Math.PI);
     } else if (this.rotationAngle === 180) {
-      Canvas.ctx.arc(this.topLeftDot.x + (w / 2), this.topLeftDot.y + h, notchRadius, Math.PI, 2 * Math.PI);
+      Canvas.ctx.arc(x + (w / 2), y + h, notchRadius, Math.PI, 2 * Math.PI);
     } else if (this.rotationAngle === 270) {
-      Canvas.ctx.arc(this.topLeftDot.x, this.topLeftDot.y + (h / 2), notchRadius, 1.5 * Math.PI, 0.5 * Math.PI);
+      Canvas.ctx.arc(x, y + (h / 2), notchRadius, 1.5 * Math.PI, 0.5 * Math.PI);
     }
     Canvas.ctx.fill();
+    Canvas.ctx.lineWidth = 1;
+    Canvas.ctx.strokeStyle = isSelected ? "#38bdf8" : "#1f2937";
     Canvas.ctx.stroke();
 
     // Draw Pin 1 dot marker
     Canvas.ctx.beginPath();
-    let p1x = this.topLeftDot.x + 10;
-    let p1y = this.topLeftDot.y + 10;
+    let p1x = x + 10;
+    let p1y = y + 10;
     if (this.rotationAngle === 90) {
-      p1x = this.topLeftDot.x + w - 10;
-      p1y = this.topLeftDot.y + 10;
+      p1x = x + w - 10;
+      p1y = y + 10;
     } else if (this.rotationAngle === 180) {
-      p1x = this.topLeftDot.x + w - 10;
-      p1y = this.topLeftDot.y + h - 10;
+      p1x = x + w - 10;
+      p1y = y + h - 10;
     } else if (this.rotationAngle === 270) {
-      p1x = this.topLeftDot.x + 10;
-      p1y = this.topLeftDot.y + h - 10;
+      p1x = x + 10;
+      p1y = y + h - 10;
     }
     Canvas.ctx.arc(p1x, p1y, 3, 0, Math.PI * 2);
     Canvas.ctx.fillStyle = "#38bdf8";
@@ -146,10 +259,10 @@ export class Ic{
     if (isSelected) {
       // Draw selection corner handles
       Canvas.ctx.fillStyle = "#38bdf8";
-      Canvas.ctx.fillRect(this.topLeftDot.x - 4, this.topLeftDot.y - 4, 8, 8);
-      Canvas.ctx.fillRect(this.topLeftDot.x + w - 4, this.topLeftDot.y - 4, 8, 8);
-      Canvas.ctx.fillRect(this.topLeftDot.x - 4, this.topLeftDot.y + h - 4, 8, 8);
-      Canvas.ctx.fillRect(this.topLeftDot.x + w - 4, this.topLeftDot.y + h - 4, 8, 8);
+      Canvas.ctx.fillRect(x - 4, y - 4, 8, 8);
+      Canvas.ctx.fillRect(x + w - 4, y - 4, 8, 8);
+      Canvas.ctx.fillRect(x - 4, y + h - 4, 8, 8);
+      Canvas.ctx.fillRect(x + w - 4, y + h - 4, 8, 8);
     }
   }
 
@@ -301,7 +414,7 @@ export class Ic{
   }
 
   clone(): Ic {
-    const copy = new Ic(this.widthPin, this.heightPin, { ...this.pinDescription }, this.name, this.isCustom);
+    const copy = new Ic(this.widthPin, this.heightPin, { ...this.pinDescription }, this.name, this.isCustom, this.kind, this.imageSrc);
     return copy;
   }
 
@@ -446,7 +559,7 @@ export function rotateSelectedIc() {
 
 ShortcutRegistry.add({
   key: "r",
-  description: "Rotate selected IC component.",
+  description: "Rotate selected component.",
   event: rotateSelectedIc
 });
 

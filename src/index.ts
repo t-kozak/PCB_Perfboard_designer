@@ -74,7 +74,7 @@ saveIcBtn?.addEventListener('click', () => {
   const nameInput = document.getElementById('icNameInput') as HTMLInputElement;
   const widthInputEl = document.getElementById('icWidthInput') as HTMLInputElement;
 
-  const name = nameInput?.value.trim() || 'Custom IC';
+  const name = nameInput?.value.trim() || 'Custom Component';
   const width = parseInt(widthInputEl?.value || '4');
   const height = parseInt(heightInputEl?.value || '4');
   const totalPins = height * 2;
@@ -379,13 +379,13 @@ export function updateSelectionStatus() {
   if (!statusEl) return;
   const modeLabel = State.activeToolMode.toUpperCase();
   if (State.selectedPlacedIc) {
-    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;margin-right:4px;"></span> Placed IC Selected (${State.selectedPlacedIc.name}) [Click Pad to Relocate • Del to Remove]`;
+    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;margin-right:4px;"></span> Component Selected (${State.selectedPlacedIc.name}) [Click Pad to Relocate • Del to Remove]`;
   } else if (State.selectedLine) {
     statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedLine.color || '#777676'};margin-right:4px;"></span> Line Selected (${State.selectedLine.width || 4}px) [Mode: ${modeLabel}]`;
   } else if (State.selectedDot) {
     statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedDot.color || '#a4a0a0'};margin-right:4px;"></span> Pad Selected (${State.selectedDot.x}, ${State.selectedDot.y}) [Mode: ${modeLabel}]`;
   } else if (State.selectedIc) {
-    statusEl.innerHTML = `<span>IC Ready: ${State.selectedIc.name} [Click Pad to Place]</span>`;
+    statusEl.innerHTML = `<span>Component Ready: ${State.selectedIc.name} [Click Pad to Place]</span>`;
   } else {
     statusEl.innerHTML = `<span>Tool: ${modeLabel} Mode</span>`;
   }
