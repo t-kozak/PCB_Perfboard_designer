@@ -6,13 +6,17 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
+  // On Mac keyboards the primary delete key reports as "Backspace"; treat it as
+  // "Delete" so the delete shortcut fires regardless of which key is pressed.
+  const eventKey = event.key === 'Backspace' ? 'Delete' : event.key;
+
   for (const shortcut of ShortcutRegistry.shortcuts) {
     if (event.ctrlKey !== !!shortcut.ctrl) continue;
     // Single-character keys match case-sensitively so `d` and `D` stay
     // distinct; named keys (Delete, Escape, …) stay case-insensitive.
     const match = shortcut.key.length === 1
-      ? event.key === shortcut.key
-      : event.key.toLowerCase() === shortcut.key.toLowerCase();
+      ? eventKey === shortcut.key
+      : eventKey.toLowerCase() === shortcut.key.toLowerCase();
     if (match) {
       shortcut.event(event);
     }

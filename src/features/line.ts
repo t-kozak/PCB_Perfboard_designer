@@ -71,7 +71,7 @@ export function deleteLine(){
   }
 }
 
-ShortcutRegistry.add({key: "Delete", event: deleteLine, description: "Delete line."})
+ShortcutRegistry.add({key: "Delete", event: deleteLine, description: "Delete selected wire / component / pad note."})
 ShortcutRegistry.add({key: "c", event: () => {
     addColorToSelectedLine()
     changeSelectedDotColor()
