@@ -4,7 +4,7 @@ import {IDot} from "../interfaces/dot.interface";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {Utils} from "../utils/utils";
 import {redrawCanvas} from "./draw-canvas";
-import {dotForPin, pinAtDot, pinCountOf} from "./ic-geometry";
+import {dotForPin, isRowLayout, pinAtDot, pinCountOf} from "./ic-geometry";
 import {updateSidebarVisibility} from "./sidebar-mode";
 
 
@@ -238,13 +238,7 @@ export class Ic{
   /** Draws component artwork (image/SVG) fitted to the body, rotated with the part. */
   private drawImageBody(img: HTMLImageElement, x: number, y: number, w: number, h: number, isSelected: boolean) {
     const ctx = Canvas.ctx;
-    const rot90 = this.rotationAngle === 90 || this.rotationAngle === 270;
-    // widthPin/heightPin are swapped on rotate, so undo that for the source box
-    const boxW = rot90 ? h : w;
-    const boxH = rot90 ? w : h;
-    const pad = 4;
-    const drawW = (boxW + pad * 2) * this.imageScaleX;
-    const drawH = (boxH + pad * 2) * this.imageScaleY;
+    const { drawW, drawH } = this.imageDrawSize(w, h);
 
     ctx.save();
     ctx.translate(x + w / 2, y + h / 2);
@@ -253,18 +247,66 @@ export class Ic{
     ctx.restore();
 
     if (isSelected) {
+      const rect = this.bodyRect();
       ctx.save();
       ctx.strokeStyle = "#38bdf8";
       ctx.lineWidth = 3;
-      ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+      ctx.strokeRect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4);
       ctx.restore();
     }
+  }
+
+  /** Local (pre-rotation) pixel size of the artwork drawn by drawImageBody. */
+  private imageDrawSize(w: number, h: number): { drawW: number; drawH: number } {
+    const rot90 = this.rotationAngle === 90 || this.rotationAngle === 270;
+    // widthPin/heightPin are swapped on rotate, so undo that for the source box
+    const boxW = rot90 ? h : w;
+    const boxH = rot90 ? w : h;
+    const pad = 4;
+    return { drawW: (boxW + pad * 2) * this.imageScaleX, drawH: (boxH + pad * 2) * this.imageScaleY };
+  }
+
+  /**
+   * Screen-space AABB of the artwork drawn by drawImageBody. A component's
+   * image can be scaled well beyond its pin-span box (e.g. a 6x1 breakout
+   * board rendered at full size), so this is unioned into bodyRect() to keep
+   * the whole picture clickable/draggable, not just a sliver along the pins.
+   */
+  private imageBounds(spanW: number, spanH: number): { x: number; y: number; w: number; h: number } {
+    const { drawW, drawH } = this.imageDrawSize(spanW, spanH);
+    const cx = this.topLeftDot!.x + spanW / 2;
+    const cy = this.topLeftDot!.y + spanH / 2;
+    const lx0 = -drawW / 2 + this.imageOffsetX;
+    const ly0 = -drawH / 2 + this.imageOffsetY;
+    const corners = [
+      [lx0, ly0],
+      [lx0 + drawW, ly0],
+      [lx0, ly0 + drawH],
+      [lx0 + drawW, ly0 + drawH],
+    ];
+    const rad = (this.rotationAngle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [lx, ly] of corners) {
+      const rx = lx * cos - ly * sin;
+      const ry = lx * sin + ly * cos;
+      minX = Math.min(minX, rx);
+      maxX = Math.max(maxX, rx);
+      minY = Math.min(minY, ry);
+      maxY = Math.max(maxY, ry);
+    }
+    return { x: cx + minX, y: cy + minY, w: maxX - minX, h: maxY - minY };
   }
 
   /**
    * Screen-space box of the drawn body. For chips this is exactly the pin-span
    * rectangle; for leaded parts (whose pin span is a zero-height line) it is
-   * widened to the visible artwork so hit-testing and labels line up.
+   * widened to the visible artwork so hit-testing and labels line up. For a
+   * component with artwork (imageSrc) it's the union of the pin-span rectangle
+   * and the artwork's own AABB, since imageScaleX/Y can render the picture far
+   * larger than the pin span (e.g. a wide breakout board on a single pin row) —
+   * without this, such a component would be nearly impossible to grab.
    */
   private bodyRect(): { x: number; y: number; w: number; h: number } {
     const spanW = 50 * (this.widthPin - 1);
@@ -281,7 +323,14 @@ export class Ic{
       }
       return { x: this.topLeftDot.x - t / 2, y: this.topLeftDot.y, w: t, h: spanH };
     }
-    return { x: this.topLeftDot.x, y: this.topLeftDot.y, w: spanW, h: spanH };
+    const spanRect = { x: this.topLeftDot.x, y: this.topLeftDot.y, w: spanW, h: spanH };
+    if (!this.imageSrc) return spanRect;
+    const img = this.imageBounds(spanW, spanH);
+    const x0 = Math.min(spanRect.x, img.x);
+    const y0 = Math.min(spanRect.y, img.y);
+    const x1 = Math.max(spanRect.x + spanRect.w, img.x + img.w);
+    const y1 = Math.max(spanRect.y + spanRect.h, img.y + img.h);
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
   /** Blue selection squares at the four corners of the drawn body box. */
@@ -494,12 +543,14 @@ export class Ic{
     Canvas.ctx.fill();
 
     if (isSelected) {
-      // Draw selection corner handles
+      // Draw selection corner handles at the clickable body box (bigger than the
+      // pin span when artwork extends past it, e.g. an imageSrc breakout board).
+      const rect = this.bodyRect();
       Canvas.ctx.fillStyle = "#38bdf8";
-      Canvas.ctx.fillRect(x - 4, y - 4, 8, 8);
-      Canvas.ctx.fillRect(x + w - 4, y - 4, 8, 8);
-      Canvas.ctx.fillRect(x - 4, y + h - 4, 8, 8);
-      Canvas.ctx.fillRect(x + w - 4, y + h - 4, 8, 8);
+      Canvas.ctx.fillRect(rect.x - 4, rect.y - 4, 8, 8);
+      Canvas.ctx.fillRect(rect.x + rect.w - 4, rect.y - 4, 8, 8);
+      Canvas.ctx.fillRect(rect.x - 4, rect.y + rect.h - 4, 8, 8);
+      Canvas.ctx.fillRect(rect.x + rect.w - 4, rect.y + rect.h - 4, 8, 8);
     }
   }
 
@@ -520,7 +571,24 @@ export class Ic{
     Canvas.ctx.font = "600 9px monospace, sans-serif";
     Canvas.ctx.fillStyle = "#cbd5e1";
 
-    if (this.rotationAngle === 0) {
+    if (isRowLayout(this)) {
+      // Single-row header (see ic-geometry.ts): one label per pin, spaced along
+      // whichever axis has extent, instead of the two-sided DIP layout below.
+      const horizontal = this.widthPin >= this.heightPin;
+      for (let pin = 1; pin <= this.pinCount; pin++) {
+        const p = this.pinDot(pin);
+        if (!p) continue;
+        const desc = this.pinDescription[pin];
+        const label = desc ? `${pin}:${desc}` : `${pin}`;
+        if (horizontal) {
+          Canvas.ctx.textAlign = "center";
+          Canvas.fillText(label, p.x, p.y + 20);
+        } else {
+          Canvas.ctx.textAlign = "left";
+          Canvas.fillText(label, p.x + 10, p.y + 3);
+        }
+      }
+    } else if (this.rotationAngle === 0) {
       // 0°: Vertical (Left: 1..N, Right: 2N..N+1)
       const pinsPerSide = this.heightPin;
       const rightX = this.topLeftDot.x + 50 * (this.widthPin - 1);
@@ -680,17 +748,6 @@ export class Ic{
     return x >= bx && x <= bx + w && y >= by && y <= by + h;
   }
 
-  /**
-   * True when the dot sits under this IC's body but is not one of its pins,
-   * so the render loop can hide it (concealed by the chip package).
-   */
-  hidesDot(dot: IDot): boolean {
-    // Leaded parts and bridges float above the board — their pads stay
-    // wireable and the holes they occupy stay visible.
-    if (this.isLeaded || this.isBridge) return false;
-    return this.containsPoint(dot.x, dot.y) && this.getPinPositionOnIC(dot) === null;
-  }
-
   clone(): Ic {
     const copy = new Ic(this.widthPin, this.heightPin, { ...this.pinDescription }, this.name, this.isCustom, this.kind, this.imageSrc, this.imageScaleX, this.imageScaleY, this.imageOffsetX, this.imageOffsetY);
     return copy;
@@ -756,6 +813,9 @@ export function loadDefaultIcs() {
     8: "D7", 9: "D8", 10: "D9", 11: "D10", 12: "3V3", 13: "GND", 14: "VBUS",
   }, "XIAO ESP32-C6", false, "chip", "components/seeed-esp32-c6.webp", 1.15, 1.45, 0.0, -17.0));
 
+  Ic.add(new Ic(6, 1, 
+    {1: "VIN", 2: "AV", 3: "GND", 4:"SCL", 5:"SDA", 6:"DRDY"}, 
+    "NAU7802", false, "chip", "components/nau7802.webp", 1.9, 58.0, 0.0, -178.0));
   // Static 2-terminal parts. The actual value is entered by the user as a note.
   Ic.add(new Ic(3, 1, {1: "", 2: ""}, "Resistor", false, "resistor"));
   Ic.add(new Ic(2, 1, {1: "", 2: ""}, "Ceramic Capacitor", false, "cap-ceramic"));

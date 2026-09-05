@@ -240,20 +240,35 @@ export function redrawCanvas() {
     if (line.generated && line.netId) routedNetIds.add(line.netId);
   }
 
-  // 1. IC bodies — component side only.
-  if (!solder) {
-    for (const ic of State.placedIcs) ic.drawBody();
-  }
-  // 2. Grid dots. On the component side, hide the ones a chip body conceals;
-  //    on the solder side every hole is exposed.
+  // 1. Grid dots — every hole, drawn before any component body so a chip's
+  //    package/artwork (step 2) paints over whichever ones it covers.
   for (let i = 0; i < State.dots.length; i++) {
     const dot = State.dots[i];
-    if (!solder && State.placedIcs.some((ic) => ic.hidesDot(dot))) continue;
     const key = dotKey(dot);
     const onHoverNet = solder
       ? (highlight?.pads.has(key) ?? false)
       : dotInHighlightedNet(dot, componentHighlight?.terminals ?? null);
     drawDot(dot, onHoverNet, shortPads.has(key));
+  }
+  // 2. IC bodies — component side only. Drawn on top of the dots they conceal.
+  if (!solder) {
+    for (const ic of State.placedIcs) ic.drawBody();
+  }
+  // 2b. Re-draw each component's own pins on top of its body/artwork so they
+  //     stay visible — only foreign holes stay obscured underneath. Leaded
+  //     parts/bridges paint nothing over their pads, so they're skipped.
+  if (!solder) {
+    const dotByKey = new Map<string, IDot>(State.dots.map((dot) => [dotKey(dot), dot]));
+    for (const ic of State.placedIcs) {
+      if (ic.isLeaded || ic.isBridge) continue;
+      for (let pin = 1; pin <= ic.pinCount; pin++) {
+        const coord = ic.pinDot(pin);
+        const dot = coord && dotByKey.get(dotKey(coord));
+        if (!dot) continue;
+        const key = dotKey(dot);
+        drawDot(dot, dotInHighlightedNet(dot, componentHighlight?.terminals ?? null), shortPads.has(key));
+      }
+    }
   }
   // 3. Wires (solder side) or connections (component side) — mutually exclusive faces.
   if (solder) {
