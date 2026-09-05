@@ -3,6 +3,7 @@ import "./features/project/save-image";
 import "./features/project/save-progress";
 import "./features/project/save-project";
 import "./features/select";
+import "./features/connect";
 import "./features/project/load-project";
 import "./features/hover";
 import "./features/description";
@@ -12,22 +13,25 @@ import "./features/project/load-from-local-storage";
 import "./features/shortcut-keys";
 import "./features/dot";
 import "./features/nets-ui";
+import "./features/connections-ui";
 import "./features/routing";
 import "./features/project/reset-project";
 import {resetCanvas} from "./features/reset-canvas";
-import {createDotGrid, heightInput, widthInput} from "./features/project/resize-grid";
+import {applyGridPreset, createDotGrid, readGridInputs} from "./features/project/resize-grid";
 import {redrawCanvas} from "./features/draw-canvas";
 import {State} from "./state/State";
 import {changeSelectedDotColor, setDotColor} from "./features/dot";
 import {setLineColor, deleteLine} from "./features/line";
 import {addNote} from "./features/description";
 import {hideContextMenu} from "./features/select";
-import {lockNetOf, unlockAndReroute} from "./features/routing";
+import {lockNetOf, unlockAndReroute, routeOnFlip} from "./features/routing";
 import {Ic} from "./features/ic";
 import {Canvas} from "./state/Canvas";
 import {applyZoom, nudgeZoom, resetPan, initViewportGestures} from "./features/viewport";
+import {dotCoordinateLabel} from "./features/grid-labels";
 
-createDotGrid(parseInt(widthInput.value || "10"), parseInt(heightInput.value || "10"));
+const initialGrid = readGridInputs() ?? {cols: 10, rows: 10};
+createDotGrid(initialGrid.cols, initialGrid.rows);
 resetCanvas();
 redrawCanvas();
 
@@ -102,7 +106,7 @@ document.querySelectorAll('#toolModeSelector .tool-mode-btn').forEach((btn) => {
     document.querySelectorAll('#toolModeSelector .tool-mode-btn').forEach(b => b.classList.remove('active-mode'));
     const target = e.currentTarget as HTMLElement;
     target.classList.add('active-mode');
-    const mode = target.getAttribute('data-mode') as 'wire' | 'eraser' | 'note' | 'ic';
+    const mode = target.getAttribute('data-mode') as 'select' | 'connect' | 'eraser' | 'note' | 'ic';
     if (mode) {
       State.activeToolMode = mode;
       updateSelectionStatus();
@@ -157,7 +161,7 @@ document.getElementById('ctxUnlockNetBtn')?.addEventListener('click', () => {
 
 document.getElementById('ctxDeleteBtn')?.addEventListener('click', () => {
   hideContextMenu();
-  if (State.selectedLine || State.selectedPlacedIc) {
+  if (State.selectedLine || State.selectedPlacedIc || State.selectedConnection) {
     deleteLine();
   } else if (State.selectedDot && State.selectedDot.description) {
     State.selectedDot.description = undefined;
@@ -373,11 +377,7 @@ document.querySelectorAll('#gridPresets .preset-btn').forEach((btn) => {
     const w = target.getAttribute('data-w');
     const h = target.getAttribute('data-h');
     if (w && h) {
-      widthInput.value = w;
-      heightInput.value = h;
-      createDotGrid(parseInt(w), parseInt(h));
-      resetCanvas();
-      redrawCanvas();
+      applyGridPreset(w, h, target.getAttribute('data-bottom-up') === 'true');
     }
   });
 });
@@ -392,7 +392,7 @@ export function updateSelectionStatus() {
   } else if (State.selectedLine) {
     statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedLine.color || '#777676'};margin-right:4px;"></span> Line Selected (${State.selectedLine.width || 4}px) [Mode: ${modeLabel}]`;
   } else if (State.selectedDot) {
-    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedDot.color || '#a4a0a0'};margin-right:4px;"></span> Pad Selected (${State.selectedDot.x}, ${State.selectedDot.y}) [Mode: ${modeLabel}]`;
+    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedDot.color || '#a4a0a0'};margin-right:4px;"></span> Pad Selected (${dotCoordinateLabel(State.selectedDot) ?? `${State.selectedDot.x}, ${State.selectedDot.y}`}) [Mode: ${modeLabel}]`;
   } else if (State.selectedIc) {
     statusEl.innerHTML = `<span>Component Ready: ${State.selectedIc.name} [Click Pad to Place]</span>`;
   } else {
@@ -501,23 +501,33 @@ document.getElementById('zoomFitBtn')?.addEventListener('click', () => fitToScre
 
 document.getElementById('toggleSidebarBtn')?.addEventListener('click', () => toggleSidebar());
 
-// Solder-side view toggle. Component side = logical connections (components +
-// hand-drawn wires); solder side = physical wiring (mirrored, components hidden,
-// nets / tidy / routing live here).
+// Solder-side view toggle. Component side = the logical layer (components +
+// connections); solder side = physical wiring (mirrored, components hidden,
+// nets / tidy / routing live here). Flipping to the solder side is the build
+// step: it routes every net whose terminals changed since it was last routed
+// (docs/logical-connections.md §3).
 let solderSide = false;
 document.getElementById('toggleSolderSideBtn')?.addEventListener('click', () => {
   solderSide = !solderSide;
   Canvas.setSolderSide(solderSide);
 
-  // Component tooling only makes sense on the component side.
+  // Component / connection tooling only makes sense on the component side.
   if (solderSide) {
     State.selectedPlacedIc = undefined;
     State.selectedIc = undefined;
     State.isDraggingIc = false;
+    State.selectedConnection = undefined;
+    State.hoverConnection = undefined;
+    State.pendingTerminal = undefined;
+    routeOnFlip();
+  } else {
+    State.selectedLine = undefined;
   }
 
   document.getElementById('netsPanelWrap')?.toggleAttribute('hidden', !solderSide);
   document.getElementById('componentsPanelWrap')?.toggleAttribute('hidden', solderSide);
+  document.getElementById('connectionsPanelWrap')?.toggleAttribute('hidden', solderSide);
+  document.getElementById('wireGaugeSectionWrap')?.toggleAttribute('hidden', !solderSide);
 
   redrawCanvas();
   window.dispatchEvent(new Event('nets-changed'));

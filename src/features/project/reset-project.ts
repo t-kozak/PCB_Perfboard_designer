@@ -1,12 +1,13 @@
 import {Utils} from "../../utils/utils";
 import {State} from "../../state/State";
-import {createDotGrid, heightInput, widthInput} from "./resize-grid";
+import {createDotGrid, readGridInputs} from "./resize-grid";
 import {resetCanvas} from "../reset-canvas";
 import {redrawCanvas} from "../draw-canvas";
 import {loadDefaultIcs} from "../ic";
 
 Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click', function() {
   State.lines = [];
+  State.connections = [];
   State.dots = [];
   State.placedIcs = [];
   State.nets = [];
@@ -14,11 +15,15 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click'
   State.changeIndex = -1;
   State.selectedDot = undefined;
   State.selectedLine = undefined;
+  State.selectedConnection = undefined;
+  State.hoverConnection = undefined;
+  State.pendingTerminal = undefined;
   State.selectedIc = undefined;
   State.selectedPlacedIc = undefined;
   loadDefaultIcs(); // restore the built-in IC catalog
   localStorage.removeItem('save');
-  createDotGrid(parseInt(widthInput.value || "10"), parseInt(heightInput.value || "10"));
+  const size = readGridInputs() ?? {cols: 10, rows: 10};
+  createDotGrid(size.cols, size.rows);
   resetCanvas()
   redrawCanvas()
   window.dispatchEvent(new Event('nets-changed'));

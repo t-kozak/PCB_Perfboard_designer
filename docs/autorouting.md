@@ -8,6 +8,15 @@ that, not a second schematic screen.
 **New runtime dependencies:** none at runtime. **Dev:** Vitest, scoped to
 `src/routing/` only (`pnpm test`). **Actual total:** ~1100 LOC across six milestones.
 
+> **Superseded in part by [`logical-connections.md`](logical-connections.md)
+> (implemented).** That spec reverses §1's decision below — connections
+> (pin-to-pin, not wire-to-wire) are now the source of truth, and nets derive
+> from connections, not from `State.lines`. §4 M3 (net derivation from wires)
+> is superseded by that spec's M9. Everything else here — §3, §4 M4/M5, and
+> the router's `RouteNet[] → ILine[]` contract in particular — is unchanged
+> and still canonical: the router never learned that connections exist. See
+> `logical-connections.md` §8 for the full list of what changed.
+
 A rendered version of this spec exists as an artifact; this file is the canonical
 copy. If you are a future session picking this up, read §1 and §4 first — the
 milestones are in strict dependency order and M0/M1 are gates.
@@ -27,6 +36,10 @@ those are separate concepts. Every other decision below follows from how the
 split is made.
 
 ### The decision: wires stay the source of truth
+
+> **Reversed by `logical-connections.md`.** Option A below was adopted after
+> all, once the solder-side view (M2) made the "second surface" cheap instead
+> of a second app. See that spec's §1.
 
 Two ways to split it were considered.
 
@@ -209,7 +222,11 @@ motivates the routing model: wires belong on this face, components on the other.
 **Done when:** toggling the view and flipping the physical board put every pad
 in the same place, with all text still legible.
 
-### M3 — The net layer  ·  *ships alone*  ·  ~150 LOC  ·  ✅ done
+### M3 — The net layer  ·  *ships alone*  ·  ~150 LOC  ·  ✅ done · superseded by `logical-connections.md` M9
+
+> Nets now derive from `State.connections` (union-find on `"icId#pin"` terminal
+> keys), not from `State.lines`. The description below is the pre-M9 shape,
+> kept for history.
 
 Implemented: `ILine.netId`/`generated`, `State.nets: INet[]`, pure
 `src/nets/derive.ts` (union-find keyed on `"x,y"`, power-pin naming, short

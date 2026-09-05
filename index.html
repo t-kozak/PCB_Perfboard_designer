@@ -62,9 +62,9 @@
               <span class="tool-icon">🖐</span>
               <span class="tool-label">Select</span>
             </button>
-            <button class="tool-mode-btn" data-mode="wire">
-              <span class="tool-icon">✏</span>
-              <span class="tool-label">Wire</span>
+            <button class="tool-mode-btn" data-mode="connect">
+              <span class="tool-icon">🔗</span>
+              <span class="tool-label">Connect</span>
             </button>
             <button class="tool-mode-btn" data-mode="eraser">
               <span class="tool-icon">🧹</span>
@@ -78,29 +78,30 @@
         </div>
       </div>
 
-      <div class="sidebar-divider"></div>
-
-      <!-- Wire Gauge Selector -->
-      <div class="sidebar-section">
-        <div class="section-title" data-collapse="wireGaugeSection">
-          <span class="section-icon">〰</span>
-          <span>Wire Thickness</span>
-          <span class="collapse-chevron">▾</span>
-        </div>
-        <div class="section-body" id="wireGaugeSection">
-          <div class="gauge-selector" id="wireGaugeSelector">
-            <button class="gauge-btn" data-width="2">
-              <span class="gauge-line gauge-thin"></span>
-              <span>Thin</span>
-            </button>
-            <button class="gauge-btn active-mode" data-width="4">
-              <span class="gauge-line gauge-normal"></span>
-              <span>Normal</span>
-            </button>
-            <button class="gauge-btn" data-width="7">
-              <span class="gauge-line gauge-thick"></span>
-              <span>Thick</span>
-            </button>
+      <!-- Wire Gauge Selector — solder-side only (wires are physical output there) -->
+      <div id="wireGaugeSectionWrap" hidden>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+          <div class="section-title" data-collapse="wireGaugeSection">
+            <span class="section-icon">〰</span>
+            <span>Wire Thickness</span>
+            <span class="collapse-chevron">▾</span>
+          </div>
+          <div class="section-body" id="wireGaugeSection">
+            <div class="gauge-selector" id="wireGaugeSelector">
+              <button class="gauge-btn" data-width="2">
+                <span class="gauge-line gauge-thin"></span>
+                <span>Thin</span>
+              </button>
+              <button class="gauge-btn active-mode" data-width="4">
+                <span class="gauge-line gauge-normal"></span>
+                <span>Normal</span>
+              </button>
+              <button class="gauge-btn" data-width="7">
+                <span class="gauge-line gauge-thick"></span>
+                <span>Thick</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -215,18 +216,35 @@
         <div class="section-body" id="gridSection">
           <div class="grid-inputs">
             <label style="font-size:0.8rem; color:var(--text-muted);">W:</label>
-            <input type="number" id="dotMatrixWidth" min="1" value="10">
+            <input type="text" id="dotMatrixWidth" value="J" maxlength="3" autocomplete="off" spellcheck="false"
+                   title="Columns: a number (10) or letters A–ZZ (J). Whichever you type is how the axis is labelled.">
             <span style="color:var(--text-muted);">×</span>
             <label style="font-size:0.8rem; color:var(--text-muted);">H:</label>
-            <input type="number" id="dotMatrixHeight" min="1" value="10">
+            <input type="text" id="dotMatrixHeight" value="10" maxlength="3" autocomplete="off" spellcheck="false"
+                   title="Rows: a number (10) or letters A–ZZ (J). Whichever you type is how the axis is labelled.">
             <button id="resizeGridBtn" class="btn-accent" style="padding:0.35rem 0.65rem;">Resize</button>
           </div>
+          <p class="grid-hint">Type a number (<code>10</code>) or letters (<code>A</code>–<code>ZZ</code>) per axis — the axis is labelled in whichever you use, so pads read as <code>B4</code>.</p>
+          <label class="grid-check" for="rowLabelsBottomUp">
+            <input type="checkbox" id="rowLabelsBottomUp">
+            <span>Number rows bottom-to-top</span>
+          </label>
           <!-- Grid Presets -->
+          <!-- A preset carries the literal notation for each axis plus the row
+               direction, so the caption is exactly the board you get. -->
           <div class="grid-presets" id="gridPresets">
-            <button class="preset-btn" data-w="10" data-h="10">10×10</button>
-            <button class="preset-btn" data-w="16" data-h="16">16×16</button>
-            <button class="preset-btn" data-w="24" data-h="16">24×16</button>
-            <button class="preset-btn" data-w="30" data-h="20">30×20</button>
+            <button class="preset-btn" data-w="X" data-h="19" data-bottom-up="true"
+                    title="24 columns A–X × 19 rows, numbered bottom-to-top">X×19</button>
+            <button class="preset-btn" data-w="T" data-h="14" data-bottom-up="true"
+                    title="20 columns A–T × 14 rows, numbered bottom-to-top">T×14</button>
+            <button class="preset-btn" data-w="28" data-h="F" data-bottom-up="true"
+                    title="28 numbered columns × 6 rows A–F, lettered bottom-to-top">28×F</button>
+            <button class="preset-btn" data-w="X" data-h="10" data-bottom-up="true"
+                    title="24 columns A–X × 10 rows, numbered bottom-to-top">X×10</button>
+            <button class="preset-btn" data-w="10" data-h="10" data-bottom-up="false">10×10</button>
+            <button class="preset-btn" data-w="16" data-h="16" data-bottom-up="false">16×16</button>
+            <button class="preset-btn" data-w="24" data-h="16" data-bottom-up="false">24×16</button>
+            <button class="preset-btn" data-w="30" data-h="20" data-bottom-up="false">30×20</button>
           </div>
         </div>
       </div>
@@ -267,6 +285,21 @@
           </div>
           <div class="section-body" id="icSection">
             <div id="ic-items"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connections — the logical layer, component-side only -->
+      <div id="connectionsPanelWrap">
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+          <div class="section-title" data-collapse="connectionsSection">
+            <span class="section-icon">🔗</span>
+            <span>Connections</span>
+            <span class="collapse-chevron">▾</span>
+          </div>
+          <div class="section-body" id="connectionsSection">
+            <div id="connectionsInfo"></div>
           </div>
         </div>
       </div>

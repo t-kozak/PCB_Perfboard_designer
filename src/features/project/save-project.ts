@@ -38,12 +38,18 @@ export function serializePlacedIc(ic: Ic) {
 
 export function getSaveJson(): IProjectSave {
   return {
-    version: 2,
+    version: 3,
+    connections: State.connections,
     dots: State.dots,
     lines: State.lines,
     canvas: { width: Canvas.boardWidth, height: Canvas.boardHeight },
     ICs: Ic.IC_CONTAINER || [],
     placedIcs: State.placedIcs.map(ic => serializePlacedIc(ic)),
     nets: State.nets,
+    grid: {
+      colLabelMode: State.colLabelMode,
+      rowLabelMode: State.rowLabelMode,
+      rowLabelsBottomUp: State.rowLabelsBottomUp,
+    },
   };
 }

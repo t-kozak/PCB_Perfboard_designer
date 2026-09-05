@@ -6,6 +6,8 @@ import {ILine} from "../interfaces/line.interface";
 import {addNote} from "./description";
 import {panBy} from "./viewport";
 import {recordChange} from "./project/undo-redo";
+import {rebuildNets} from "../nets/rebuild";
+import {deletePlacedIcCascade} from "./connect";
 let isPanningBoard = false;
 let panLastX = 0;
 let panLastY = 0;
@@ -31,9 +33,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
     if (State.activeToolMode === 'eraser') {
       const placedIcIndex = solder ? -1 : State.placedIcs.findIndex(ic => ic.containsPoint(x, y));
       if (placedIcIndex > -1) {
-        State.placedIcs.splice(placedIcIndex, 1);
-        State.selectedPlacedIc = undefined;
-        redrawCanvas();
+        deletePlacedIcCascade(State.placedIcs[placedIcIndex]);
         return;
       }
       handleEraserClick(e);
@@ -62,6 +62,12 @@ Canvas.c.addEventListener('mousedown', function(e) {
       return;
     }
 
+    // Connect tool (component side): pin-to-pin connections are handled
+    // entirely by features/connect.ts, which listens on this same event.
+    if (State.activeToolMode === 'connect' && !solder) {
+      return;
+    }
+
     // Check hit on an existing placed IC on canvas (Enable Drag & Drop)
     const hitPlacedIc = solder ? undefined : State.placedIcs.find(ic => ic.containsPoint(x, y));
     if (hitPlacedIc) {
@@ -77,7 +83,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
     if (State.selectedPlacedIc) {
       State.selectedPlacedIc = undefined;
       redrawCanvas();
-      // Fall through to normal dot/line selection
+      // Fall through to normal dot/line/connection selection
     }
 
     setSelection(e);
@@ -104,14 +110,23 @@ window.addEventListener('mouseup', () => {
 Canvas.c.addEventListener('contextmenu', function(e) {
   e.preventDefault();
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
-  selectLine(e);
-  if (!State.selectedLine && State.hoverDot) {
-    State.selectedDot = State.hoverDot;
-    redrawCanvas();
+
+  if (Canvas.solderSide) {
+    selectLine(e);
+    if (!State.selectedLine && State.hoverDot) {
+      State.selectedDot = State.hoverDot;
+      redrawCanvas();
+    }
+  } else {
+    State.selectedConnection = State.hoverDot ? undefined : State.hoverConnection;
+    if (!State.selectedConnection && State.hoverDot) {
+      State.selectedDot = State.hoverDot;
+      redrawCanvas();
+    }
   }
 
   // Right-click on a component body (away from its pins) targets the component.
-  if (!Canvas.solderSide && !State.selectedLine && !State.selectedDot) {
+  if (!Canvas.solderSide && !State.selectedLine && !State.selectedDot && !State.selectedConnection) {
     const hitIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
     if (hitIc) {
       State.selectedPlacedIc = hitIc;
@@ -128,7 +143,7 @@ Canvas.c.addEventListener('contextmenu', function(e) {
     unlockBtn.style.display = net?.locked ? 'block' : 'none';
   }
 
-  if (State.selectedLine || State.selectedDot || State.selectedPlacedIc) {
+  if (State.selectedLine || State.selectedDot || State.selectedPlacedIc || State.selectedConnection) {
     showContextMenu(e.clientX, e.clientY);
   } else {
     hideContextMenu();
@@ -136,19 +151,36 @@ Canvas.c.addEventListener('contextmenu', function(e) {
 });
 
 function handleEraserClick(event: MouseEvent) {
-  // If clicking on line or near line, remove line
-  selectLine(event);
-  if (State.selectedLine) {
-    const index = State.lines.indexOf(State.selectedLine);
+  // Connections are a component-side concept — erase whichever is hovered.
+  if (!Canvas.solderSide && State.hoverConnection) {
+    const index = State.connections.indexOf(State.hoverConnection);
     if (index > -1) {
-      recordChange({ removed: [State.selectedLine] });
-      State.lines.splice(index, 1);
-      State.selectedLine = undefined;
+      recordChange({ connectionsRemoved: [State.hoverConnection] });
+      State.connections.splice(index, 1);
+      State.selectedConnection = undefined;
+      rebuildNets();
       redrawCanvas();
       window.dispatchEvent(new Event('nets-changed'));
       return;
     }
   }
+
+  // If clicking on line or near line, remove line (solder side only).
+  if (Canvas.solderSide) {
+    selectLine(event);
+    if (State.selectedLine) {
+      const index = State.lines.indexOf(State.selectedLine);
+      if (index > -1) {
+        recordChange({ removed: [State.selectedLine] });
+        State.lines.splice(index, 1);
+        State.selectedLine = undefined;
+        redrawCanvas();
+        window.dispatchEvent(new Event('nets-changed'));
+        return;
+      }
+    }
+  }
+
   // If clicking dot, reset dot color and description
   if (State.hoverDot) {
     let changed = false;
@@ -189,7 +221,7 @@ window.addEventListener('click', (e) => {
 });
 
 function addNewLineIfNeeded(){
-    if (State.activeToolMode !== 'wire') {
+    if (State.activeToolMode !== 'connect') {
       return;
     }
     if (!State.hoverDot){
@@ -197,8 +229,8 @@ function addNewLineIfNeeded(){
     }
     if(State.selectedDot && State.selectedDot != State.hoverDot){
       const newLine: ILine = {
-        start: State.selectedDot, 
-        end: State.hoverDot, 
+        start: State.selectedDot,
+        end: State.hoverDot,
         color: State.activeWireColor || "#3b82f6",
         width: State.selectedWireWidth || 4
       };
@@ -219,6 +251,15 @@ function selectDot(){
   }
   State.selectedDot = State.hoverDot;
   State.selectedLine = undefined;
+  redrawCanvas();
+}
+
+/** Component-side sibling of `selectLine` — selects whatever connection is currently hovered. */
+function selectConnection(){
+  if (State.hoverDot) {
+    return;
+  }
+  State.selectedConnection = State.hoverConnection;
   redrawCanvas();
 }
 
@@ -257,15 +298,22 @@ export function selectLine(event: MouseEvent) {
   redrawCanvas();
 }
 
-function setSelection(event) {
-  addNewLineIfNeeded();
-  selectDot();
-  selectLine(event);
+function setSelection(event: MouseEvent) {
+  if (Canvas.solderSide) {
+    addNewLineIfNeeded();
+    selectDot();
+    selectLine(event);
+  } else {
+    selectDot();
+    selectConnection();
+  }
 }
 
-ShortcutRegistry.add({key: "Escape", description: "Unselect dot or line", event: ()=>{
+ShortcutRegistry.add({key: "Escape", description: "Unselect dot, line or connection", event: ()=>{
   State.selectedDot = undefined;
   State.selectedLine = undefined;
+  State.selectedConnection = undefined;
+  State.pendingTerminal = undefined;
   State.selectedIc = undefined;
   State.selectedPlacedIc = undefined;
   State.isDraggingIc = false;

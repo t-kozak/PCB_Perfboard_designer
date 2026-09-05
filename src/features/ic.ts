@@ -4,6 +4,7 @@ import {IDot} from "../interfaces/dot.interface";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {Utils} from "../utils/utils";
 import {redrawCanvas} from "./draw-canvas";
+import {dotForPin, pinAtDot, pinCountOf} from "./ic-geometry";
 
 
 export class Ic{
@@ -56,12 +57,23 @@ export class Ic{
     return Ic.LEADED_KINDS.includes(this.kind);
   }
 
+  /** True for a bridge — a 1-pad, 1-pin junction component (see docs/logical-connections.md). */
+  get isBridge(): boolean {
+    return this.kind === "bridge";
+  }
+
+  /** Total number of pins this component has, across all rotations. */
+  get pinCount(): number {
+    return pinCountOf(this);
+  }
+
   /** Emoji shown next to the component name in the sidebar catalog. */
   get icon(): string {
     switch (this.kind) {
       case "resistor": return "🟫";
       case "cap-ceramic": return "🔵";
       case "cap-electrolytic": return "🛢️";
+      case "bridge": return "•";
       default: return "📦";
     }
   }
@@ -232,6 +244,10 @@ export class Ic{
     const spanW = 50 * (this.widthPin - 1);
     const spanH = 50 * (this.heightPin - 1);
     if (!this.topLeftDot) return { x: 0, y: 0, w: spanW, h: spanH };
+    if (this.isBridge) {
+      const s = 16;
+      return { x: this.topLeftDot.x - s / 2, y: this.topLeftDot.y - s / 2, w: s, h: s };
+    }
     if (this.isLeaded) {
       const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : 30;
       if (spanW >= spanH) {
@@ -376,9 +392,31 @@ export class Ic{
     this.drawChipBody(x, y, w, h, isSelected);
   }
 
+  /** A small ring on the pad — the bridge's whole "body" (no package). */
+  private drawBridgeBody(isSelected: boolean) {
+    if (!this.topLeftDot) return;
+    const ctx = Canvas.ctx;
+    const r = 9;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(this.topLeftDot.x, this.topLeftDot.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#94a3b8";
+    ctx.stroke();
+    ctx.restore();
+  }
+
   drawBody(){
     if (!this.topLeftDot) return;
     const isSelected = this === State.selectedPlacedIc;
+
+    if (this.isBridge) {
+      this.drawBridgeBody(isSelected);
+      if (isSelected) this.drawSelectionHandles();
+      return;
+    }
 
     if (this.isLeaded) {
       this.drawLeadedBody(isSelected);
@@ -529,6 +567,12 @@ export class Ic{
 
   drawLabel(){
     if (!this.topLeftDot) return;
+    // A bridge is a bare junction, not a named part — skip its name badge and
+    // pin label, but it can still carry a note.
+    if (this.isBridge) {
+      this.drawNote();
+      return;
+    }
     const isSelected = this === State.selectedPlacedIc;
     const rect = this.bodyRect();
     const centerX = rect.x + (rect.w / 2);
@@ -615,9 +659,9 @@ export class Ic{
    * so the render loop can hide it (concealed by the chip package).
    */
   hidesDot(dot: IDot): boolean {
-    // Leaded parts float above the board — their end pads stay wireable and the
-    // holes they straddle stay visible.
-    if (this.isLeaded) return false;
+    // Leaded parts and bridges float above the board — their pads stay
+    // wireable and the holes they occupy stay visible.
+    if (this.isLeaded || this.isBridge) return false;
     return this.containsPoint(dot.x, dot.y) && this.getPinPositionOnIC(dot) === null;
   }
 
@@ -626,61 +670,15 @@ export class Ic{
     return copy;
   }
 
-  getPinPositionOnIC(dot: IDot) {
-    if (this.topLeftDot == null) {
-      return null;
-    }
+  /** pad -> pin, in this component's current position/rotation. Null when `dot` is not one of its pins. */
+  getPinPositionOnIC(dot: IDot): { pin: number; info: string } | null {
+    const pin = pinAtDot(this, dot);
+    return pin === null ? null : { pin, info: this.pinDescription[pin] };
+  }
 
-    if (this.rotationAngle === 0) {
-      // 0°: Vertical (Side A = Left: 1..N, Side B = Right: 2N..N+1)
-      const isOnLeftSide = dot.x === this.topLeftDot.x && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin - 1) * 50);
-      const isOnRightSide = dot.x === this.topLeftDot.x + 50 * (this.widthPin - 1) && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin - 1) * 50);
-      if (!(isOnLeftSide || isOnRightSide)) return null;
-
-      const relativeY = dot.y - this.topLeftDot.y;
-      const i = Math.round(relativeY / 50);
-      if (i >= 0 && i < this.heightPin) {
-        const pinNbr = isOnLeftSide ? (i + 1) : (this.heightPin * 2 - i);
-        return { pin: pinNbr, info: this.pinDescription[pinNbr] };
-      }
-    } else if (this.rotationAngle === 90) {
-      // 90°: Horizontal (Side A = Top: 1..N, Side B = Bottom: 2N..N+1)
-      const isOnTopSide = dot.y === this.topLeftDot.y && dot.x >= this.topLeftDot.x && dot.x <= this.topLeftDot.x + ((this.widthPin - 1) * 50);
-      const isOnBottomSide = dot.y === this.topLeftDot.y + 50 * (this.heightPin - 1) && dot.x >= this.topLeftDot.x && dot.x <= this.topLeftDot.x + ((this.widthPin - 1) * 50);
-      if (!(isOnTopSide || isOnBottomSide)) return null;
-
-      const relativeX = dot.x - this.topLeftDot.x;
-      const i = Math.round(relativeX / 50);
-      if (i >= 0 && i < this.widthPin) {
-        const pinNbr = isOnTopSide ? (i + 1) : (this.widthPin * 2 - i);
-        return { pin: pinNbr, info: this.pinDescription[pinNbr] };
-      }
-    } else if (this.rotationAngle === 180) {
-      // 180°: Vertical (Side A = Right: 1..N, Side B = Left: 2N..N+1)
-      const isOnLeftSide = dot.x === this.topLeftDot.x && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin - 1) * 50);
-      const isOnRightSide = dot.x === this.topLeftDot.x + 50 * (this.widthPin - 1) && dot.y >= this.topLeftDot.y && dot.y <= this.topLeftDot.y + ((this.heightPin - 1) * 50);
-      if (!(isOnLeftSide || isOnRightSide)) return null;
-
-      const relativeY = dot.y - this.topLeftDot.y;
-      const i = Math.round(relativeY / 50);
-      if (i >= 0 && i < this.heightPin) {
-        const pinNbr = isOnRightSide ? (i + 1) : (this.heightPin * 2 - i);
-        return { pin: pinNbr, info: this.pinDescription[pinNbr] };
-      }
-    } else if (this.rotationAngle === 270) {
-      // 270°: Horizontal (Side A = Bottom: 1..N, Side B = Top: 2N..N+1)
-      const isOnTopSide = dot.y === this.topLeftDot.y && dot.x >= this.topLeftDot.x && dot.x <= this.topLeftDot.x + ((this.widthPin - 1) * 50);
-      const isOnBottomSide = dot.y === this.topLeftDot.y + 50 * (this.heightPin - 1) && dot.x >= this.topLeftDot.x && dot.x <= this.topLeftDot.x + ((this.widthPin - 1) * 50);
-      if (!(isOnTopSide || isOnBottomSide)) return null;
-
-      const relativeX = dot.x - this.topLeftDot.x;
-      const i = Math.round(relativeX / 50);
-      if (i >= 0 && i < this.widthPin) {
-        const pinNbr = isOnBottomSide ? (i + 1) : (this.widthPin * 2 - i);
-        return { pin: pinNbr, info: this.pinDescription[pinNbr] };
-      }
-    }
-    return null;
+  /** Board coordinate of pin `n` in this component's current position/rotation. Null if out of range or unplaced. */
+  pinDot(pin: number): { x: number; y: number } | null {
+    return dotForPin(this, pin);
   }
 
   getPinNumber(dot: IDot){
@@ -716,6 +714,10 @@ export class Ic{
  */
 export function loadDefaultIcs() {
   Ic.IC_CONTAINER = [];
+  // Heads the catalog: the one-pin junction you place to connect to a bare
+  // hole (a wire junction, test point, or off-board lead) — see
+  // docs/logical-connections.md §2.
+  Ic.add(new Ic(1, 1, {1: ""}, "Bridge", false, "bridge"));
   Ic.add(new Ic(4, 4, {1: "GND", 2: "TRIG", 3: "OUT", 4: "RESET", 5: "CTRL", 6: "THRESH", 7: "DISCH", 8: "VCC"}, "NE555 Timer"));
   Ic.add(new Ic(4, 7, {1: "1A", 2: "1B", 3: "1Y", 4: "2A", 5: "2B", 6: "2Y", 7: "GND", 14: "VCC"}, "DIP-14 Logic"));
   Ic.add(new Ic(4, 8, {1: "EN", 2: "1D", 3: "1Q", 4: "2D", 5: "2Q", 8: "GND", 16: "VCC"}, "DIP-16 Logic"));

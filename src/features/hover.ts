@@ -3,6 +3,8 @@ import {redrawCanvas} from "./draw-canvas";
 import {Canvas} from "../state/Canvas";
 import {Utils} from "../utils/utils";
 import {ShortcutRegistry} from "./shortcut-keys";
+import {resolveTerminal} from "../nets/derive";
+import {dotCoordinateLabel} from "./grid-labels";
 
 Canvas.c.addEventListener('mousemove', function(e) {
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
@@ -36,6 +38,23 @@ Canvas.c.addEventListener('mousemove', function(e) {
     }
   }
 
+  // Connections are a component-side concept — the solder side hides components.
+  State.hoverConnection = undefined;
+  if (!Canvas.solderSide) {
+    for (let i = 0; i < State.connections.length; i++) {
+      const conn = State.connections[i];
+      const a = resolveTerminal(conn.a, State.placedIcs);
+      const b = resolveTerminal(conn.b, State.placedIcs);
+      if (!a || !b) continue;
+      const d1 = Math.hypot(a.x - x, a.y - y);
+      const d2 = Math.hypot(b.x - x, b.y - y);
+      const d = Math.hypot(b.x - a.x, b.y - a.y);
+      if (Math.abs(d - (d1 + d2)) < State.lineSelectTolerance) {
+        State.hoverConnection = conn;
+        break;
+      }
+    }
+  }
 
   // Check if mouse is over a placed component body. Components are hidden and
   // inert on the solder side — you are working on wires there.
@@ -49,8 +68,11 @@ Canvas.c.addEventListener('mousemove', function(e) {
 
   redrawCanvas();
 
+  // Readout: the hovered pad's board coordinate ("B4"), then any note on it.
   const hoverNote = State.hoverIc?.description || State.hoverDot?.description;
-  Utils.getSafeHtmlElement('dotDescription').innerText = hoverNote || '';
+  const coord = State.hoverDot ? dotCoordinateLabel(State.hoverDot) : null;
+  Utils.getSafeHtmlElement('dotDescription').innerText =
+    [coord, hoverNote].filter(Boolean).join(' — ');
 });
 
 

@@ -1,10 +1,13 @@
 import {State} from "../state/State";
+import {Canvas} from "../state/Canvas";
 import {redrawCanvas} from "./draw-canvas";
 import {Utils} from "../utils/utils";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {changeSelectedDotColor} from "./dot";
 import {recordChange} from "./project/undo-redo";
+import {rebuildNets} from "../nets/rebuild";
 import {lockNetOf} from "./routing";
+import {deletePlacedIcCascade} from "./connect";
 
 
 Utils.getSafeHtmlElement<HTMLButtonElement>('changeLineColorBtn').addEventListener('click', function() {
@@ -24,7 +27,24 @@ export function setLineColor(color: string){
   }
 }
 
+/**
+ * "Line Color" restyles a solder-side wire directly, but a component-side
+ * selection is a *connection* — colour is per-net there, so it restyles the
+ * connection's whole net instead (docs/logical-connections.md M11).
+ */
 function addColorToSelectedLine(){
+  if (!Canvas.solderSide && State.selectedConnection) {
+    const net = State.nets.find(n => n.id === State.selectedConnection!.netId);
+    if (!net) return;
+    const colorPicker = Utils.getSafeHtmlElement<HTMLInputElement>('colorPicker');
+    colorPicker.value = Utils.normalizeColor(net.color, "#3b82f6");
+    colorPicker.oninput = colorPicker.onchange = function() {
+      net.color = colorPicker.value;
+      redrawCanvas();
+    };
+    colorPicker.click();
+    return;
+  }
   if (!State.selectedLine) {
     return;
   }
@@ -44,14 +64,21 @@ function addColorToSelectedLine(){
 }
 
 export function deleteLine(){
-  if (State.selectedPlacedIc) {
-    const index = State.placedIcs.indexOf(State.selectedPlacedIc);
+  if (State.selectedConnection) {
+    const index = State.connections.indexOf(State.selectedConnection);
     if (index > -1) {
-      State.placedIcs.splice(index, 1);
-      State.selectedPlacedIc = undefined;
+      recordChange({ connectionsRemoved: [State.selectedConnection] });
+      State.connections.splice(index, 1);
+      State.selectedConnection = undefined;
+      rebuildNets();
       redrawCanvas();
+      window.dispatchEvent(new Event('nets-changed'));
       return;
     }
+  }
+  if (State.selectedPlacedIc) {
+    deletePlacedIcCascade(State.selectedPlacedIc);
+    return;
   }
   if(State.selectedLine) {
     const index = State.lines.indexOf(State.selectedLine);

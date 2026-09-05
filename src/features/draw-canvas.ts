@@ -3,7 +3,8 @@ import {State} from "../state/State";
 import {Canvas} from "../state/Canvas";
 import {IDot} from "../interfaces/dot.interface";
 import {ILine} from "../interfaces/line.interface";
-import {netAtLine, dotKey, findShorts, labelConflicts} from "../nets/derive";
+import {netAtLine, netAtTerminal, dotKey, findShorts, labelConflicts, physicalTerminalShorts, resolveTerminal, terminalAtDot} from "../nets/derive";
+import {drawGridLabels} from "./grid-labels";
 
 function netColor(netId: string | undefined): string | undefined {
   if (!netId) return undefined;
@@ -46,7 +47,7 @@ function drawDot(dot: IDot, onHoverNet: boolean, isShort: boolean){
   }
 
   if (isShort) {
-    // A pad wired into two nets — a short circuit (autorouting.md §3).
+    // A pad wired into two nets — a short circuit (docs/logical-connections.md M9).
     Canvas.ctx.beginPath();
     Canvas.ctx.arc(dot.x, dot.y, State.dotRadius + 6, 0, Math.PI * 2);
     Canvas.ctx.strokeStyle = "#ef4444";
@@ -120,6 +121,57 @@ function drawLine(line: ILine, onHoverNet: boolean){
   Canvas.ctx.stroke();
 }
 
+/**
+ * A connection, rendered as a dashed/translucent "schematic overlay" rubber
+ * band — deliberately distinct from the solid, round-capped `drawLine()`
+ * stroke so it never reads as copper (docs/logical-connections.md §3).
+ */
+function drawRubberBand(a: {x: number; y: number}, b: {x: number; y: number}, color: string, emphasis: "none" | "hover" | "selected") {
+  const ctx = Canvas.ctx;
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = emphasis === "selected" ? "#38bdf8" : emphasis === "hover" ? "#94a3b8" : color;
+  ctx.lineWidth = emphasis === "none" ? 2 : 3;
+  ctx.globalAlpha = emphasis === "none" ? 0.8 : 1;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.beginPath();
+  ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
+  ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawConnections(highlightTerms: Set<string> | null) {
+  for (const conn of State.connections) {
+    const a = resolveTerminal(conn.a, State.placedIcs);
+    const b = resolveTerminal(conn.b, State.placedIcs);
+    if (!a || !b) continue;
+    const isSelected = conn === State.selectedConnection;
+    const isHover = !isSelected && (conn === State.hoverConnection || (highlightTerms?.has(`${conn.a.icId}#${conn.a.pin}`) ?? false));
+    drawRubberBand(a, b, netColor(conn.netId) || "#38bdf8", isSelected ? "selected" : isHover ? "hover" : "none");
+  }
+
+  // Pending terminal: rubber band from the armed pin to the cursor.
+  if (State.pendingTerminal && State.hoverDot) {
+    const from = resolveTerminal(State.pendingTerminal, State.placedIcs);
+    if (from) drawRubberBand(from, State.hoverDot, "#38bdf8", "hover");
+  }
+}
+
+/** True when `dot` is a pin that belongs to the given highlighted-terminal set. */
+function dotInHighlightedNet(dot: IDot, terms: Set<string> | null): boolean {
+  if (!terms) return false;
+  const t = terminalAtDot(dot, State.placedIcs);
+  return !!t && terms.has(`${t.icId}#${t.pin}`);
+}
+
 function drawIcPlacementPreview() {
   if (Canvas.solderSide || !State.selectedIc || !State.hoverDot) return;
   const targetDot = State.hoverDot;
@@ -153,27 +205,35 @@ function drawIcPlacementPreview() {
 }
 
 /**
- * Which wires the current face shows.
- *  - Component side ("logical connections"): only the hand-drawn wires.
- *  - Solder side ("physical wiring"): the router's `generated` wires, plus the
- *    hand-drawn wires of any net that has not been routed yet.
+ * Which wires the solder side shows: the router's `generated` wires, plus any
+ * hand-drawn wire whose net has not been routed yet. Wires are a solder-side
+ * -only, physical concern under this model — the component side shows
+ * connections instead (see `drawConnections`).
  */
 function wireVisible(line: ILine, routedNetIds: Set<string>): boolean {
-  if (!Canvas.solderSide) return !line.generated;
   if (line.generated) return true;
   return !(line.netId && routedNetIds.has(line.netId));
 }
 
 export function redrawCanvas() {
   resetCanvas();
+  drawGridLabels();
 
   const solder = Canvas.solderSide;
 
   // Net highlight + short reporting are solder-side (physical) only.
   const highlight = solder && State.hoverLine ? netAtLine(State.hoverLine, State.lines) : null;
   const shortPads = solder
-    ? new Set<string>([...findShorts(State.lines), ...labelConflicts(State.lines, State.placedIcs)])
+    ? new Set<string>([
+      ...findShorts(State.lines),
+      ...labelConflicts(State.connections, State.placedIcs),
+      ...physicalTerminalShorts(State.connections, State.placedIcs),
+    ])
     : new Set<string>();
+
+  // Component-side net highlight, from whichever pin/connection is hovered.
+  const hoverTerm = !solder ? (State.hoverConnection?.a ?? (State.hoverDot && terminalAtDot(State.hoverDot, State.placedIcs))) : undefined;
+  const componentHighlight = hoverTerm ? netAtTerminal(hoverTerm, State.connections) : null;
 
   const routedNetIds = new Set<string>();
   for (const line of State.lines) {
@@ -190,13 +250,20 @@ export function redrawCanvas() {
     const dot = State.dots[i];
     if (!solder && State.placedIcs.some((ic) => ic.hidesDot(dot))) continue;
     const key = dotKey(dot);
-    drawDot(dot, highlight?.pads.has(key) ?? false, shortPads.has(key));
+    const onHoverNet = solder
+      ? (highlight?.pads.has(key) ?? false)
+      : dotInHighlightedNet(dot, componentHighlight?.terminals ?? null);
+    drawDot(dot, onHoverNet, shortPads.has(key));
   }
-  // 3. Wires — filtered by which face we are on.
-  for (let i = 0; i < State.lines.length; i++) {
-    const line = State.lines[i];
-    if (!wireVisible(line, routedNetIds)) continue;
-    drawLine(line, highlight?.lines.has(line) ?? false);
+  // 3. Wires (solder side) or connections (component side) — mutually exclusive faces.
+  if (solder) {
+    for (let i = 0; i < State.lines.length; i++) {
+      const line = State.lines[i];
+      if (!wireVisible(line, routedNetIds)) continue;
+      drawLine(line, highlight?.lines.has(line) ?? false);
+    }
+  } else {
+    drawConnections(componentHighlight?.terminals ?? null);
   }
   // 4. IC text badges — component side only.
   if (!solder) {

@@ -567,8 +567,53 @@ input[type="number"]:focus, input[type="text"]:focus {
   gap: 0.5rem;
 }
 
-.grid-inputs input[type="number"] {
+.grid-inputs input[type="number"],
+.grid-inputs input[type="text"] {
   width: 70px;
+  text-transform: uppercase;
+}
+
+/* Flashed by resize-grid.ts when an axis value parses as neither digits nor A-ZZ. */
+.input-error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+.grid-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* Row-direction toggle under the grid inputs. */
+.grid-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.grid-check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent-cyan);
+  cursor: pointer;
+}
+
+.grid-check:hover {
+  color: var(--text-main);
+}
+
+.grid-hint code {
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 3px;
+  padding: 0 3px;
 }
 
 .preset-btn {
