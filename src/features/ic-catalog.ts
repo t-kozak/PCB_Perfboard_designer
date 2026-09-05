@@ -68,8 +68,9 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
     imageSrc: "components/nau7802.webp", imageScaleX: 1.9, imageScaleY: 58.0, imageOffsetX: 0.0, imageOffsetY: -178.0,
   },
 
-  // TODO: A4988 stepper driver — pinout not filled in yet.
-  {widthPin: 6, heightPin: 8, pinDescription: "1:~ENABLE 2:MS1 3:MS2 4:MS3 5:RESET 6:SLEEP 7:STEP 8:DIRECTION 9:GND 10:VDD 11:1B 12:1A 13:2A 14:2B 15:GND_MOT 16:V_MOT", name: "A4988", category: "Motor Driver"},
+  // A4988 stepper driver — pinout not filled in yet.
+  {name: "A4988", category: "Motor Driver", widthPin: 6, heightPin: 8, pinDescription: "1:~ENABLE 2:MS1 3:MS2 4:MS3 5:RESET 6:SLEEP 7:STEP 8:DIRECTION 9:GND 10:VDD 11:1B 12:1A 13:2A 14:2B 15:GND_MOT 16:V_MOT", },
+  {name: "MP1584", category:"Buck converter", widthPin:9, heightPin:7, pinDescription: "1:IN- 2: 7:IN+ 14:OUT- 8:OUT+"},
 
   {widthPin: 4, heightPin: 4, pinDescription: "1:GND 2:TRIG 3:OUT 4:RESET 5:CTRL 6:THRESH 7:DISCH 8:VCC", name: "NE555 Timer", category: "Timer IC"},
   {widthPin: 4, heightPin: 7, pinDescription: "1:1A 2:1B 3:1Y 4:2A 5:2B 6:2Y 7:GND 14:VCC", name: "DIP-14 Logic", category: "Logic IC"},
