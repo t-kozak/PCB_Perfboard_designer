@@ -88,6 +88,7 @@
             <span class="collapse-chevron">▾</span>
           </div>
           <div class="section-body" id="icSection">
+            <input type="text" id="icSearchInput" class="ic-search-input" placeholder="Search by name or category…" autocomplete="off" spellcheck="false">
             <div id="ic-items"></div>
           </div>
         </div>
@@ -333,6 +334,11 @@
         <div class="form-group">
           <label>Component Name:</label>
           <input type="text" id="icNameInput" placeholder="e.g. ESP8266-01, LM358, Custom Chip" value="Custom Chip">
+        </div>
+
+        <div class="form-group">
+          <label>Category:</label>
+          <input type="text" id="icCategoryInput" placeholder="e.g. Microcontroller, ADC, Passive" value="Other">
         </div>
 
         <div class="form-row">

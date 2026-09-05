@@ -45,6 +45,7 @@ export function deserializePlacedIc(data: any, migrateIds = false): Ic | null {
     Number(data.heightPin),
     data.pinDescription || {},
     String(data.name || 'Component'),
+    String(data.category || 'Other'),
     Boolean(data.isCustom),
     String(data.kind || 'chip'),
     data.imageSrc || undefined
@@ -94,7 +95,7 @@ function migrateLinesToConnections(lines: ILine[], placedIcs: Ic[]): IConnection
     const padKey = `${dot.x},${dot.y}`;
     let bridge = bridgeByPad.get(padKey);
     if (!bridge) {
-      bridge = new Ic(1, 1, { 1: "" }, "Bridge", false, "bridge");
+      bridge = new Ic(1, 1, { 1: "" }, "Bridge", "Junction", false, "bridge");
       bridge.topLeftDot = dot;
       placedIcs.push(bridge);
       bridgeByPad.set(padKey, bridge);

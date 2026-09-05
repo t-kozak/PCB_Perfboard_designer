@@ -3,13 +3,18 @@ import {State} from "../state/State";
 import {IDot} from "../interfaces/dot.interface";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {Utils} from "../utils/utils";
+import {fuzzyMatch} from "../utils/fuzzy";
 import {redrawCanvas} from "./draw-canvas";
 import {dotForPin, isRowLayout, pinAtDot, pinCountOf} from "./ic-geometry";
 import {updateSidebarVisibility} from "./sidebar-mode";
+import {loadDefaultIcs} from "./ic-catalog";
 
 
 export class Ic{
   static IC_CONTAINER: Ic[] = [];
+
+  /** Current text typed into the Components sidebar's search box (see showICs()). */
+  static searchQuery = "";
 
   /** Stable unique identity for a placed component; survives save/load. */
   public id: string = crypto.randomUUID();
@@ -31,6 +36,13 @@ export class Ic{
     public heightPin: number,
     public pinDescription: Record<number, string>,
     public name: string,
+    /**
+     * Free-text grouping used by the Components sidebar's fuzzy search (e.g.
+     * "Microcontroller", "ADC", "Passive") — see the catalog entries in
+     * ic-catalog.ts for the built-in set. Purely descriptive; nothing else
+     * keys off it.
+     */
+    public category: string = "Other",
     isCustom = false,
     /**
      * Visual family of the component. "chip" (default) draws the black DIP
@@ -116,12 +128,31 @@ export class Ic{
   }
 
   static showICs(){
-    Utils.getSafeHtmlElement("ic-items").innerHTML = Ic.IC_CONTAINER.map((item)=>{
-      const deleteBtn = item.isCustom 
-        ? `<span onclick="event.stopPropagation(); deleteCustomIc('${item.id}')" title="Delete custom component" style="margin-left:6px;cursor:pointer;color:#f87171;font-weight:bold;">✕</span>` 
+    const query = Ic.searchQuery;
+    const items = query
+      ? Ic.IC_CONTAINER.filter(ic => fuzzyMatch(query, ic.name) || fuzzyMatch(query, ic.category))
+      : Ic.IC_CONTAINER;
+
+    if (items.length === 0) {
+      Utils.getSafeHtmlElement("ic-items").innerHTML =
+        `<div style="font-size:0.75rem; color:var(--text-muted); padding:0.3rem 0;">No components match your search.</div>`;
+      return;
+    }
+
+    Utils.getSafeHtmlElement("ic-items").innerHTML = items.map((item)=>{
+      const deleteBtn = item.isCustom
+        ? `<span onclick="event.stopPropagation(); deleteCustomIc('${item.id}')" title="Delete custom component" style="margin-left:6px;cursor:pointer;color:#f87171;font-weight:bold;">✕</span>`
         : '';
-      return `<button class="btn btn-accent" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick='selectIc("${item.id}")'>${item.icon} ${item.name}${deleteBtn}</button>`;
+      const name = Utils.escapeHtml(item.name);
+      const category = Utils.escapeHtml(item.category);
+      return `<button class="btn btn-accent" style="padding:0.3rem 0.6rem; font-size:0.75rem;" title="${category}" onclick='selectIc("${item.id}")'>${item.icon} ${name}${deleteBtn}</button>`;
     }).join(" ");
+  }
+
+  /** Re-filters and re-renders the catalog for the given search text (name or category, fuzzy). */
+  static setSearchQuery(query: string) {
+    Ic.searchQuery = query;
+    Ic.showICs();
   }
 
   static saveCustomIcsToLocalStorage() {
@@ -129,6 +160,7 @@ export class Ic{
       const customIcs = Ic.IC_CONTAINER.filter(ic => ic.isCustom).map(ic => ({
         id: String(ic.id),
         name: ic.name,
+        category: ic.category,
         widthPin: ic.widthPin,
         heightPin: ic.heightPin,
         pinDescription: ic.pinDescription,
@@ -153,6 +185,7 @@ export class Ic{
       const customIcs = JSON.parse(stored) as Array<{
         id: number | string;
         name: string;
+        category?: string;
         widthPin: number;
         heightPin: number;
         pinDescription: Record<number, string>;
@@ -165,7 +198,7 @@ export class Ic{
       }>;
       for (const data of customIcs) {
         if (!Ic.IC_CONTAINER.some(ic => String(ic.id) === String(data.id))) {
-          const newIc = new Ic(data.widthPin, data.heightPin, data.pinDescription || {}, data.name, true, data.kind || "chip", data.imageSrc, data.imageScaleX ?? 1, data.imageScaleY ?? 1, data.imageOffsetX ?? 0, data.imageOffsetY ?? 0);
+          const newIc = new Ic(data.widthPin, data.heightPin, data.pinDescription || {}, data.name, data.category || "Other", true, data.kind || "chip", data.imageSrc, data.imageScaleX ?? 1, data.imageScaleY ?? 1, data.imageOffsetX ?? 0, data.imageOffsetY ?? 0);
           newIc.id = String(data.id);
           Ic.IC_CONTAINER.push(newIc);
         }
@@ -749,7 +782,7 @@ export class Ic{
   }
 
   clone(): Ic {
-    const copy = new Ic(this.widthPin, this.heightPin, { ...this.pinDescription }, this.name, this.isCustom, this.kind, this.imageSrc, this.imageScaleX, this.imageScaleY, this.imageOffsetX, this.imageOffsetY);
+    const copy = new Ic(this.widthPin, this.heightPin, { ...this.pinDescription }, this.name, this.category, this.isCustom, this.kind, this.imageSrc, this.imageScaleX, this.imageScaleY, this.imageOffsetX, this.imageOffsetY);
     return copy;
   }
 
@@ -789,39 +822,6 @@ export class Ic{
     this.widthPin = this.heightPin;
     this.heightPin = tmp;
   }
-}
-
-/**
- * Reset the IC catalog to the built-in components plus any custom ICs saved
- * in localStorage. Called once at startup and again after a project reset.
- */
-export function loadDefaultIcs() {
-  Ic.IC_CONTAINER = [];
-  // Heads the catalog: the one-pin junction you place to connect to a bare
-  // hole (a wire junction, test point, or off-board lead) — see
-  // docs/logical-connections.md §2.
-  Ic.add(new Ic(1, 1, {1: ""}, "Bridge", false, "bridge"));
-  Ic.add(new Ic(4, 4, {1: "GND", 2: "TRIG", 3: "OUT", 4: "RESET", 5: "CTRL", 6: "THRESH", 7: "DISCH", 8: "VCC"}, "NE555 Timer"));
-  Ic.add(new Ic(4, 7, {1: "1A", 2: "1B", 3: "1Y", 4: "2A", 5: "2B", 6: "2Y", 7: "GND", 14: "VCC"}, "DIP-14 Logic"));
-  Ic.add(new Ic(4, 8, {1: "EN", 2: "1D", 3: "1Q", 4: "2D", 5: "2Q", 8: "GND", 16: "VCC"}, "DIP-16 Logic"));
-  Ic.add(new Ic(4, 14, {1: "RESET", 2: "RX", 3: "TX", 7: "VCC", 8: "GND", 22: "GND", 20: "AVCC"}, "ATmega328P"));
-  // Seeed XIAO ESP32-C6: 7 pins per side, footprint 7 holes wide (only the
-  // outer left/right columns are real pins — widthPin=7 just spaces them to
-  // match the physical module width on the 0.1" grid).
-  Ic.add(new Ic(7, 7, {
-    1: "D0", 2: "D1", 3: "D2", 4: "D3", 5: "D4", 6: "D5", 7: "D6",
-    8: "D7", 9: "D8", 10: "D9", 11: "D10", 12: "3V3", 13: "GND", 14: "VBUS",
-  }, "XIAO ESP32-C6", false, "chip", "components/seeed-esp32-c6.webp", 1.15, 1.45, 0.0, -17.0));
-
-  Ic.add(new Ic(6, 1, 
-    {1: "VIN", 2: "AV", 3: "GND", 4:"SCL", 5:"SDA", 6:"DRDY"}, 
-    "NAU7802", false, "chip", "components/nau7802.webp", 1.9, 58.0, 0.0, -178.0));
-  // Static 2-terminal parts. The actual value is entered by the user as a note.
-  Ic.add(new Ic(3, 1, {1: "", 2: ""}, "Resistor", false, "resistor"));
-  Ic.add(new Ic(2, 1, {1: "", 2: ""}, "Ceramic Capacitor", false, "cap-ceramic"));
-  Ic.add(new Ic(2, 1, {1: "+", 2: "−"}, "Electrolytic Capacitor", false, "cap-electrolytic"));
-
-  Ic.loadCustomIcsFromLocalStorage();
 }
 
 loadDefaultIcs();

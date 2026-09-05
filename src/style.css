@@ -573,6 +573,12 @@ input[type="number"]:focus, input[type="text"]:focus {
   text-transform: uppercase;
 }
 
+.ic-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.5rem;
+}
+
 /* Flashed by resize-grid.ts when an axis value parses as neither digits nor A-ZZ. */
 .input-error {
   border-color: #ef4444 !important;

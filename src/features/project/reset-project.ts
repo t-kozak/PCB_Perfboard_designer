@@ -3,7 +3,7 @@ import {State} from "../../state/State";
 import {createDotGrid, readGridInputs} from "./resize-grid";
 import {resetCanvas} from "../reset-canvas";
 import {redrawCanvas} from "../draw-canvas";
-import {loadDefaultIcs} from "../ic";
+import {loadDefaultIcs} from "../ic-catalog";
 import {updateSidebarVisibility} from "../sidebar-mode";
 
 Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click', function() {

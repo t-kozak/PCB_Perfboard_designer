@@ -78,11 +78,20 @@ cancelModalBtn?.addEventListener('click', () => {
 
 heightInputEl?.addEventListener('input', renderPinInputs);
 
+// Components sidebar: fuzzy search by name or category
+const icSearchInput = document.getElementById('icSearchInput') as HTMLInputElement | null;
+icSearchInput?.addEventListener('input', () => {
+  Ic.setSearchQuery(icSearchInput.value);
+});
+
 saveIcBtn?.addEventListener('click', () => {
   const nameInput = document.getElementById('icNameInput') as HTMLInputElement;
   const widthInputEl = document.getElementById('icWidthInput') as HTMLInputElement;
 
+  const categoryInput = document.getElementById('icCategoryInput') as HTMLInputElement;
+
   const name = nameInput?.value.trim() || 'Custom Component';
+  const category = categoryInput?.value.trim() || 'Other';
   const width = parseInt(widthInputEl?.value || '4');
   const height = parseInt(heightInputEl?.value || '4');
   const totalPins = height * 2;
@@ -95,7 +104,7 @@ saveIcBtn?.addEventListener('click', () => {
     }
   }
 
-  const customIc = new Ic(width, height, pinDescriptions, name, true);
+  const customIc = new Ic(width, height, pinDescriptions, name, category, true);
   Ic.add(customIc, true);
 
   if (modal) modal.style.display = 'none';

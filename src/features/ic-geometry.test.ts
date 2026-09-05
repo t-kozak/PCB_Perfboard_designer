@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { pinAtDot, dotForPin, pinCountOf, isRowLayout, type IcGeometry } from "./ic-geometry";
 
-// Every shape in the built-in catalog (see loadDefaultIcs in ic.ts), by kind
+// Every shape in the built-in catalog (see loadDefaultIcs in ic-catalog.ts), by kind
 // and pin footprint, so the round trip is checked against real components
 // rather than arbitrary dimensions.
 const SHAPES: Array<{ kind: string; widthPin: number; heightPin: number }> = [

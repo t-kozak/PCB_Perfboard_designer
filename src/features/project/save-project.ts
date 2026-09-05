@@ -26,6 +26,7 @@ export function serializePlacedIc(ic: Ic) {
     heightPin: ic.heightPin,
     pinDescription: ic.pinDescription || {},
     name: ic.name,
+    category: ic.category || "Other",
     isCustom: !!ic.isCustom,
     kind: ic.kind || "chip",
     imageSrc: ic.imageSrc,
