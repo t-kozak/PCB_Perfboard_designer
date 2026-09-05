@@ -8,7 +8,7 @@ import type {AxisMode} from "../features/grid-labels";
 
 export class State {
 
-  static dotRadius = 5
+  static dotRadius = 10
   static dotSpace = 50
   /**
    * Clear board margin along the top and left edges, on top of the half-pitch
@@ -55,7 +55,7 @@ export class State {
   static hoverIc?: Ic;
   static isDraggingIc = false;
 
-  static activeToolMode: 'select' | 'connect' | 'eraser' | 'note' | 'ic' = 'select';
+  static activeToolMode: 'select' | 'connect' | 'ic' = 'select';
   static selectedWireWidth = 4;
   static activeWireColor = "#3b82f6";
 

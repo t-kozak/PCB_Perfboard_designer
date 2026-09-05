@@ -10,6 +10,7 @@ import {ILine} from "../../interfaces/line.interface";
 import {IConnection, ITerminal, isSelfLoop, makeConnection, sameConnection} from "../../interfaces/connection.interface";
 import {rebuildNets} from "../../nets/rebuild";
 import {syncGridInputs} from "./resize-grid";
+import {updateSidebarVisibility} from "../sidebar-mode";
 
 const loadInput = Utils.getSafeHtmlElement<HTMLButtonElement>('loadProjectBtn');
 const loadTrigger = Utils.getSafeHtmlElement<HTMLButtonElement>('loadProjectTrigger');
@@ -48,6 +49,16 @@ export function deserializePlacedIc(data: any, migrateIds = false): Ic | null {
     String(data.kind || 'chip'),
     data.imageSrc || undefined
   );
+  // imageScale*/imageOffset* are a component-definition constant (visual fit
+  // of its artwork), not per-placement data — pull the current value from the
+  // catalog rather than freezing whatever it was at save time (see ic.ts).
+  const catalogMatch = Ic.IC_CONTAINER.find(c => c.imageSrc && c.imageSrc === ic.imageSrc);
+  if (catalogMatch) {
+    ic.imageScaleX = catalogMatch.imageScaleX;
+    ic.imageScaleY = catalogMatch.imageScaleY;
+    ic.imageOffsetX = catalogMatch.imageOffsetX;
+    ic.imageOffsetY = catalogMatch.imageOffsetY;
+  }
   // v1 files carry collidable float ids; regenerate rather than trust them.
   if (data.id && !migrateIds) {
     ic.id = String(data.id);
@@ -216,5 +227,6 @@ export function loadProject(project: IProjectSave){
   }
 
   window.dispatchEvent(new Event('nets-changed'));
+  updateSidebarVisibility();
   redrawCanvas();
 }

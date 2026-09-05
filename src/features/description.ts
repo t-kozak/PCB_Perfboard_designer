@@ -8,15 +8,23 @@ import {IDot} from "../interfaces/dot.interface";
 /** Anything that can carry a free-text note: a board pad or a placed component. */
 type NoteTarget = IDot | Ic;
 
-// Add note
-Utils.getSafeHtmlElement<HTMLButtonElement>('addDescriptionBtn').addEventListener('click', function() {
-  addNote();
+// Add/Remove Note toggle — label and action follow whether the current
+// selection (or hover) already carries a note.
+const noteToggleBtn = Utils.getSafeHtmlElement<HTMLButtonElement>('noteToggleBtn');
+noteToggleBtn.addEventListener('click', function() {
+  if (resolveNoteTarget()?.description) {
+    removeNote();
+  } else {
+    addNote();
+  }
+  updateNoteToggleButton();
 });
 
-// Delete note
-Utils.getSafeHtmlElement<HTMLButtonElement>('deleteDescriptionBtn').addEventListener('click', function() {
-  removeNote();
-});
+export function updateNoteToggleButton() {
+  const hasNote = !!resolveNoteTarget()?.description;
+  noteToggleBtn.textContent = hasNote ? '✕ Remove Note' : '📝 Add Note';
+  noteToggleBtn.classList.toggle('btn-danger', hasNote);
+}
 
 /**
  * Resolve the thing a note action should apply to. Explicit selections win over
@@ -44,6 +52,7 @@ export function addNote(target?: NoteTarget){
     t.description = description.trim() ? description.trim() : undefined;
     State.selectedDot = undefined;
     redrawCanvas();
+    updateNoteToggleButton();
   }
 }
 
@@ -55,6 +64,7 @@ export function removeNote(target?: NoteTarget){
   }
   t.description = undefined;
   redrawCanvas();
+  updateNoteToggleButton();
 }
 
 // Kept for existing call sites that only ever mean a pad.

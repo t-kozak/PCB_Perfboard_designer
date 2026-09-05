@@ -3,11 +3,9 @@ import {redrawCanvas} from "./draw-canvas";
 import {Canvas} from "../state/Canvas";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {ILine} from "../interfaces/line.interface";
-import {addNote} from "./description";
 import {panBy} from "./viewport";
 import {recordChange} from "./project/undo-redo";
-import {rebuildNets} from "../nets/rebuild";
-import {deletePlacedIcCascade} from "./connect";
+import {updateSidebarVisibility} from "./sidebar-mode";
 let isPanningBoard = false;
 let panLastX = 0;
 let panLastY = 0;
@@ -29,28 +27,6 @@ Canvas.c.addEventListener('mousedown', function(e) {
     // On the solder side components are hidden and not interactive.
     const solder = Canvas.solderSide;
 
-    // Eraser Tool Mode
-    if (State.activeToolMode === 'eraser') {
-      const placedIcIndex = solder ? -1 : State.placedIcs.findIndex(ic => ic.containsPoint(x, y));
-      if (placedIcIndex > -1) {
-        deletePlacedIcCascade(State.placedIcs[placedIcIndex]);
-        return;
-      }
-      handleEraserClick(e);
-      return;
-    }
-
-    // Note Tool Mode
-    if (State.activeToolMode === 'note') {
-      const hitIc = solder ? undefined : State.placedIcs.find(ic => ic.containsPoint(x, y));
-      if (hitIc) {
-        addNote(hitIc);
-      } else if (State.hoverDot) {
-        addNote(State.hoverDot);
-      }
-      return;
-    }
-
     // Placing a new IC from catalog template
     if (!solder && State.selectedIc && State.hoverDot) {
       const newInstance = State.selectedIc.clone();
@@ -58,6 +34,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
       State.placedIcs.push(newInstance);
       State.selectedPlacedIc = newInstance;
       State.selectedIc = undefined;
+      updateSidebarVisibility();
       redrawCanvas();
       return;
     }
@@ -149,54 +126,6 @@ Canvas.c.addEventListener('contextmenu', function(e) {
     hideContextMenu();
   }
 });
-
-function handleEraserClick(event: MouseEvent) {
-  // Connections are a component-side concept — erase whichever is hovered.
-  if (!Canvas.solderSide && State.hoverConnection) {
-    const index = State.connections.indexOf(State.hoverConnection);
-    if (index > -1) {
-      recordChange({ connectionsRemoved: [State.hoverConnection] });
-      State.connections.splice(index, 1);
-      State.selectedConnection = undefined;
-      rebuildNets();
-      redrawCanvas();
-      window.dispatchEvent(new Event('nets-changed'));
-      return;
-    }
-  }
-
-  // If clicking on line or near line, remove line (solder side only).
-  if (Canvas.solderSide) {
-    selectLine(event);
-    if (State.selectedLine) {
-      const index = State.lines.indexOf(State.selectedLine);
-      if (index > -1) {
-        recordChange({ removed: [State.selectedLine] });
-        State.lines.splice(index, 1);
-        State.selectedLine = undefined;
-        redrawCanvas();
-        window.dispatchEvent(new Event('nets-changed'));
-        return;
-      }
-    }
-  }
-
-  // If clicking dot, reset dot color and description
-  if (State.hoverDot) {
-    let changed = false;
-    if (State.hoverDot.color && State.hoverDot.color !== "#a4a0a0") {
-      State.hoverDot.color = "#a4a0a0";
-      changed = true;
-    }
-    if (State.hoverDot.description) {
-      State.hoverDot.description = undefined;
-      changed = true;
-    }
-    if (changed) {
-      redrawCanvas();
-    }
-  }
-}
 
 export function showContextMenu(x: number, y: number) {
   const menu = document.getElementById('contextMenu');
@@ -318,5 +247,6 @@ ShortcutRegistry.add({key: "Escape", description: "Unselect dot, line or connect
   State.selectedPlacedIc = undefined;
   State.isDraggingIc = false;
   hideContextMenu();
+  updateSidebarVisibility();
   redrawCanvas();
 }});

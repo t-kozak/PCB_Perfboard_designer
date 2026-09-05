@@ -22,12 +22,13 @@ import {redrawCanvas} from "./features/draw-canvas";
 import {State} from "./state/State";
 import {changeSelectedDotColor, setDotColor} from "./features/dot";
 import {setLineColor, deleteLine} from "./features/line";
-import {addNote} from "./features/description";
+import {addNote, updateNoteToggleButton} from "./features/description";
 import {hideContextMenu} from "./features/select";
 import {lockNetOf, unlockAndReroute, routeOnFlip} from "./features/routing";
 import {Ic} from "./features/ic";
 import {Canvas} from "./state/Canvas";
 import {applyZoom, nudgeZoom, resetPan, initViewportGestures} from "./features/viewport";
+import {updateSidebarVisibility} from "./features/sidebar-mode";
 import {dotCoordinateLabel} from "./features/grid-labels";
 
 const initialGrid = readGridInputs() ?? {cols: 10, rows: 10};
@@ -106,10 +107,11 @@ document.querySelectorAll('#toolModeSelector .tool-mode-btn').forEach((btn) => {
     document.querySelectorAll('#toolModeSelector .tool-mode-btn').forEach(b => b.classList.remove('active-mode'));
     const target = e.currentTarget as HTMLElement;
     target.classList.add('active-mode');
-    const mode = target.getAttribute('data-mode') as 'select' | 'connect' | 'eraser' | 'note' | 'ic';
+    const mode = target.getAttribute('data-mode') as 'select' | 'connect' | 'ic';
     if (mode) {
       State.activeToolMode = mode;
       updateSelectionStatus();
+      updateSidebarVisibility();
     }
   });
 });
@@ -384,6 +386,7 @@ document.querySelectorAll('#gridPresets .preset-btn').forEach((btn) => {
 
 // Dynamic selection status updater
 export function updateSelectionStatus() {
+  updateNoteToggleButton();
   const statusEl = document.getElementById('activeSelectionStatus');
   if (!statusEl) return;
   const modeLabel = State.activeToolMode.toUpperCase();
@@ -528,6 +531,7 @@ document.getElementById('toggleSolderSideBtn')?.addEventListener('click', () => 
   document.getElementById('componentsPanelWrap')?.toggleAttribute('hidden', solderSide);
   document.getElementById('connectionsPanelWrap')?.toggleAttribute('hidden', solderSide);
   document.getElementById('wireGaugeSectionWrap')?.toggleAttribute('hidden', !solderSide);
+  updateSidebarVisibility();
 
   redrawCanvas();
   window.dispatchEvent(new Event('nets-changed'));
@@ -574,3 +578,5 @@ document.querySelectorAll('.section-title[data-collapse]').forEach(title => {
     title.classList.toggle('section-collapsed');
   });
 });
+
+updateSidebarVisibility();

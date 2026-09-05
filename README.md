@@ -20,7 +20,7 @@ The **PCB Perfboard Designer** is an advanced, user-friendly web CAD application
 - 🖱 **Middle Mouse Button Board Panning**: Pan across large perfboard grids by holding the middle mouse wheel button and dragging.
 - 🔍 **Smooth Board Zooming**: Zoom in and out smoothly from `20%` up to `300%` using `Ctrl + Mouse Wheel` or dedicated zoom buttons.
 - 💾 **Full Progress & Project File Persistence**: Save your progress locally (`Save Progress`) or export/import complete circuit designs as JSON project files (`Save Project` / `Load Project`).
-- 🛠 **Dedicated Tool Modes**: Toggle between `🖐 Select` (inspection only), `✏ Wire`, `🧹 Eraser`, and `📝 Note` annotation modes.
+- 🛠 **Dedicated Tool Modes**: Toggle between `🖐 Select` (inspection only) and `🔗 Connect` for wiring pins; delete and annotate via right-click or keyboard shortcuts.
 - 🖱 **Right-Click Context Menu**: Quick access to color changes, text note editing, and component deletion.
 
 ---
@@ -74,7 +74,7 @@ Ensure you have [Node.js](https://nodejs.org/) (v16+) installed.
 | **Zoom In / Zoom Out** | `Mouse Wheel` or `🔍 +` / `🔍 -` |
 | **Toggle Fullscreen Mode** | `f` / `F` or `⛶ Fullscreen` |
 | **Unselect / Exit Fullscreen** | `Escape` |
-| **Delete Selected Item** | `Delete` key or `🧹 Eraser` |
+| **Delete Selected Item** | `Delete` key or right-click → Delete Item |
 | **Undo Last Change** | `Ctrl + Z` |
 | **Redo Last Action** | `Ctrl + Y` |
 | **Rotate Placed IC** | `r` |

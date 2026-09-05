@@ -5,6 +5,7 @@ import {ShortcutRegistry} from "./shortcut-keys";
 import {Utils} from "../utils/utils";
 import {redrawCanvas} from "./draw-canvas";
 import {dotForPin, pinAtDot, pinCountOf} from "./ic-geometry";
+import {updateSidebarVisibility} from "./sidebar-mode";
 
 
 export class Ic{
@@ -45,6 +46,21 @@ export class Ic{
      * this unset and fall back to the chip rectangle.
      */
     public imageSrc?: string,
+    /**
+     * Per-axis scale applied to the artwork on top of the default fit (which
+     * stretches the image to exactly the pin-span box). Source images rarely
+     * have their pin holes flush with the image edges — and their aspect
+     * ratio rarely matches the pin-span box's — so these — plus
+     * imageOffsetX/Y — let a built-in/custom part be nudged into visual
+     * alignment with the actual pad grid without needing per-pin pixel
+     * mapping. Applied in the component's unrotated local frame (X = across
+     * widthPin, Y = across heightPin), so they survive rotation unchanged.
+     */
+    public imageScaleX: number = 1,
+    public imageScaleY: number = 1,
+    /** Pixel offset (in the component's unrotated local frame) applied to the artwork, alongside imageScaleX/Y. */
+    public imageOffsetX: number = 0,
+    public imageOffsetY: number = 0,
   ) {
     this.isCustom = isCustom;
   }
@@ -118,6 +134,10 @@ export class Ic{
         pinDescription: ic.pinDescription,
         kind: ic.kind,
         imageSrc: ic.imageSrc,
+        imageScaleX: ic.imageScaleX,
+        imageScaleY: ic.imageScaleY,
+        imageOffsetX: ic.imageOffsetX,
+        imageOffsetY: ic.imageOffsetY,
         isCustom: true
       }));
       localStorage.setItem('custom_ics', JSON.stringify(customIcs));
@@ -138,10 +158,14 @@ export class Ic{
         pinDescription: Record<number, string>;
         kind?: string;
         imageSrc?: string;
+        imageScaleX?: number;
+        imageScaleY?: number;
+        imageOffsetX?: number;
+        imageOffsetY?: number;
       }>;
       for (const data of customIcs) {
         if (!Ic.IC_CONTAINER.some(ic => String(ic.id) === String(data.id))) {
-          const newIc = new Ic(data.widthPin, data.heightPin, data.pinDescription || {}, data.name, true, data.kind || "chip", data.imageSrc);
+          const newIc = new Ic(data.widthPin, data.heightPin, data.pinDescription || {}, data.name, true, data.kind || "chip", data.imageSrc, data.imageScaleX ?? 1, data.imageScaleY ?? 1, data.imageOffsetX ?? 0, data.imageOffsetY ?? 0);
           newIc.id = String(data.id);
           Ic.IC_CONTAINER.push(newIc);
         }
@@ -219,11 +243,13 @@ export class Ic{
     const boxW = rot90 ? h : w;
     const boxH = rot90 ? w : h;
     const pad = 4;
+    const drawW = (boxW + pad * 2) * this.imageScaleX;
+    const drawH = (boxH + pad * 2) * this.imageScaleY;
 
     ctx.save();
     ctx.translate(x + w / 2, y + h / 2);
     ctx.rotate((this.rotationAngle * Math.PI) / 180);
-    ctx.drawImage(img, -boxW / 2 - pad, -boxH / 2 - pad, boxW + pad * 2, boxH + pad * 2);
+    ctx.drawImage(img, -drawW / 2 + this.imageOffsetX, -drawH / 2 + this.imageOffsetY, drawW, drawH);
     ctx.restore();
 
     if (isSelected) {
@@ -666,7 +692,7 @@ export class Ic{
   }
 
   clone(): Ic {
-    const copy = new Ic(this.widthPin, this.heightPin, { ...this.pinDescription }, this.name, this.isCustom, this.kind, this.imageSrc);
+    const copy = new Ic(this.widthPin, this.heightPin, { ...this.pinDescription }, this.name, this.isCustom, this.kind, this.imageSrc, this.imageScaleX, this.imageScaleY, this.imageOffsetX, this.imageOffsetY);
     return copy;
   }
 
@@ -722,6 +748,13 @@ export function loadDefaultIcs() {
   Ic.add(new Ic(4, 7, {1: "1A", 2: "1B", 3: "1Y", 4: "2A", 5: "2B", 6: "2Y", 7: "GND", 14: "VCC"}, "DIP-14 Logic"));
   Ic.add(new Ic(4, 8, {1: "EN", 2: "1D", 3: "1Q", 4: "2D", 5: "2Q", 8: "GND", 16: "VCC"}, "DIP-16 Logic"));
   Ic.add(new Ic(4, 14, {1: "RESET", 2: "RX", 3: "TX", 7: "VCC", 8: "GND", 22: "GND", 20: "AVCC"}, "ATmega328P"));
+  // Seeed XIAO ESP32-C6: 7 pins per side, footprint 7 holes wide (only the
+  // outer left/right columns are real pins — widthPin=7 just spaces them to
+  // match the physical module width on the 0.1" grid).
+  Ic.add(new Ic(7, 7, {
+    1: "D0", 2: "D1", 3: "D2", 4: "D3", 5: "D4", 6: "D5", 7: "D6",
+    8: "D7", 9: "D8", 10: "D9", 11: "D10", 12: "3V3", 13: "GND", 14: "VBUS",
+  }, "XIAO ESP32-C6", false, "chip", "components/seeed-esp32-c6.webp", 1.15, 1.45, 0.0, -17.0));
 
   // Static 2-terminal parts. The actual value is entered by the user as a note.
   Ic.add(new Ic(3, 1, {1: "", 2: ""}, "Resistor", false, "resistor"));
@@ -749,6 +782,7 @@ export function selectIc(id: string){
     return;
   }
   State.selectedIc = ic;
+  updateSidebarVisibility();
 }
 
 export function rotateSelectedIc() {

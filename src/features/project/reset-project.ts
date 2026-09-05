@@ -4,6 +4,7 @@ import {createDotGrid, readGridInputs} from "./resize-grid";
 import {resetCanvas} from "../reset-canvas";
 import {redrawCanvas} from "../draw-canvas";
 import {loadDefaultIcs} from "../ic";
+import {updateSidebarVisibility} from "../sidebar-mode";
 
 Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click', function() {
   State.lines = [];
@@ -24,6 +25,7 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click'
   localStorage.removeItem('save');
   const size = readGridInputs() ?? {cols: 10, rows: 10};
   createDotGrid(size.cols, size.rows);
+  updateSidebarVisibility();
   resetCanvas()
   redrawCanvas()
   window.dispatchEvent(new Event('nets-changed'));
