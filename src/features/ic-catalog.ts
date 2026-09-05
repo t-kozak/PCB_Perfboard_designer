@@ -50,6 +50,16 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
   {widthPin: 2, heightPin: 1, pinDescription: "1: 2:", name: "Ceramic Capacitor", kind: "cap-ceramic", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1:+ 2:-", name: "Electrolytic Capacitor", kind: "cap-electrolytic", category: "Passive"},
 
+  // Dupont-style male pin headers: bare legs soldered into the perfboard to
+  // take a female Dupont connector. Custom-rendered (see Ic.drawPinHeaderBody)
+  // as a black base with a silver pin at every hole.
+  {widthPin: 1, heightPin: 1, pinDescription: "1:", name: "Pin Header 1x1", kind: "pin-header", category: "Connector"},
+  {widthPin: 2, heightPin: 1, pinDescription: "1: 2:", name: "Pin Header 1x2", kind: "pin-header", category: "Connector"},
+  {widthPin: 3, heightPin: 1, pinDescription: "1: 2: 3:", name: "Pin Header 1x3", kind: "pin-header", category: "Connector"},
+  {widthPin: 4, heightPin: 1, pinDescription: "1: 2: 3: 4:", name: "Pin Header 1x4", kind: "pin-header", category: "Connector"},
+  {widthPin: 2, heightPin: 2, pinDescription: "1: 2: 3: 4:", name: "Pin Header 2x2", kind: "pin-header", category: "Connector"},
+  {widthPin: 3, heightPin: 2, pinDescription: "1: 2: 3: 4: 5: 6:", name: "Pin Header 2x3", kind: "pin-header", category: "Connector"},
+
   // Seeed XIAO ESP32-C6: 7 pins per side, footprint 7 holes wide (only the
   // outer left/right columns are real pins — widthPin=7 just spaces them to
   // match the physical module width on the 0.1" grid).

@@ -5,7 +5,7 @@ import {ShortcutRegistry} from "./shortcut-keys";
 import {Utils} from "../utils/utils";
 import {fuzzyMatch} from "../utils/fuzzy";
 import {redrawCanvas} from "./draw-canvas";
-import {dotForPin, isRowLayout, pinAtDot, pinCountOf} from "./ic-geometry";
+import {dotForPin, isGridLayout, isRowLayout, pinAtDot, pinCountOf} from "./ic-geometry";
 import {updateSidebarVisibility} from "./sidebar-mode";
 import {loadDefaultIcs} from "./ic-catalog";
 
@@ -102,6 +102,7 @@ export class Ic{
       case "cap-ceramic": return "🔵";
       case "cap-electrolytic": return "🛢️";
       case "bridge": return "•";
+      case "pin-header": return "🔌";
       default: return "📦";
     }
   }
@@ -356,6 +357,20 @@ export class Ic{
       }
       return { x: this.topLeftDot.x - t / 2, y: this.topLeftDot.y, w: t, h: spanH };
     }
+    if (this.kind === "pin-header") {
+      const pad = 6;
+      const t = 24; // header body thickness across a single-row strip
+      if (this.widthPin === 1 && this.heightPin === 1) {
+        return { x: this.topLeftDot.x - t / 2, y: this.topLeftDot.y - t / 2, w: t, h: t };
+      }
+      if (this.heightPin === 1) {
+        return { x: this.topLeftDot.x - pad, y: this.topLeftDot.y - t / 2, w: spanW + pad * 2, h: t };
+      }
+      if (this.widthPin === 1) {
+        return { x: this.topLeftDot.x - t / 2, y: this.topLeftDot.y - pad, w: t, h: spanH + pad * 2 };
+      }
+      return { x: this.topLeftDot.x - pad, y: this.topLeftDot.y - pad, w: spanW + pad * 2, h: spanH + pad * 2 };
+    }
     const spanRect = { x: this.topLeftDot.x, y: this.topLeftDot.y, w: spanW, h: spanH };
     if (!this.imageSrc) return spanRect;
     const img = this.imageBounds(spanW, spanH);
@@ -516,6 +531,48 @@ export class Ic{
     ctx.restore();
   }
 
+  /**
+   * Draws a Dupont-style male pin header: a plain black plastic base spanning
+   * the pin footprint, with a small grey/silver pin sticking up out of the
+   * base at every hole. Unlike the chip package, this box is never rotated
+   * via canvas transform — widthPin/heightPin are already swapped by
+   * `rotate()`, so the axis-aligned box + per-hole pins drawn from `pinDot()`
+   * are correct in screen space as-is (same trick `drawChipBody` relies on).
+   */
+  private drawPinHeaderBody(isSelected: boolean) {
+    if (!this.topLeftDot) return;
+    const ctx = Canvas.ctx;
+    const { x, y, w, h } = this.bodyRect();
+    const r = Math.min(6, w / 4, h / 4);
+
+    ctx.save();
+    ctx.beginPath();
+    this.roundRectPath(x, y, w, h, r);
+    ctx.fillStyle = isSelected ? "#1e2b52" : "#0b0b0d";
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#4b5563";
+    ctx.stroke();
+    ctx.restore();
+
+    const pinW = 6;
+    const pinH = 14;
+    for (let pin = 1; pin <= this.pinCount; pin++) {
+      const p = this.pinDot(pin);
+      if (!p) continue;
+      ctx.save();
+      const grad = ctx.createLinearGradient(p.x, p.y - pinH / 2, p.x, p.y + pinH / 2);
+      grad.addColorStop(0, "#e5e7eb");
+      grad.addColorStop(1, "#9ca3af");
+      ctx.fillStyle = grad;
+      ctx.fillRect(p.x - pinW / 2, p.y - pinH / 2, pinW, pinH);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#6b7280";
+      ctx.strokeRect(p.x - pinW / 2, p.y - pinH / 2, pinW, pinH);
+      ctx.restore();
+    }
+  }
+
   drawBody(){
     if (!this.topLeftDot) return;
     const isSelected = this === State.selectedPlacedIc;
@@ -528,6 +585,12 @@ export class Ic{
 
     if (this.isLeaded) {
       this.drawLeadedBody(isSelected);
+      if (isSelected) this.drawSelectionHandles();
+      return;
+    }
+
+    if (this.kind === "pin-header") {
+      this.drawPinHeaderBody(isSelected);
       if (isSelected) this.drawSelectionHandles();
       return;
     }
@@ -621,6 +684,17 @@ export class Ic{
           Canvas.fillText(label, p.x + 10, p.y + 3);
         }
       }
+    } else if (isGridLayout(this)) {
+      // Full rectangular grid (e.g. a 2x3 header): one label per pin, offset
+      // to the right of its hole rather than the two-sided DIP layout below.
+      for (let pin = 1; pin <= this.pinCount; pin++) {
+        const p = this.pinDot(pin);
+        if (!p) continue;
+        const desc = this.pinDescription[pin];
+        const label = desc ? `${pin}:${desc}` : `${pin}`;
+        Canvas.ctx.textAlign = "left";
+        Canvas.fillText(label, p.x + 8, p.y + 3);
+      }
     } else if (this.rotationAngle === 0) {
       // 0°: Vertical (Left: 1..N, Right: 2N..N+1)
       const pinsPerSide = this.heightPin;
@@ -703,7 +777,10 @@ export class Ic{
     const isSelected = this === State.selectedPlacedIc;
     const rect = this.bodyRect();
     const centerX = rect.x + (rect.w / 2);
-    const centerY = this.isLeaded ? rect.y - 12 : rect.y + (rect.h / 2);
+    // Leaded parts and pin headers are small enough that a centered badge
+    // would fully cover the body/pins, so their label floats above it instead.
+    const labelAbove = this.isLeaded || this.kind === "pin-header";
+    const centerY = labelAbove ? rect.y - 12 : rect.y + (rect.h / 2);
 
     Canvas.ctx.save();
     Canvas.ctx.font = "bold 11px Inter, Arial";

@@ -16,6 +16,20 @@ export interface IcGeometry {
 /** Kinds with their own fixed 2-terminal pin model (see Ic.LEADED_KINDS) — never single-row. */
 const LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic"];
 
+/** Kinds laid out as a full rectangular pin grid (see isGridLayout) rather than the two-sided DIP perimeter. */
+const GRID_KINDS = ["pin-header"];
+
+/**
+ * True for a component whose every hole in the widthPin x heightPin footprint
+ * is a pin (e.g. a 2x3 Dupont-style pin header), rather than only the two
+ * long edges (the DIP assumption `pinAtDot`/`dotForPin` fall back to below).
+ * A single-row header (widthPin or heightPin === 1) is handled by
+ * `isRowLayout` instead — this only applies once both dimensions exceed 1.
+ */
+export function isGridLayout(geo: Pick<IcGeometry, "kind" | "widthPin" | "heightPin">): boolean {
+  return GRID_KINDS.includes(geo.kind) && geo.widthPin > 1 && geo.heightPin > 1;
+}
+
 /**
  * True for a component with no second side to its pin package — widthPin or
  * heightPin is 1 (a SIP-style header / single-row breakout board, e.g. a
@@ -40,6 +54,7 @@ export function isRowLayout(geo: Pick<IcGeometry, "kind" | "widthPin" | "heightP
  */
 export function pinCountOf(geo: Pick<IcGeometry, "kind" | "widthPin" | "heightPin" | "rotationAngle">): number {
   if (geo.kind === "bridge") return 1;
+  if (isGridLayout(geo)) return geo.widthPin * geo.heightPin;
   if (isRowLayout(geo)) return Math.max(geo.widthPin, geo.heightPin);
   const perSide = geo.rotationAngle === 90 || geo.rotationAngle === 270 ? geo.widthPin : geo.heightPin;
   return perSide * 2;
@@ -49,6 +64,13 @@ export function pinCountOf(geo: Pick<IcGeometry, "kind" | "widthPin" | "heightPi
 export function pinAtDot(geo: IcGeometry, dot: { x: number; y: number }): number | null {
   const { topLeftDot, widthPin, heightPin, rotationAngle } = geo;
   if (!topLeftDot) return null;
+
+  if (isGridLayout(geo)) {
+    const col = Math.round((dot.x - topLeftDot.x) / 50);
+    const row = Math.round((dot.y - topLeftDot.y) / 50);
+    if (col < 0 || col >= widthPin || row < 0 || row >= heightPin) return null;
+    return row * widthPin + col + 1;
+  }
 
   if (isRowLayout(geo)) {
     // One pin per hole along whichever axis currently has extent (the other is 1).
@@ -100,6 +122,13 @@ export function dotForPin(geo: IcGeometry, pin: number): { x: number; y: number 
   const { topLeftDot, widthPin, heightPin, rotationAngle } = geo;
   if (!topLeftDot) return null;
   if (pin < 1 || pin > pinCountOf(geo)) return null;
+
+  if (isGridLayout(geo)) {
+    const idx = pin - 1;
+    const col = idx % widthPin;
+    const row = Math.floor(idx / widthPin);
+    return { x: topLeftDot.x + col * 50, y: topLeftDot.y + row * 50 };
+  }
 
   if (isRowLayout(geo)) {
     return widthPin >= heightPin

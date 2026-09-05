@@ -256,11 +256,14 @@ export function redrawCanvas() {
   }
   // 2b. Re-draw each component's own pins on top of its body/artwork so they
   //     stay visible — only foreign holes stay obscured underneath. Leaded
-  //     parts/bridges paint nothing over their pads, so they're skipped.
+  //     parts/bridges paint nothing over their pads, so they're skipped; a pin
+  //     header already draws its own silver pin marker over each hole
+  //     (drawPinHeaderBody), so re-punching a plain grey dot on top would just
+  //     hide it again.
   if (!solder) {
     const dotByKey = new Map<string, IDot>(State.dots.map((dot) => [dotKey(dot), dot]));
     for (const ic of State.placedIcs) {
-      if (ic.isLeaded || ic.isBridge) continue;
+      if (ic.isLeaded || ic.isBridge || ic.kind === "pin-header") continue;
       for (let pin = 1; pin <= ic.pinCount; pin++) {
         const coord = ic.pinDot(pin);
         const dot = coord && dotByKey.get(dotKey(coord));
