@@ -5,6 +5,7 @@ import {IDot} from "../interfaces/dot.interface";
 import {ILine} from "../interfaces/line.interface";
 import {netAtLine, netAtTerminal, dotKey, findShorts, labelConflicts, physicalTerminalShorts, resolveTerminal, terminalAtDot} from "../nets/derive";
 import {drawGridLabels} from "./grid-labels";
+import {scheduleAutosave} from "./project/autosave";
 
 function netColor(netId: string | undefined): string | undefined {
   if (!netId) return undefined;
@@ -288,4 +289,8 @@ export function redrawCanvas() {
     for (const ic of State.placedIcs) ic.drawLabel();
   }
   drawIcPlacementPreview();
+
+  // Persist the project to localStorage after any mutation (debounced, no-op
+  // when unchanged). See project/autosave.ts.
+  scheduleAutosave();
 }

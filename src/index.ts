@@ -1,6 +1,5 @@
 import "./style.css";
 import "./features/project/save-image";
-import "./features/project/save-progress";
 import "./features/project/save-project";
 import "./features/select";
 import "./features/connect";

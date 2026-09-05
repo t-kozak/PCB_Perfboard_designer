@@ -1,6 +1,7 @@
 import {redrawCanvas} from "../draw-canvas";
 import {IProjectSave} from "../../interfaces/project-save.interface";
 import {loadProject} from "./load-project";
+import {armAutosave} from "./autosave";
 window.addEventListener('DOMContentLoaded', () => {
   if(localStorage.getItem('save') !== null) {
     try {
@@ -14,4 +15,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
   }
+  // Everything now in place (blank board or restored project) — start autosaving.
+  armAutosave();
 });
