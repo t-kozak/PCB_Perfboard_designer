@@ -27,14 +27,14 @@ Canvas.c.addEventListener('mousedown', function(e) {
     // On the solder side components are hidden and not interactive.
     const solder = Canvas.solderSide;
 
-    // Placing a new IC from catalog template
+    // Placing a new IC from catalog template ("statefull" mode — the component
+    // stays armed for repeated placement; see the window 'click' handler below
+    // for how the session ends).
     if (!solder && State.selectedIc && State.hoverDot) {
       const newInstance = State.selectedIc.clone();
       newInstance.updatePosition(State.hoverDot.x, State.hoverDot.y);
       State.placedIcs.push(newInstance);
       State.selectedPlacedIc = newInstance;
-      State.selectedIc = undefined;
-      updateSidebarVisibility();
       redrawCanvas();
       return;
     }
@@ -146,6 +146,21 @@ window.addEventListener('click', (e) => {
   const menu = document.getElementById('contextMenu');
   if (menu && !menu.contains(e.target as Node)) {
     hideContextMenu();
+  }
+
+  // Ends a "statefull" component-placement session (armed via clicking a
+  // Components catalog label — see selectIc() in ic.ts): any click that lands
+  // outside both the canvas (where placement clicks land) and the catalog
+  // itself (where re-arming/switching parts happens) disarms it.
+  if (State.selectedIc) {
+    const target = e.target as Node;
+    const withinCanvas = Canvas.c === target || Canvas.c.contains(target);
+    const withinCatalog = document.getElementById('componentsPanelWrap')?.contains(target) ?? false;
+    if (!withinCanvas && !withinCatalog) {
+      State.selectedIc = undefined;
+      updateSidebarVisibility();
+      redrawCanvas();
+    }
   }
 });
 

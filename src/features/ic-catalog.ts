@@ -56,7 +56,7 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
   {
     widthPin: 7, heightPin: 7,
     pinDescription: "1:D0 2:D1 3:D2 4:D3 5:D4 6:D5 7:D6 8:D7 9:D8 10:D9 11:D10 12:3V3 13:GND 14:VBUS",
-    name: "XIAO ESP32-C6", kind: "chip", category: "Microcontroller",
+    name: "XIAO seeed ESP32-C6", kind: "chip", category: "Microcontroller",
     imageSrc: "components/seeed-esp32-c6.webp", imageScaleX: 1.15, imageScaleY: 1.45, imageOffsetX: 0.0, imageOffsetY: -17.0,
   },
   // NAU7802 breakout board: 6 pins in a single row (widthPin=6, heightPin=1

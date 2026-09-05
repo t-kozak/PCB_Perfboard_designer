@@ -145,7 +145,7 @@ export class Ic{
         : '';
       const name = Utils.escapeHtml(item.name);
       const category = Utils.escapeHtml(item.category);
-      return `<button class="btn btn-accent" style="padding:0.3rem 0.6rem; font-size:0.75rem;" title="${category}" onclick='selectIc("${item.id}")'>${item.icon} ${name}${deleteBtn}</button>`;
+      return `<button class="btn btn-accent" style="padding:0.3rem 0.6rem; font-size:0.75rem;" title="${category}" draggable="true" ondragstart='startIcDrag(event, "${item.id}")' onclick='selectIc("${item.id}")'>${item.icon} ${name}${deleteBtn}</button>`;
     }).join(" ");
   }
 
@@ -845,6 +845,42 @@ export function selectIc(id: string){
   updateSidebarVisibility();
 }
 
+/**
+ * "Stateless" drag-and-drop placement: the catalog button's native HTML5 drag
+ * carries the template's id to the canvas's own drop handler below. Unrelated
+ * to `selectIc`'s "statefull" click-to-arm session — a drag never fires the
+ * button's `onclick`, so the two placement modes don't interfere.
+ */
+export function startIcDrag(event: DragEvent, id: string) {
+  if (Canvas.solderSide) {
+    event.preventDefault();
+    return;
+  }
+  event.dataTransfer?.setData("text/plain", id);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
+}
+
+Canvas.c.addEventListener('dragover', (e) => {
+  if (Canvas.solderSide) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+});
+
+Canvas.c.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (Canvas.solderSide) return;
+  const id = e.dataTransfer?.getData("text/plain");
+  if (!id) return;
+  const ic = Ic.IC_CONTAINER.find(item => String(item.id) === id);
+  if (!ic) return;
+  const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
+  const newInstance = ic.clone();
+  newInstance.updatePosition(x, y);
+  State.placedIcs.push(newInstance);
+  State.selectedPlacedIc = newInstance;
+  redrawCanvas();
+});
+
 export function rotateSelectedIc() {
   if (Canvas.solderSide) return; // components are hidden / inert on the solder side
   if (State.selectedPlacedIc) {
@@ -877,3 +913,4 @@ ShortcutRegistry.add({
 (window as any).selectIc = selectIc;
 (window as any).deleteCustomIc = deleteCustomIc;
 (window as any).rotateSelectedIc = rotateSelectedIc;
+(window as any).startIcDrag = startIcDrag;
