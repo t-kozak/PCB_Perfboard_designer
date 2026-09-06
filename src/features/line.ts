@@ -1,17 +1,16 @@
 import {State} from "../state/State";
-import {Canvas} from "../state/Canvas";
 import {redrawCanvas} from "./draw-canvas";
 import {Utils} from "../utils/utils";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {changeSelectedDotColor} from "./dot";
 import {recordChange} from "./project/undo-redo";
 import {rebuildNets} from "../nets/rebuild";
-import {lockNetOf} from "./routing";
+import {invalidateWireCache} from "./wire-cache";
 import {deletePlacedIcCascade} from "./connect";
 
 
 Utils.getSafeHtmlElement<HTMLButtonElement>('changeLineColorBtn').addEventListener('click', function() {
-  addColorToSelectedLine()
+  changeSelectedLineColor()
 });
 
 // Delete line
@@ -19,46 +18,32 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('deleteLineBtn').addEventListener('c
  deleteLine();
 });
 
+/** Set the selected connection's wire colour (works on either face). */
 export function setLineColor(color: string){
-  if (State.selectedLine){
-    State.selectedLine.color = color;
-    lockNetOf(State.selectedLine); // hand-editing a wire locks its net
-    redrawCanvas();
-  }
+  if (!State.selectedConnection) return;
+  State.selectedConnection.color = color;
+  invalidateWireCache();
+  redrawCanvas();
 }
 
 /**
- * "Line Color" restyles a solder-side wire directly, but a component-side
- * selection is a *connection* — colour is per-net there, so it restyles the
- * connection's whole net instead (docs/logical-connections.md M11).
+ * "Line Color" restyles the selected connection's wire — colour is a
+ * per-connection property now (docs/logical-connections.md §11), so this is the
+ * same action on the component side (recolours the rubber band) and the solder
+ * side (recolours the physical wire).
  */
-function addColorToSelectedLine(){
-  if (!Canvas.solderSide && State.selectedConnection) {
-    const net = State.nets.find(n => n.id === State.selectedConnection!.netId);
-    if (!net) return;
-    const colorPicker = Utils.getSafeHtmlElement<HTMLInputElement>('colorPicker');
-    colorPicker.value = Utils.normalizeColor(net.color, "#3b82f6");
-    colorPicker.oninput = colorPicker.onchange = function() {
-      net.color = colorPicker.value;
-      redrawCanvas();
-    };
-    colorPicker.click();
-    return;
-  }
-  if (!State.selectedLine) {
-    return;
-  }
+export function changeSelectedLineColor(){
+  const conn = State.selectedConnection;
+  if (!conn) return;
   const colorPicker = Utils.getSafeHtmlElement<HTMLInputElement>('colorPicker');
-  colorPicker.value = Utils.normalizeColor(State.selectedLine.color, "#777676");
+  colorPicker.value = Utils.normalizeColor(conn.color, "#3b82f6");
   colorPicker.oninput = colorPicker.onchange = function() {
+    conn.color = colorPicker.value;
     State.activeWireColor = colorPicker.value;
     const badge = document.getElementById('activeColorBadge');
     if (badge) badge.style.background = colorPicker.value;
-    if(State.selectedLine){
-      State.selectedLine.color = colorPicker.value;
-      lockNetOf(State.selectedLine);
-      redrawCanvas();
-    }
+    invalidateWireCache();
+    redrawCanvas();
   };
   colorPicker.click();
 }
@@ -71,6 +56,7 @@ export function deleteLine(){
       State.connections.splice(index, 1);
       State.selectedConnection = undefined;
       rebuildNets();
+      invalidateWireCache();
       redrawCanvas();
       window.dispatchEvent(new Event('nets-changed'));
       return;
@@ -80,17 +66,6 @@ export function deleteLine(){
     deletePlacedIcCascade(State.selectedPlacedIc);
     return;
   }
-  if(State.selectedLine) {
-    const index = State.lines.indexOf(State.selectedLine);
-    if(index > -1){
-      recordChange({ removed: [State.selectedLine] });
-      State.lines.splice(index, 1);
-      State.selectedLine = undefined;
-      redrawCanvas();
-      window.dispatchEvent(new Event('nets-changed'));
-      return;
-    }
-  }
   if (State.selectedDot) {
     State.selectedDot.color = "#a4a0a0";
     State.selectedDot.description = undefined;
@@ -99,9 +74,8 @@ export function deleteLine(){
   }
 }
 
-ShortcutRegistry.add({key: "Delete", event: deleteLine, description: "Delete selected wire / component / pad note."})
+ShortcutRegistry.add({key: "Delete", event: deleteLine, description: "Delete selected connection / component / pad note."})
 ShortcutRegistry.add({key: "c", event: () => {
-    addColorToSelectedLine()
+    changeSelectedLineColor()
     changeSelectedDotColor()
-  }, description: "Change dot/line color."})
-
+  }, description: "Change dot/connection color."})

@@ -221,8 +221,8 @@
       </div>
       </div>
 
-      <!-- Wire Gauge Selector — solder-side only (wires are physical output there) -->
-      <div id="wireGaugeSectionWrap" hidden>
+      <!-- Wire Gauge Selector — sets the selected connection's wire thickness (and the brush for new ones) -->
+      <div id="wireGaugeSectionWrap">
         <div class="sidebar-divider"></div>
         <div class="sidebar-section">
           <div class="section-title section-collapsed" data-collapse="wireGaugeSection">
@@ -259,13 +259,9 @@
             <span class="collapse-chevron">▾</span>
           </div>
           <div class="section-body collapsed" id="netsSection">
-            <div class="btn-group">
-              <button id="rebuildNetsBtn" class="icon-btn">↻ Rebuild from Wires</button>
-              <button id="colorByNetToggle" class="icon-btn">🎨 Color by Net</button>
-            </div>
-            <div class="btn-group" style="margin-top:6px;">
-              <button id="tidyNetsBtn" class="icon-btn">✦ Tidy (MST)</button>
-              <button id="routeNetsBtn" class="icon-btn">⇥ Route (Orthogonal)</button>
+            <div id="routingModeSelector" style="margin-bottom:6px;">
+              <button class="routing-mode-btn active-mode" data-mode="orthogonal">⇥ Orthogonal</button>
+              <button class="routing-mode-btn" data-mode="direct">╱ Direct</button>
             </div>
             <div id="routeStatus" style="margin-top:6px; font-size:0.72rem; color:var(--text-muted); min-height:1em;"></div>
             <div id="netInfo" style="margin-top:0.5rem;"></div>
@@ -317,7 +313,6 @@
     <button id="ctxRotateBtn">🔄 Rotate Component</button>
     <button id="ctxColorBtn">🎨 Change Color</button>
     <button id="ctxNoteBtn">📝 Add/Edit Note</button>
-    <button id="ctxUnlockNetBtn" style="display:none;">🔓 Unlock &amp; re-route net</button>
     <button id="ctxDeleteBtn" class="ctx-danger">🗑 Delete Item</button>
   </div>
 

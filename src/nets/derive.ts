@@ -115,9 +115,10 @@ export interface DeriveResult {
 }
 
 /**
- * Group the connection list into nets. Identity, name, colour, lock and
- * routed-signature are carried over from `existing` for any net that still
- * has a terminal in common, so a rebuild never disturbs hand-tuned nets.
+ * Group the connection list into nets. Identity and name are carried over from
+ * `existing` for any net that still has a terminal in common, so a rebuild
+ * keeps net names stable. Colour is a derived palette swatch for the sidebar
+ * only (never a wire colour — that lives on `IConnection.color`).
  */
 export function deriveNets(connections: IConnection[], placedIcs: Ic[], existing: INet[] = []): DeriveResult {
   const resolve = terminalResolver(placedIcs);
@@ -153,12 +154,12 @@ export function deriveNets(connections: IConnection[], placedIcs: Ic[], existing
         ?? (strongNames.size === 1 ? [...strongNames][0] : undefined)
         ?? `N$${anon++}`);
 
-    let color = prior?.color ?? colorFor(nets.length);
+    let color = colorFor(nets.length);
     // GND / VCC get fixed, high-contrast colours against the green board.
     if (derivedName === "GND") color = "#cbd5e1";
     else if (derivedName === "VCC") color = "#ef4444";
 
-    nets.push({ id, name: derivedName, color, locked: prior?.locked, routedSignature: prior?.routedSignature });
+    nets.push({ id, name: derivedName, color });
 
     for (const c of connections) {
       if (compSet.has(terminalKey(c.a)) || compSet.has(terminalKey(c.b))) connectionNet.set(c, id);
@@ -266,41 +267,15 @@ export function netAtConnection(connection: IConnection, connections: IConnectio
   return netAtTerminal(connection.a, connections);
 }
 
-/**
- * Every wire and pad on the same electrical node as `line`, found by flooding
- * the wire list directly — the solder-side (physical) equivalent of
- * `netAtTerminal`.
- */
-export function netAtLine(line: ILine, lines: ILine[]): { lines: Set<ILine>; pads: Set<string> } {
-  const pads = new Set<string>([dotKey(line.start), dotKey(line.end)]);
-  const inNet = new Set<ILine>([line]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const l of lines) {
-      if (inNet.has(l)) continue;
-      const a = dotKey(l.start);
-      const b = dotKey(l.end);
-      if (pads.has(a) || pads.has(b)) {
-        inNet.add(l);
-        pads.add(a);
-        pads.add(b);
-        grew = true;
-      }
-    }
+/** Wires of a given net, plus the pads they touch — solder-side hover highlight. */
+export function wiresOfNet(netId: string, lines: ILine[]): { lines: Set<ILine>; pads: Set<string> } {
+  const inNet = new Set<ILine>();
+  const pads = new Set<string>();
+  for (const l of lines) {
+    if (l.netId !== netId) continue;
+    inNet.add(l);
+    pads.add(dotKey(l.start));
+    pads.add(dotKey(l.end));
   }
   return { lines: inNet, pads };
-}
-
-/** Sorted, joined pad keys of a net's current terminals — see `INet.routedSignature`. */
-export function netSignature(netId: string, connections: IConnection[], placedIcs: Ic[]): string {
-  const pads = new Set<string>();
-  for (const c of connections) {
-    if (c.netId !== netId) continue;
-    for (const t of [c.a, c.b]) {
-      const pad = resolveTerminal(t, placedIcs);
-      if (pad) pads.add(dotKey(pad));
-    }
-  }
-  return [...pads].sort().join("|");
 }

@@ -49,16 +49,17 @@ Node ≥ 20.19 (see `engines` / `.nvmrc`).
 | Path | Purpose |
 | :--- | :--- |
 | `index.html` | Entire DOM: header, left tool sidebar, canvas viewport, right shortcut panel, context menu, IC editor modal. All element IDs referenced from TS live here. |
-| `src/index.ts` | Entry point. Bootstraps the grid, wires up all DOM controls that don't have their own feature file: IC editor modal, tool-mode selector, wire-gauge selector, context-menu items, custom-colour palette + 2D spectrum picker, grid presets, zoom / fullscreen / sidebar toggle, selection-status badge, and the solder-side toggle (which calls `routeOnFlip()`). |
+| `src/index.ts` | Entry point. Bootstraps the grid, wires up all DOM controls that don't have their own feature file: IC editor modal, tool-mode selector, wire-gauge selector (sets the selected connection's `width`), context-menu items, custom-colour palette + 2D spectrum picker, grid presets, zoom / fullscreen / sidebar toggle, selection-status badge, and the solder-side toggle (a pure view flip — wires are re-derived on paint). |
 | `src/style.css` | All styling (dark "engineering" theme, CSS variables, glassmorphic panels). Imported by `index.ts`. |
-| `src/state/State.ts` | Global mutable app state — a class of `static` fields. Single source of truth: dots, lines (generated wires), **connections (the logical layer)**, ICs, current selection, active tool mode, wire colour/width, undo stack, grid constants (`dotSpace = 50`, `dotRadius = 5`). |
+| `src/state/State.ts` | Global mutable app state — a class of `static` fields. Single source of truth: dots, **connections (the logical layer, carrying wire colour/width)**, ICs, current selection, active tool mode, `routingMode` (`'orthogonal'`/`'direct'`), brush colour/width, undo stack, grid constants (`dotSpace = 50`, `dotRadius = 5`). `State.lines` is a *transient* solder-side render cache — recomputed from connections every paint, never saved, never in undo. |
 | `src/state/Canvas.ts` | Grabs the `<canvas id="myCanvas">` element and its 2D context as statics. |
 | `src/features/draw-canvas.ts` | `redrawCanvas()` — the render loop. Component side: IC bodies → dots → **connections** (dashed rubber bands) → IC labels → placement preview. Solder side: dots → wires. Called after every state mutation. |
 | `src/features/reset-canvas.ts` | `resetCanvas()` — paints the green board background. |
 | `src/features/hover.ts` | Canvas `mousemove`: hit-tests dots/lines/**connections** under cursor (`State.hoverDot`/`hoverLine`/`hoverConnection`), drives IC drag, updates the description readout. Also the `m` (move pad) shortcut. |
-| `src/features/select.ts` | Canvas `mousedown` / `contextmenu`: the core interaction router. Middle-mouse board panning, IC placement & drag, dot/line/connection selection, hand-drawn wire creation (`addNewLineIfNeeded`, **solder side only**), context menu show/hide, `Escape` deselect. The Connect tool's own pin-click handling lives in `connect.ts`; this file just yields to it (`activeToolMode === 'connect' && !solderSide` → early return). There is no eraser/note tool mode — deletion and notes are right-click (context menu) or keyboard-shortcut (`Delete`, `d`/`D`) only. |
+| `src/features/select.ts` | Canvas `mousedown` / `contextmenu`: the core interaction router. Middle-mouse board panning, IC placement & drag, dot/connection selection. On the solder side `selectWireConnection()` hit-tests the derived wire cache and selects the *connection* under the wire (there is no hand-drawn wire creation any more). Context menu show/hide, `Escape` deselect. The Connect tool's own pin-click handling lives in `connect.ts`; this file just yields to it (`activeToolMode === 'connect' && !solderSide` → early return). |
 | `src/features/connect.ts` | The Connect tool (component side): click a pin to arm it (`State.pendingTerminal`), click a second pin to create an `IConnection` (deduped, undo-tracked). Also `deletePlacedIcCascade()` — deletes a placed component and cascades its connections as one undo entry, used by `Delete` and the right-click context menu. |
-| `src/features/line.ts` | Wire colour change (solder side) / **net colour change for the selected connection** (component side), wire/connection/component deletion, `Delete` and `c` shortcuts. |
+| `src/features/line.ts` | `changeSelectedLineColor()` / `setLineColor()` — set the selected **connection's** `color` (same on both faces); connection/component deletion (`deleteLine()`); `Delete` and `c` shortcuts. |
+| `src/features/wire-cache.ts` | The stateless solder side. `refreshWireCache()` recomputes `State.lines` from `State.connections` (one `RouteEdge` per connection, resolved to pads) whenever a full input signature — routing mode + every connection's colour/width + both terminals' pad keys — changes, so it can never be silently stale. `invalidateWireCache()` forces the next recompute. Must NOT import `draw-canvas` (it imports this). |
 | `src/features/dot.ts` | Pad colour change via the hidden `#colorPicker`. |
 | `src/features/description.ts` | Add/remove a text note on a pad (`prompt()`-based), `d` / `D` shortcuts. |
 | `src/features/ic.ts` | `Ic` class ("Components" in the UI): catalog container (`Ic.IC_CONTAINER`), placement, body/notch/pin-label drawing, 4-way rotation, custom-IC localStorage persistence. `getPinPositionOnIC()` (pad → pin) and `pinDot()` (pin → pad) delegate to the pure `ic-geometry.ts`. Body rendering is pluggable: `imageSrc` draws as artwork, otherwise `kind` selects vector art — `"chip"` (default DIP package), the "leaded" 2-terminal kinds `"resistor"` / `"cap-ceramic"` / `"cap-electrolytic"`, or `"bridge"` (a 1-pin junction — a small ring, no package, `hidesDot()` false; what you place to connect to a bare hole, see `docs/logical-connections.md`). `isLeaded` / `isBridge` / `pinCount` / `icon` getters key off `kind`. The actual built-in part list lives in `ic-catalog.ts`. Exposes `selectIc` / `deleteCustomIc` / `rotateSelectedIc` on `window` (called from inline `onclick` in generated HTML). `r` shortcut. |
@@ -66,13 +67,13 @@ Node ≥ 20.19 (see `engines` / `.nvmrc`).
 | `src/features/ic-geometry.ts` | **Pure** pin ↔ pad geometry extracted out of `Ic` so it's unit-testable without `Canvas`/`State`: `pinAtDot()` / `dotForPin()` (inverse of each other, one per rotation) and `pinCountOf()`. `isRowLayout()` detects a single-row/SIP-style part (`widthPin` or `heightPin` === 1, excluding leaded parts and the bridge) and gives it one pin per hole along its long axis instead of the doubled two-sided DIP count — see the NAU7802 in `ic-catalog.ts`. The only consumer besides `Ic` is `ic-geometry.test.ts` (the pinDot ↔ getPinPositionOnIC round trip). |
 | `src/features/grid-labels.ts` | Row/column axis labelling. **Pure** half: `toLetters`/`fromLetters` (bijective base-26, A..ZZ), `parseAxisSize` (a Grid Configuration input is digits *or* letters — whichever you type sets that axis's `AxisMode`), `formatAxisSize`, `axisLabel` (plus the module-private `rowLabel`, which applies `State.rowLabelsBottomUp`). Impure half: `drawGridLabels()` (painted by `redrawCanvas()` straight after the background, into the `State.gridGutter` margin, positions derived from the pads actually present) and `dotCoordinateLabel()` ("B4", used by the hover readout and the selection badge). Tick positions are memoised on `State.dots` identity. |
 | `src/features/shortcut-keys.ts` | `ShortcutRegistry` — features call `ShortcutRegistry.add({key, ctrl?, event, description})`; keydown listener dispatches (to every matching entry — a key may be registered more than once), ignores INPUT/TEXTAREA targets, renders the list into `#shortcuts`. |
-| `src/features/nets-ui.ts` | The "Nets" sidebar panel (solder side only; DOM half of the net layer): "Rebuild from Wires" (`refreshNets()`), "Color by Net" toggle (`State.showNetColors`), net list + short count, a ⚠ unlock-and-reroute affordance per stale-and-locked net. Re-renders on the `nets-changed` window event dispatched by connection/wire mutations / load / reset. |
+| `src/features/nets-ui.ts` | The "Nets" sidebar panel (solder side only; DOM half of the net layer): the derived net list (name + swatch) plus a shorted-pad count. No rebuild button (automatic) and no colour toggle. Re-renders on the `nets-changed` window event. |
 | `src/features/connections-ui.ts` | The "Connections" sidebar panel (component side only): count, list grouped by net, click-to-select, per-connection delete. Mirrors `nets-ui.ts`. |
-| `src/nets/` | Logical net layer (see `docs/logical-connections.md` M9). `derive.ts` — **pure**, no DOM/State/Canvas: union-find over `State.connections` keyed on `"icId#pin"` terminal keys, power-pin naming read directly off `pinDescription`, `findShorts` (physical wire pad collisions) + `labelConflicts` (a net tying two canonical names together) + `physicalTerminalShorts` (two different nets' terminals resolving to the same pad — overlapping placement), `netAtTerminal` / `netAtConnection` flood for component-side hover highlight, `netAtLine` for the solder-side equivalent, `netSignature()` (feeds `INet.routedSignature`, see M10), `resolveTerminal()` / `terminalAtDot()` (terminal ↔ pad, shared by rendering/hit-testing). `rebuild.ts` — impure wrapper that writes `State.nets` and stamps `IConnection.netId`. Also `derive.test.ts` (Vitest). |
-| `src/routing/` | **Pure** `logical → physical` router (M4/M5) — may import ONLY interface types + other routing modules, never DOM/State/Canvas. Its contract (`RouteNet[] → ILine[]`) is unchanged by the connections model — it never learns that connections exist. `types.ts` (`RouteNet`/`RouteOpts`/`RouteResult`, `DEFAULT_OPTS`, geom helpers), `tidy.ts` (`mst()` Prim's + `tidy()` MST pass), `astar.ts` (generic A* + binary heap), `route.ts` (`route()` — A* over straight-run pad graph, cost table from §3, `failed[]` for unroutable nets). Has its own `*.test.ts` (Vitest). |
-| `src/features/routing.ts` | DOM half of routing: `collectNets()` resolves each net's connections to pads via `pinDot()` (not from hand-drawn wires). `routeOnFlip()` — the flip-to-solder-side build step: routes only nets whose `netSignature()` differs from `INet.routedSignature` and aren't locked. "Tidy (MST)" / "Route (Orthogonal)" buttons force a full pass. One batch-undo entry per pass, `#routeStatus` readout. `lockNetOf()` (wire edit → `net.locked`), `unlockAndRerouteNet()` / `unlockAndReroute()` (context menu `#ctxUnlockNetBtn`, Nets-panel ⚠). |
-| `src/features/project/` | Save/load/reset: `save-project.ts` (`getSaveJson()` + JSON file download, writes `version: 3` plus the `grid` axis-notation block), `load-project.ts` (`loadProject()` + file input; a v1/v2 file has no `connections` — every hand-drawn wire migrates to one `IConnection`, with a bridge placed for each bare-hole endpoint, see `docs/logical-connections.md` §6 — and re-hydrates wire endpoints to canonical `State.dots` by coordinate), `autosave.ts` (debounced write of the whole project to the localStorage `save` key, called from `redrawCanvas()` after every mutation; no "Save Progress" button — it's fully automatic), `load-from-local-storage.ts` (auto-restore on `DOMContentLoaded`, then `armAutosave()`), `reset-project.ts` (clear everything), `resize-grid.ts` (`createDotGrid()` + the W×H inputs, via `readGridInputs()` / `syncGridInputs()` — both accept numbers or letters), `undo-redo.ts` (batch history over wires + **connections + components** — `IChange`, `recordChange()`; wires match by endpoint coordinate, connections/components match by `id`), `save-image.ts` (`canvas.toDataURL()` PNG, `p` shortcut). |
-| `src/interfaces/` | `IDot`, `ILine` (+ optional `netId` / `generated` — generated wires only, from M11 on), `IConnection` / `ITerminal` (`connection.interface.ts` — the logical layer, plus the canonical-order/dedup helpers `terminalKey`/`makeConnection`/`sameConnection`/`isSelfLoop`), `INet` (+ `routedSignature`), `IChange` (batch undo entry — wires/connections/components added/removed), `IProjectSave` (save-file shape, `version: 3` + `connections` + `nets`). |
+| `src/nets/` | Logical net layer. `derive.ts` — **pure**, no DOM/State/Canvas: union-find over `State.connections` keyed on `"icId#pin"` terminal keys, power-pin naming read directly off `pinDescription`, `findShorts` (physical wire pad collisions) + `labelConflicts` + `physicalTerminalShorts` (two different nets' terminals resolving to the same pad), `netAtTerminal` / `netAtConnection` flood for component-side hover highlight, `wiresOfNet()` for the solder-side equivalent, `resolveTerminal()` / `terminalAtDot()` (terminal ↔ pad). `INet` is now just `{id, name, color?}` — `color` is a derived sidebar swatch, never a wire colour. `rebuild.ts` — impure wrapper that writes `State.nets` and stamps `IConnection.netId`. Also `derive.test.ts` (Vitest). |
+| `src/routing/` | **Pure** `logical → physical` router — may import ONLY interface types + other routing modules, never DOM/State/Canvas. Contract: `RouteEdge[] → ILine[]`, **one wire per connection** (no MST). `types.ts` (`RouteEdge`/`RouteOpts`/`RouteResult`, `DEFAULT_OPTS`, `wire()`), `astar.ts` (generic A* + binary heap), `route.ts` (`route()` — orthogonal A* over straight-run pad graph; two hard constraints: pad ownership keyed by `netId` so same-net edges share pads, and *channel exclusivity* — the gap between two adjacent pads carries at most one wire, so wires may cross but never run on top of each other; `failed[]` holds unroutable `connId`s, re-tried priority-first for up to 3 passes), `direct.ts` (`directWires()` — one straight segment per edge). Has its own `*.test.ts` (Vitest). |
+| `src/features/routing.ts` | The routing-mode toggle only: `setRoutingMode()` + the `#routingModeSelector` buttons + `syncRoutingModeButtons()`. All the marshalling lives in `wire-cache.ts`. |
+| `src/features/project/` | Save/load/reset: `save-project.ts` (`getSaveJson()` + JSON file download, `version: 4` — `connections` (with colour/width) + `routingMode` + the `grid` block; no `lines`/`nets`), `load-project.ts` (`loadProject()` + file input; a v1/v2 file migrates each hand-drawn wire to one `IConnection` carrying that wire's colour/width, a bridge per bare-hole endpoint; a v3 file adopts each connection's saved *net* colour onto the connection), `autosave.ts` (debounced localStorage `save` write from `redrawCanvas()`), `load-from-local-storage.ts` (auto-restore on `DOMContentLoaded`, then `armAutosave()`), `reset-project.ts`, `resize-grid.ts`, `undo-redo.ts` (batch history over **connections + components** only — `IChange`, `recordChange()`, matched by `id`; wires are not tracked), `save-image.ts` (`p` shortcut). |
+| `src/interfaces/` | `IDot`, `ILine` (transient wire segment: `+ netId?` / `connId?`), `IConnection` / `ITerminal` (`connection.interface.ts` — the logical layer + `color?` / `width?`, plus `terminalKey`/`makeConnection`/`sameConnection`/`isSelfLoop`), `INet` (`{id, name, color?}`), `IChange` (undo entry — connections/components added/removed), `IProjectSave` (`version: 4`). |
 | `src/utils/utils.ts` | `Utils.getSafeHtmlElement()` (throwing `getElementById`), `Utils.normalizeColor()`. |
 | `src/utils/serialization.ts` | Thin `JSON.stringify` / `Object.assign` helpers used for IC rehydration on load. |
 | `assets/favicon.png` | Vite `publicDir` — static assets served from here. |
@@ -89,14 +90,15 @@ Node ≥ 20.19 (see `engines` / `.nvmrc`).
 4. Coordinates: pads sit on a fixed 50px pitch; a dot's canvas `x`/`y` doubles as its
    identity (equality checks compare coordinates, and `ILine.start`/`end` hold dot
    references).
-5. **Connections are truth, wires are output** (`docs/logical-connections.md`). The
-   component side is the schematic view: you connect pin-to-pin with the Connect tool,
-   and a connection is anchored to `{icId, pin}`, not to board geometry — drag a
-   component and everything wired to it follows. The solder side is the physical view:
-   flipping to it rebuilds nets from connections and routes whichever are stale, turning
-   the schematic into `ILine` wires. Bare-hole endpoints need a one-pin "Bridge"
-   component (placed from the catalog like any other part) so every connection terminal
-   is a component pin, with no exceptions.
+5. **Connections are truth; the solder side is stateless** (`docs/logical-connections.md`
+   §11). The component side is the schematic view: you connect pin-to-pin with the
+   Connect tool, and a connection is anchored to `{icId, pin}` (plus its own `color` /
+   `width`), not to board geometry — drag a component and everything wired to it
+   follows. The solder side holds no wire state: every paint, `refreshWireCache()`
+   re-derives `State.lines` from the connections (one wire per connection — straight in
+   `direct` mode, an orthogonal polyline in `orthogonal` mode). Selecting/deleting a
+   "wire" really acts on its connection. Bare-hole endpoints need a one-pin "Bridge"
+   component so every connection terminal is a component pin.
 
 ## Conventions / gotchas
 
@@ -132,49 +134,46 @@ Node ≥ 20.19 (see `engines` / `.nvmrc`).
 - Dev server port is **3000** (`vite.config.ts`), not Vite's default 5173.
 - The built-in IC catalog lives in `loadDefaultIcs()` in `src/features/ic-catalog.ts`; it
   runs at startup and again on project reset (so Reset no longer empties the IC menu).
-- Undo/redo tracks wire add/remove, connection add/remove, and component
-  add/remove (cascade delete) — not colours, notes, or grid resize. Entries are
-  batched (`IChange = {added?, removed?, connectionsAdded?, connectionsRemoved?,
-  componentsAdded?, componentsRemoved?}`), so one op = one Ctrl+Z even when it
-  touches many items (a routing pass, or deleting a component and its
-  connections). Wires match by endpoint coordinate; connections/components match
-  by `id`. `recordChange({...})` is the single push site.
+- Undo/redo tracks connection add/remove and component add/remove (cascade
+  delete) — not wires (stateless), colours, notes, or grid resize. Entries are
+  batched (`IChange = {connectionsAdded?, connectionsRemoved?, componentsAdded?,
+  componentsRemoved?}`), matched by `id`, so deleting a component + its
+  connections is one Ctrl+Z. `recordChange({...})` is the single push site.
 - Placed-component ids are `crypto.randomUUID()` strings (secure-context only —
   fine on localhost + GitHub Pages), including bridges. Save files are
-  `version: 3`; a file with no `connections` (< v3) migrates its hand-drawn
-  wires to connections on load, and a missing version is treated as v1 (also
-  regenerates component ids).
-- The net layer (`src/nets/`) is derived from connections on demand — a
-  "Rebuild from Wires"-style manual pass, but also run automatically on every
-  connection/component mutation and on flip-to-solder-side. A freshly-created
-  connection has no `netId` until the next rebuild, though hover-highlight and
-  short detection work without one.
-- Routing (`src/routing/`) is **non-destructive**: it replaces only its own
-  non-locked `generated` wires, leaving every hand-drawn solder-side wire
-  intact. Net terminals are resolved from connections' `pinDot()` positions, not
-  from wires. A net locks (`INet.locked`) when you hand-edit one of its wires'
-  colour or width; "Unlock & re-route net" (context menu, or the Nets panel's ⚠
-  on a stale-and-locked net) clears it. Locked nets are never rewritten.
-  Unroutable nets are reported by name in `#routeStatus`, never dropped. Routing
-  UI/actions live on the solder side only; flipping to it is itself a routing
-  trigger (`routeOnFlip()` — routes only nets whose `netSignature()` changed
-  since their last routing pass, via `INet.routedSignature`).
+  `version: 4` (`connections` + `routingMode`, no `lines`/`nets`). A file < v3
+  migrates hand-drawn wires to connections (carrying colour/width); a v3 file
+  adopts each connection's saved *net* colour onto the connection; a missing
+  version is treated as v1 (regenerates component ids).
+- The net layer (`src/nets/`) is derived from connections on demand and also run
+  automatically on every connection/component mutation and before every
+  solder-side paint. A freshly-created connection has no `netId` until the next
+  rebuild, though hover-highlight and short detection work without one.
+- **The solder side is stateless.** `wire-cache.ts` recomputes `State.lines`
+  from the connection list (one `RouteEdge` per connection) whenever a full
+  input signature changes (`routingMode` + every connection's colour/width +
+  both terminals' pad keys) — so moving/deleting a component never leaves a
+  stale wire. Routing is per-connection, not per-net: `route()` (orthogonal A*)
+  or `directWires()` (straight). Pad ownership is keyed by `netId` so same-net
+  connections may share pads; **channel exclusivity** is absolute — no two
+  wires (same net included) may occupy the gap between the same two adjacent
+  pads, so a wire is never hidden under another and crossings stay legal. Unroutable connections are listed by their
+  terminal labels in `#routeStatus`, never dropped. The only routing control is
+  the global `#routingModeSelector` (orthogonal / direct), solder side only.
 - `no-unused-vars` is enforced by both `noUnusedLocals/Parameters` (tsconfig) and
   eslint — the pure routing modules must not leave dangling params.
 - Solder-side view (`Canvas.solderSide`) mirrors X in the single canvas
   transform; text goes through `Canvas.fillText()` to stay upright. `save-image`
-  exports whatever side is showing. The two faces are also the logical/physical
-  split: **component side** = components + connections (dashed rubber bands,
-  net-coloured) + the Components/Connections catalogs, no wires at all; **solder
-  side** = components hidden & inert, the router's `generated` wires (per-net
-  fallback to hand-drawn until routed), net colours / hover-highlight / short
-  rings, the Nets panel, the Wire Thickness controls. Face-dependent wire
-  visibility is `wireVisible()` in `draw-canvas.ts`; the sidebar sections toggle
-  via `[hidden]` on `#netsPanelWrap` / `#componentsPanelWrap` /
-  `#connectionsPanelWrap` / `#wireGaugeSectionWrap`. There is no wire tool on the
-  component side — the Connect tool (`activeToolMode === 'connect'`) creates
-  connections there and hand-drawn wires only on the solder side, via the same
-  tool mode (gated on `Canvas.solderSide` in `select.ts`/`connect.ts`).
+  exports whatever side is showing. The two faces are the logical/physical
+  split: **component side** = components + connections (dashed rubber bands, in
+  the connection's own colour) + the Components/Connections catalogs, no wires;
+  **solder side** = components hidden & inert, the derived per-connection wires
+  (`State.lines`), hover-highlight / short rings, the Nets panel. The sidebar
+  sections toggle via `[hidden]` on `#netsPanelWrap` / `#componentsPanelWrap` /
+  `#connectionsPanelWrap` (the "Wire Thickness" + "Line Color" controls stay
+  visible on both faces — they edit the selected connection). There is no wire
+  tool — the Connect tool (`activeToolMode === 'connect'`, component side only)
+  creates connections.
 - No CI. `lint` + `typecheck` + `format` + `test` are the checks; `lint` still
   emits 6 `any`-related warnings (0 errors) — `no-explicit-any` is deliberately
   set to `warn` in `eslint.config.js`. Tests (Vitest) exist ONLY for

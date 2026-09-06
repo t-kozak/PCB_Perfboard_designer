@@ -738,8 +738,19 @@ kbd {
   margin-top: 0.5rem;
 }
 
+/* Routing mode selector (solder side) */
+#routingModeSelector {
+  display: flex;
+  gap: 6px;
+}
+#routingModeSelector .routing-mode-btn {
+  flex: 1;
+  padding: 0.4rem 0.4rem;
+  font-size: 0.78rem;
+}
+
 /* Tool Mode & Gauge Selector Active States */
-.tool-mode-btn.active-mode, .gauge-btn.active-mode {
+.tool-mode-btn.active-mode, .gauge-btn.active-mode, .routing-mode-btn.active-mode {
   background: linear-gradient(135deg, #0284c7, #0369a1);
   border-color: #38bdf8;
   color: #ffffff;

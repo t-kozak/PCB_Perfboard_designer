@@ -2,9 +2,7 @@ import {State} from "../state/State";
 import {redrawCanvas} from "./draw-canvas";
 import {Canvas} from "../state/Canvas";
 import {ShortcutRegistry} from "./shortcut-keys";
-import {ILine} from "../interfaces/line.interface";
 import {panBy} from "./viewport";
-import {recordChange} from "./project/undo-redo";
 import {updateSidebarVisibility} from "./sidebar-mode";
 let isPanningBoard = false;
 let panLastX = 0;
@@ -51,7 +49,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
       State.selectedPlacedIc = hitPlacedIc;
       State.isDraggingIc = true;
       State.selectedDot = undefined;
-      State.selectedLine = undefined;
+      State.selectedConnection = undefined;
       redrawCanvas();
       return;
     }
@@ -89,11 +87,8 @@ Canvas.c.addEventListener('contextmenu', function(e) {
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
 
   if (Canvas.solderSide) {
-    selectLine(e);
-    if (!State.selectedLine && State.hoverDot) {
-      State.selectedDot = State.hoverDot;
-      redrawCanvas();
-    }
+    solderSelect(e);
+    redrawCanvas();
   } else {
     State.selectedConnection = State.hoverDot ? undefined : State.hoverConnection;
     if (!State.selectedConnection && State.hoverDot) {
@@ -103,7 +98,7 @@ Canvas.c.addEventListener('contextmenu', function(e) {
   }
 
   // Right-click on a component body (away from its pins) targets the component.
-  if (!Canvas.solderSide && !State.selectedLine && !State.selectedDot && !State.selectedConnection) {
+  if (!Canvas.solderSide && !State.selectedDot && !State.selectedConnection) {
     const hitIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
     if (hitIc) {
       State.selectedPlacedIc = hitIc;
@@ -111,16 +106,7 @@ Canvas.c.addEventListener('contextmenu', function(e) {
     }
   }
 
-  // "Unlock & re-route net" only makes sense for a wire on a locked net.
-  const unlockBtn = document.getElementById('ctxUnlockNetBtn');
-  if (unlockBtn) {
-    const net = State.selectedLine?.netId
-      ? State.nets.find(n => n.id === State.selectedLine!.netId)
-      : undefined;
-    unlockBtn.style.display = net?.locked ? 'block' : 'none';
-  }
-
-  if (State.selectedLine || State.selectedDot || State.selectedPlacedIc || State.selectedConnection) {
+  if (State.selectedDot || State.selectedPlacedIc || State.selectedConnection) {
     showContextMenu(e.clientX, e.clientY);
   } else {
     hideContextMenu();
@@ -164,41 +150,16 @@ window.addEventListener('click', (e) => {
   }
 });
 
-function addNewLineIfNeeded(){
-    if (State.activeToolMode !== 'connect') {
-      return;
-    }
-    if (!State.hoverDot){
-      return;
-    }
-    if(State.selectedDot && State.selectedDot != State.hoverDot){
-      const newLine: ILine = {
-        start: State.selectedDot,
-        end: State.hoverDot,
-        color: State.activeWireColor || "#3b82f6",
-        width: State.selectedWireWidth || 4
-      };
-      State.lines.push(newLine);
-      recordChange({ added: [newLine] });
-
-      // Reset selection
-      State.selectedDot = undefined;
-      State.selectedLine = newLine;
-      redrawCanvas();
-      window.dispatchEvent(new Event('nets-changed'));
-    }
-}
-
 function selectDot(){
   if (!State.hoverDot){
     return;
   }
   State.selectedDot = State.hoverDot;
-  State.selectedLine = undefined;
+  State.selectedConnection = undefined;
   redrawCanvas();
 }
 
-/** Component-side sibling of `selectLine` — selects whatever connection is currently hovered. */
+/** Component-side: select whatever connection (rubber band) is currently hovered. */
 function selectConnection(){
   if (State.hoverDot) {
     return;
@@ -207,55 +168,54 @@ function selectConnection(){
   redrawCanvas();
 }
 
-export function selectLine(event: MouseEvent) {
-  if (State.hoverDot) {
-    return;
-  }
-
+/**
+ * Solder side: hit-test the derived wire cache and return the connection whose
+ * wire lies precisely under the cursor (wires are stateless — selecting one
+ * really means selecting its connection). Solder-side wires run along pad
+ * rows/columns, so this deliberately ignores `hoverDot` — the tight on-segment
+ * test is what disambiguates wire-vs-pad. Returns undefined when off every wire.
+ */
+function selectWireConnection(event: MouseEvent) {
   const {x, y} = Canvas.screenToBoard(event.clientX, event.clientY);
-
   for (let i = 0; i < State.lines.length; i++) {
     const line = State.lines[i];
-
-    const dx1 = line.start.x - x;
-    const dy1 = line.start.y - y;
-    const dx2 = line.end.x - x;
-    const dy2 = line.end.y - y;
-
-    const d1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-    const d2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-
-    const d = Math.sqrt(
-      Math.pow(line.end.x - line.start.x, 2) + Math.pow(line.end.y - line.start.y, 2)
-    );
-
+    const d1 = Math.hypot(line.start.x - x, line.start.y - y);
+    const d2 = Math.hypot(line.end.x - x, line.end.y - y);
+    const d = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
     if (Math.abs(d - (d1 + d2)) < State.lineSelectTolerance) {
-      State.selectedLine = line;
-      State.selectedDot = undefined;
-      redrawCanvas();
-      return;
+      return State.connections.find(c => c.id === line.connId);
     }
   }
+  return undefined;
+}
 
-  State.selectedDot = undefined;
-  State.selectedLine = undefined;
-  redrawCanvas();
+/** Solder-side click/right-click target: a wire's connection if on one, else the hovered pad. */
+function solderSelect(event: MouseEvent) {
+  const conn = selectWireConnection(event);
+  if (conn) {
+    State.selectedConnection = conn;
+    State.selectedDot = undefined;
+  } else if (State.hoverDot) {
+    State.selectedDot = State.hoverDot;
+    State.selectedConnection = undefined;
+  } else {
+    State.selectedConnection = undefined;
+    State.selectedDot = undefined;
+  }
 }
 
 function setSelection(event: MouseEvent) {
   if (Canvas.solderSide) {
-    addNewLineIfNeeded();
-    selectDot();
-    selectLine(event);
+    solderSelect(event);
+    redrawCanvas();
   } else {
     selectDot();
     selectConnection();
   }
 }
 
-ShortcutRegistry.add({key: "Escape", description: "Unselect dot, line or connection", event: ()=>{
+ShortcutRegistry.add({key: "Escape", description: "Unselect dot or connection", event: ()=>{
   State.selectedDot = undefined;
-  State.selectedLine = undefined;
   State.selectedConnection = undefined;
   State.pendingTerminal = undefined;
   State.selectedIc = undefined;

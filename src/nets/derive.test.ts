@@ -4,7 +4,6 @@ import {
   labelConflicts,
   physicalTerminalShorts,
   netAtTerminal,
-  netSignature,
   components,
 } from "./derive";
 import type { IConnection, ITerminal } from "../interfaces/connection.interface";
@@ -63,19 +62,17 @@ describe("derive: net naming", () => {
     expect(nets[0].name).toMatch(/^N\$\d+$/);
   });
 
-  it("carries a prior net's id/name/color/lock forward across a rebuild", () => {
+  it("carries a prior net's id/name forward across a rebuild", () => {
     const ics = [fakeIc("u1", {}, { 1: { x: 0, y: 0 }, 2: { x: 50, y: 0 } })];
     const connections = [conn({ icId: "u1", pin: 1 }, { icId: "u1", pin: 2 })];
     const first = deriveNets(connections, ics);
     first.nets[0].name = "MY_NET";
-    first.nets[0].locked = true;
     for (const c of connections) c.netId = first.connectionNet.get(c);
 
     const second = deriveNets(connections, ics, first.nets);
     expect(second.nets).toHaveLength(1);
     expect(second.nets[0].id).toBe(first.nets[0].id);
     expect(second.nets[0].name).toBe("MY_NET");
-    expect(second.nets[0].locked).toBe(true);
   });
 });
 
@@ -111,7 +108,7 @@ describe("derive: shorts", () => {
   });
 });
 
-describe("derive: netAtTerminal / netSignature", () => {
+describe("derive: netAtTerminal", () => {
   it("floods to every terminal reachable through connections", () => {
     const connections = [
       conn({ icId: "u1", pin: 1 }, { icId: "u1", pin: 2 }),
@@ -120,13 +117,5 @@ describe("derive: netAtTerminal / netSignature", () => {
     ];
     const { terminals } = netAtTerminal({ icId: "u1", pin: 1 }, connections);
     expect(terminals).toEqual(new Set(["u1#1", "u1#2", "u1#3"]));
-  });
-
-  it("computes a stable, order-independent signature from resolved pads", () => {
-    const ics = [fakeIc("u1", {}, { 1: { x: 100, y: 0 }, 2: { x: 0, y: 0 } })];
-    const connections = [conn({ icId: "u1", pin: 1 }, { icId: "u1", pin: 2 })];
-    const { nets, connectionNet } = deriveNets(connections, ics);
-    for (const c of connections) c.netId = connectionNet.get(c);
-    expect(netSignature(nets[0].id, connections, ics)).toBe("0,0|100,0");
   });
 });

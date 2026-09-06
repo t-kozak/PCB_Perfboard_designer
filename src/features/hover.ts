@@ -4,6 +4,7 @@ import {Canvas} from "../state/Canvas";
 import {Utils} from "../utils/utils";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {resolveTerminal} from "../nets/derive";
+import {refreshWireCache} from "./wire-cache";
 import {dotCoordinateLabel} from "./grid-labels";
 
 Canvas.c.addEventListener('mousemove', function(e) {
@@ -21,26 +22,23 @@ Canvas.c.addEventListener('mousemove', function(e) {
     }
   }
 
-  // Check if mouse is within a line
-  State.hoverLine = undefined;
-  for(let i = 0; i < State.lines.length; i++) {
-    const line = State.lines[i];
-    const dx1 = line.start.x - x;
-    const dy1 = line.start.y - y;
-    const dx2 = line.end.x - x;
-    const dy2 = line.end.y - y;
-    const d1 = Math.sqrt(dx1*dx1 + dy1*dy1); // distance from start dot to point
-    const d2 = Math.sqrt(dx2*dx2 + dy2*dy2); // distance from end dot to point
-    const d = Math.sqrt(Math.pow(line.end.x-line.start.x, 2) + Math.pow(line.end.y-line.start.y, 2)); // distance from start dot to end dot
-    if (Math.abs(d - (d1 + d2)) < State.lineSelectTolerance) { // increased tolerance to 10
-      State.hoverLine = line;
-      break;
-    }
-  }
-
-  // Connections are a component-side concept — the solder side hides components.
+  // The connection under the cursor. On the solder side, wires are the only
+  // thing drawn — hit-test the (freshly derived) wire cache and map the segment
+  // back to its connection. On the component side, hit-test the rubber bands.
   State.hoverConnection = undefined;
-  if (!Canvas.solderSide) {
+  if (Canvas.solderSide) {
+    refreshWireCache();
+    for (let i = 0; i < State.lines.length; i++) {
+      const line = State.lines[i];
+      const d1 = Math.hypot(line.start.x - x, line.start.y - y);
+      const d2 = Math.hypot(line.end.x - x, line.end.y - y);
+      const d = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
+      if (Math.abs(d - (d1 + d2)) < State.lineSelectTolerance) {
+        State.hoverConnection = State.connections.find(c => c.id === line.connId);
+        break;
+      }
+    }
+  } else {
     for (let i = 0; i < State.connections.length; i++) {
       const conn = State.connections[i];
       const a = resolveTerminal(conn.a, State.placedIcs);

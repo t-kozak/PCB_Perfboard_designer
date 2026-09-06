@@ -20,6 +20,14 @@ export interface IConnection {
   netId?: string;
   /** Optional user annotation shown on the component side. */
   label?: string;
+  /**
+   * Wire appearance on the solder side. The connection owns this — the solder
+   * side keeps no wire state, it just renders each connection as a wire in
+   * this colour / thickness (see docs/logical-connections.md §11). `undefined`
+   * falls back to a default at paint time.
+   */
+  color?: string;
+  width?: number;
 }
 
 export const terminalKey = (t: ITerminal): string => `${t.icId}#${t.pin}`;
@@ -40,8 +48,12 @@ export function sameConnection(x: IConnection, a: ITerminal, b: ITerminal): bool
 }
 
 /** Build a canonical connection between two terminals, or null for an illegal self-loop. */
-export function makeConnection(a: ITerminal, b: ITerminal, label?: string): IConnection | null {
+export function makeConnection(
+  a: ITerminal,
+  b: ITerminal,
+  opts: { label?: string; color?: string; width?: number } = {},
+): IConnection | null {
   if (isSelfLoop(a, b)) return null;
   const [ca, cb] = canonicalPair(a, b);
-  return { id: crypto.randomUUID(), a: ca, b: cb, label };
+  return { id: crypto.randomUUID(), a: ca, b: cb, ...opts };
 }

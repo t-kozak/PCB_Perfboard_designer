@@ -5,6 +5,8 @@ import {resetCanvas} from "../reset-canvas";
 import {redrawCanvas} from "../draw-canvas";
 import {loadDefaultIcs} from "../ic-catalog";
 import {updateSidebarVisibility} from "../sidebar-mode";
+import {invalidateWireCache} from "../wire-cache";
+import {syncRoutingModeButtons} from "../routing";
 
 Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click', function() {
   State.lines = [];
@@ -14,8 +16,8 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click'
   State.nets = [];
   State.changes = [];
   State.changeIndex = -1;
+  State.routingMode = 'orthogonal';
   State.selectedDot = undefined;
-  State.selectedLine = undefined;
   State.selectedConnection = undefined;
   State.hoverConnection = undefined;
   State.pendingTerminal = undefined;
@@ -23,6 +25,8 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click'
   State.selectedPlacedIc = undefined;
   loadDefaultIcs(); // restore the built-in IC catalog
   localStorage.removeItem('save');
+  invalidateWireCache();
+  syncRoutingModeButtons();
   const size = readGridInputs() ?? {cols: 10, rows: 10};
   createDotGrid(size.cols, size.rows);
   updateSidebarVisibility();

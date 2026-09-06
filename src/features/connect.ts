@@ -24,7 +24,10 @@ Canvas.c.addEventListener('mousedown', (e) => {
   } else if (terminalKey(State.pendingTerminal) === terminalKey(hit)) {
     State.pendingTerminal = undefined; // clicking the same pin cancels it
   } else {
-    const conn = makeConnection(State.pendingTerminal, hit);
+    const conn = makeConnection(State.pendingTerminal, hit, {
+      color: State.activeWireColor,
+      width: State.selectedWireWidth,
+    });
     State.pendingTerminal = undefined;
     if (conn && !State.connections.some(c => sameConnection(c, conn.a, conn.b))) {
       State.connections.push(conn);

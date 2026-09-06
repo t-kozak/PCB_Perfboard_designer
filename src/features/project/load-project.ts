@@ -9,6 +9,8 @@ import {IDot} from "../../interfaces/dot.interface";
 import {ILine} from "../../interfaces/line.interface";
 import {IConnection, ITerminal, isSelfLoop, makeConnection, sameConnection} from "../../interfaces/connection.interface";
 import {rebuildNets} from "../../nets/rebuild";
+import {invalidateWireCache} from "../wire-cache";
+import {syncRoutingModeButtons} from "../routing";
 import {syncGridInputs} from "./resize-grid";
 import {updateSidebarVisibility} from "../sidebar-mode";
 
@@ -79,12 +81,15 @@ export function deserializePlacedIc(data: any, migrateIds = false): Ic | null {
   return ic;
 }
 
+/** A pre-v4 saved wire — `ILine` no longer carries `generated`. */
+type LegacyLine = ILine & { generated?: boolean };
+
 /**
  * v1/v2 migration (docs/logical-connections.md §6): every hand-drawn wire
  * becomes one connection. An endpoint not already on a component pin gets a
  * bridge placed there (once per pad), so every terminal ends up a pin.
  */
-function migrateLinesToConnections(lines: ILine[], placedIcs: Ic[]): IConnection[] {
+function migrateLinesToConnections(lines: LegacyLine[], placedIcs: Ic[]): IConnection[] {
   const bridgeByPad = new Map<string, Ic>();
 
   function terminalFor(dot: IDot): ITerminal {
@@ -112,7 +117,7 @@ function migrateLinesToConnections(lines: ILine[], placedIcs: Ic[]): IConnection
       console.warn("Dropped a wire whose endpoints migrated to the same pin", line);
       continue;
     }
-    const conn = makeConnection(a, b);
+    const conn = makeConnection(a, b, { color: line.color, width: line.width });
     if (conn && !connections.some(c => sameConnection(c, conn.a, conn.b))) {
       connections.push(conn);
     }
@@ -168,19 +173,21 @@ export function loadProject(project: IProjectSave){
     new Set(State.dots.map(d => d.y)).size,
   );
 
-  // Rehydrate every wire endpoint to the canonical State.dots entry by
-  // coordinate. JSON.stringify duplicates the dot objects on save, so without
-  // this a loaded line's start/end are distinct objects from State.dots and
-  // coordinate is the only reliable identity (see docs/autorouting.md §3).
+  // Wires are stateless now — nothing to rehydrate. The first solder-side
+  // repaint re-derives them from the connection list (see wire-cache.ts).
+  State.lines = [];
+  State.routingMode = project.routingMode === "direct" ? "direct" : "orthogonal";
+
+  // v1/v2 migration matches wires against the (gutter-shifted) canonical dots.
   const dotByCoord = new Map<string, IDot>();
   for (const d of State.dots) dotByCoord.set(`${d.x},${d.y}`, d);
-  State.lines = (project.lines || [])
-    .map((l): ILine | null => {
+  const legacyLines: LegacyLine[] = (project.lines || [])
+    .map((l): LegacyLine | null => {
       const start = dotByCoord.get(`${l.start.x},${l.start.y}`);
       const end = dotByCoord.get(`${l.end.x},${l.end.y}`);
       return start && end ? { ...l, start, end } : null;
     })
-    .filter((l): l is ILine => l !== null);
+    .filter((l): l is LegacyLine => l !== null);
 
   // Undo history does not survive a load.
   State.changes = [];
@@ -202,30 +209,35 @@ export function loadProject(project: IProjectSave){
     State.placedIcs = [];
   }
 
-  State.nets = project.nets ?? [];
+  State.nets = [];
 
   // v1/v2 files carry no connections — derive them from the hand-drawn wires
-  // (mutates State.placedIcs with a bridge per bare-hole endpoint), and drop
-  // those wires now that the connection is the source of truth.
+  // (mutates State.placedIcs with a bridge per bare-hole endpoint).
   if (preConnections) {
-    State.connections = migrateLinesToConnections(State.lines, State.placedIcs);
-    State.lines = State.lines.filter(l => l.generated);
+    State.connections = migrateLinesToConnections(legacyLines, State.placedIcs);
   } else {
     State.connections = project.connections ?? [];
+    // v3 → v4: wire appearance moved from the (now discarded) net layer onto
+    // each connection. Adopt the saved net colour so the board keeps its look.
+    const netColorById = new Map((project.nets ?? []).map(n => [n.id, n.color]));
+    for (const c of State.connections) {
+      if (c.color === undefined && c.netId) {
+        const col = netColorById.get(c.netId);
+        if (col) c.color = col;
+      }
+    }
   }
 
   State.selectedPlacedIc = undefined;
   State.selectedDot = undefined;
-  State.selectedLine = undefined;
   State.selectedConnection = undefined;
   State.selectedIc = undefined;
   State.pendingTerminal = undefined;
 
-  // Seed nets from the connection list for pre-net-layer saves; keep any that
-  // were already persisted (they carry names / colours / locks forward).
-  if (State.nets.length === 0 && State.connections.length > 0) {
-    rebuildNets();
-  }
+  // Nets are fully derived now — rebuild from the connection list.
+  rebuildNets();
+  invalidateWireCache();
+  syncRoutingModeButtons();
 
   window.dispatchEvent(new Event('nets-changed'));
   updateSidebarVisibility();

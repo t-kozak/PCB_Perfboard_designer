@@ -1,9 +1,13 @@
 # Autorouting — design spec
 
-**Status:** M0–M5 all implemented. The board routes itself — Tidy (MST) and
-Route (orthogonal A*) in the "Nets" sidebar panel; per-net locking via the
-canvas context menu. §6 open question was resolved as "mirror view" — M2 ships
-that, not a second schematic screen.
+**Status:** M0–M5 all implemented, then reworked. The board routes itself, but
+the router contract and the solder side changed twice: first
+[`logical-connections.md`](logical-connections.md) made connections the source
+of truth, then its §11 made the solder side **stateless** — one wire per
+connection, re-derived every paint, global orthogonal/direct switch, no MST, no
+per-net locking. The router is now `RouteEdge[] → ILine[]` (see
+`logical-connections.md` §11); `tidy.ts` / `mst()` are gone. §3's cost model
+and the A* machinery in `route.ts` are unchanged.
 **Scope:** Split "what is connected" from "where the wire runs", so the board can route itself.
 **New runtime dependencies:** none at runtime. **Dev:** Vitest, scoped to
 `src/routing/` only (`pnpm test`). **Actual total:** ~1100 LOC across six milestones.
@@ -12,10 +16,10 @@ that, not a second schematic screen.
 > (implemented).** That spec reverses §1's decision below — connections
 > (pin-to-pin, not wire-to-wire) are now the source of truth, and nets derive
 > from connections, not from `State.lines`. §4 M3 (net derivation from wires)
-> is superseded by that spec's M9. Everything else here — §3, §4 M4/M5, and
-> the router's `RouteNet[] → ILine[]` contract in particular — is unchanged
-> and still canonical: the router never learned that connections exist. See
-> `logical-connections.md` §8 for the full list of what changed.
+> is superseded by that spec's M9; §4 M4 (MST tidy) and per-net locking are
+> superseded by its §11 (stateless solder side, one wire per connection). §3's
+> cost model and `route.ts`'s A* are unchanged, but the router's contract is
+> now `RouteEdge[] → ILine[]`, not `RouteNet[] → ILine[]`.
 
 A rendered version of this spec exists as an artifact; this file is the canonical
 copy. If you are a future session picking this up, read §1 and §4 first — the
@@ -100,18 +104,31 @@ nothing under `src/routing/` may import the DOM, `State`, or `Canvas`.
 
 Components sit on the top face; wires run on the solder side. **Components are
 therefore not obstacles.** Insulated hookup wire crosses other wire freely. The
-board is essentially an open grid with exactly one hard constraint — which is
+board is essentially an open grid with two hard constraints — which is
 why obstacle avoidance, the whole game in real PCB routing, barely features
 here.
 
 | Situation | Rule | Cost | Why |
 | :--- | :--- | :--- | :--- |
-| Two nets on one pad | **Forbidden** | ∞ | A short circuit. The only hard constraint. |
+| Two nets on one pad | **Forbidden** | ∞ | A short circuit. |
+| Two wires along one channel | **Forbidden** | ∞ | One gets drawn on top of the other and vanishes. |
 | Wire crosses another wire | Allowed | small | Insulated wire. Tidiness preference, not a violation. |
 | Wire passes over a foreign pad | Allowed | small | Legal, but fiddly to solder around later. |
 | Wire passes under a component | Free | 0 | Opposite face of the board entirely. |
 | Long straight run along a row/column | Preferred | length | How people actually build: few wires, each cut once. |
 | Direction change | Allowed | + turn penalty | Suppresses staircase paths; keeps segment count low. |
+
+A **channel** is the gap between two adjacent pads in a row or column — the
+atomic piece of board a wire can occupy. Two wires may meet at a pad and cross
+(perpendicular channels: the whole point of a perfboard) but may never share a
+stretch of the same row or column, because the second is then painted over the
+first and disappears. Unlike the pad rule, this one binds *all* wires, same net
+included: two physical wires are two physical wires. It is enforced in
+`neighborsOf()` by walking outward pad by pad and *stopping* at an occupied
+channel, so a straight run can never hop over a stretch another wire owns.
+Because the constraint is hard, ordering matters — the board is re-routed up to
+three times with the previous round's failures moved to the front, and the
+attempt with the fewest failures wins.
 
 ### Two findings from reading the current code
 

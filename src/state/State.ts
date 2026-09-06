@@ -29,10 +29,12 @@ export class State {
   static selectedDot?: IDot;
   static hoverDot?: IDot
 
-  /** Generated wires — router output, physical / solder-side only. See docs/logical-connections.md. */
+  /**
+   * Transient solder-side wire render cache — NOT state. Recomputed from
+   * `connections` + component geometry by `refreshWireCache()` on every
+   * repaint, never saved, never in undo. See docs/logical-connections.md §11.
+   */
   static lines: ILine[] = [];
-  static selectedLine?: ILine;
-  static hoverLine?: ILine;
 
   /** The logical layer — pin-to-pin joints, source of truth. Component-side only. */
   static connections: IConnection[] = [];
@@ -41,10 +43,11 @@ export class State {
   /** Connect tool: the first terminal clicked, awaiting a second. */
   static pendingTerminal?: ITerminal;
 
-  /** Logical net layer, derived from `connections` and persisted. See src/nets/. */
+  /** Logical net layer, derived from `connections` on demand. See src/nets/. */
   static nets: INet[] = [];
-  /** When true, wires are drawn in their net's colour instead of their own. */
-  static showNetColors = false;
+
+  /** Global solder-side routing style: orthogonal (A*) or direct (straight). */
+  static routingMode: 'orthogonal' | 'direct' = 'orthogonal';
 
   static changes: IChange[] = []
   static changeIndex = -1;

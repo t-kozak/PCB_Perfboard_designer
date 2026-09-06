@@ -39,14 +39,13 @@ export function serializePlacedIc(ic: Ic) {
 
 export function getSaveJson(): IProjectSave {
   return {
-    version: 3,
+    version: 4,
     connections: State.connections,
     dots: State.dots,
-    lines: State.lines,
+    routingMode: State.routingMode,
     canvas: { width: Canvas.boardWidth, height: Canvas.boardHeight },
     ICs: Ic.IC_CONTAINER || [],
     placedIcs: State.placedIcs.map(ic => serializePlacedIc(ic)),
-    nets: State.nets,
     grid: {
       colLabelMode: State.colLabelMode,
       rowLabelMode: State.rowLabelMode,

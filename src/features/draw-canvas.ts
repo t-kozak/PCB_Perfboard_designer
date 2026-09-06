@@ -3,9 +3,10 @@ import {State} from "../state/State";
 import {Canvas} from "../state/Canvas";
 import {IDot} from "../interfaces/dot.interface";
 import {ILine} from "../interfaces/line.interface";
-import {netAtLine, netAtTerminal, dotKey, findShorts, labelConflicts, physicalTerminalShorts, resolveTerminal, terminalAtDot} from "../nets/derive";
+import {wiresOfNet, netAtTerminal, dotKey, findShorts, labelConflicts, physicalTerminalShorts, resolveTerminal, terminalAtDot} from "../nets/derive";
 import {drawGridLabels} from "./grid-labels";
 import {scheduleAutosave} from "./project/autosave";
+import {refreshWireCache} from "./wire-cache";
 
 function netColor(netId: string | undefined): string | undefined {
   if (!netId) return undefined;
@@ -70,12 +71,13 @@ function drawDot(dot: IDot, onHoverNet: boolean, isShort: boolean){
 
 function drawLine(line: ILine, onHoverNet: boolean){
   const baseWidth = line.width || 4;
-  // Net colours are a solder-side (physical) concern only.
-  const stroke = (Canvas.solderSide && State.showNetColors && netColor(line.netId))
-    || line.color || "#777676";
+  // A wire's colour is its connection's colour (see wire-cache.ts).
+  const stroke = line.color || "#777676";
+  const isSelected = !!line.connId && line.connId === State.selectedConnection?.id;
+  const isHover = !!line.connId && line.connId === State.hoverConnection?.id;
 
   // Net highlight — everything electrically joined to the hovered wire.
-  if (onHoverNet && line !== State.selectedLine && line !== State.hoverLine) {
+  if (onHoverNet && !isSelected && !isHover) {
     Canvas.ctx.beginPath();
     Canvas.ctx.moveTo(line.start.x, line.start.y);
     Canvas.ctx.lineTo(line.end.x, line.end.y);
@@ -86,7 +88,7 @@ function drawLine(line: ILine, onHoverNet: boolean){
   }
 
   // Selected line glowing highlight & terminal node handles
-  if (line === State.selectedLine) {
+  if (isSelected) {
     // Outer selection glow aura
     Canvas.ctx.beginPath();
     Canvas.ctx.moveTo(line.start.x, line.start.y);
@@ -102,7 +104,7 @@ function drawLine(line: ILine, onHoverNet: boolean){
     Canvas.ctx.arc(line.end.x, line.end.y, baseWidth + 3, 0, Math.PI * 2);
     Canvas.ctx.fillStyle = "#38bdf8";
     Canvas.ctx.fill();
-  } else if (line === State.hoverLine) {
+  } else if (isHover) {
     Canvas.ctx.beginPath();
     Canvas.ctx.moveTo(line.start.x, line.start.y);
     Canvas.ctx.lineTo(line.end.x, line.end.y);
@@ -156,7 +158,7 @@ function drawConnections(highlightTerms: Set<string> | null) {
     if (!a || !b) continue;
     const isSelected = conn === State.selectedConnection;
     const isHover = !isSelected && (conn === State.hoverConnection || (highlightTerms?.has(`${conn.a.icId}#${conn.a.pin}`) ?? false));
-    drawRubberBand(a, b, netColor(conn.netId) || "#38bdf8", isSelected ? "selected" : isHover ? "hover" : "none");
+    drawRubberBand(a, b, conn.color || netColor(conn.netId) || "#38bdf8", isSelected ? "selected" : isHover ? "hover" : "none");
   }
 
   // Pending terminal: rubber band from the armed pin to the cursor.
@@ -205,25 +207,21 @@ function drawIcPlacementPreview() {
   Canvas.ctx.restore();
 }
 
-/**
- * Which wires the solder side shows: the router's `generated` wires, plus any
- * hand-drawn wire whose net has not been routed yet. Wires are a solder-side
- * -only, physical concern under this model — the component side shows
- * connections instead (see `drawConnections`).
- */
-function wireVisible(line: ILine, routedNetIds: Set<string>): boolean {
-  if (line.generated) return true;
-  return !(line.netId && routedNetIds.has(line.netId));
-}
-
 export function redrawCanvas() {
   resetCanvas();
   drawGridLabels();
 
   const solder = Canvas.solderSide;
 
-  // Net highlight + short reporting are solder-side (physical) only.
-  const highlight = solder && State.hoverLine ? netAtLine(State.hoverLine, State.lines) : null;
+  // Wires are stateless — (re)derive them from the connection list before any
+  // solder-side hit-testing or drawing reads `State.lines`.
+  if (solder) refreshWireCache();
+
+  // Net highlight + short reporting are solder-side (physical) only. Highlight
+  // is keyed off the connection under the cursor (its wire, resolved by netId).
+  const highlight = solder && State.hoverConnection?.netId
+    ? wiresOfNet(State.hoverConnection.netId, State.lines)
+    : null;
   const shortPads = solder
     ? new Set<string>([
       ...findShorts(State.lines),
@@ -235,11 +233,6 @@ export function redrawCanvas() {
   // Component-side net highlight, from whichever pin/connection is hovered.
   const hoverTerm = !solder ? (State.hoverConnection?.a ?? (State.hoverDot && terminalAtDot(State.hoverDot, State.placedIcs))) : undefined;
   const componentHighlight = hoverTerm ? netAtTerminal(hoverTerm, State.connections) : null;
-
-  const routedNetIds = new Set<string>();
-  for (const line of State.lines) {
-    if (line.generated && line.netId) routedNetIds.add(line.netId);
-  }
 
   // 1. Grid dots — every hole, drawn before any component body so a chip's
   //    package/artwork (step 2) paints over whichever ones it covers.
@@ -278,7 +271,6 @@ export function redrawCanvas() {
   if (solder) {
     for (let i = 0; i < State.lines.length; i++) {
       const line = State.lines[i];
-      if (!wireVisible(line, routedNetIds)) continue;
       drawLine(line, highlight?.lines.has(line) ?? false);
     }
   } else {

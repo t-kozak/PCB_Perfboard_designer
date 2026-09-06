@@ -20,10 +20,10 @@ import {applyGridPreset, createDotGrid, readGridInputs} from "./features/project
 import {redrawCanvas} from "./features/draw-canvas";
 import {State} from "./state/State";
 import {changeSelectedDotColor, setDotColor} from "./features/dot";
-import {setLineColor, deleteLine} from "./features/line";
+import {setLineColor, deleteLine, changeSelectedLineColor} from "./features/line";
 import {addNote, updateNoteToggleButton} from "./features/description";
 import {hideContextMenu} from "./features/select";
-import {lockNetOf, unlockAndReroute, routeOnFlip} from "./features/routing";
+import {invalidateWireCache} from "./features/wire-cache";
 import {Ic} from "./features/ic";
 import {Canvas} from "./state/Canvas";
 import {applyZoom, nudgeZoom, resetPan, initViewportGestures} from "./features/viewport";
@@ -133,9 +133,9 @@ document.querySelectorAll('#wireGaugeSelector .gauge-btn').forEach((btn) => {
     const widthStr = target.getAttribute('data-width');
     if (widthStr) {
       State.selectedWireWidth = parseInt(widthStr);
-      if (State.selectedLine) {
-        State.selectedLine.width = State.selectedWireWidth;
-        lockNetOf(State.selectedLine); // hand-editing a wire locks its net
+      if (State.selectedConnection) {
+        State.selectedConnection.width = State.selectedWireWidth;
+        invalidateWireCache();
         redrawCanvas();
       }
     }
@@ -152,7 +152,9 @@ document.getElementById('ctxRotateBtn')?.addEventListener('click', () => {
 
 document.getElementById('ctxColorBtn')?.addEventListener('click', () => {
   hideContextMenu();
-  if (State.selectedLine || State.selectedDot) {
+  if (State.selectedConnection) {
+    changeSelectedLineColor();
+  } else if (State.selectedDot) {
     changeSelectedDotColor();
   }
 });
@@ -164,14 +166,9 @@ document.getElementById('ctxNoteBtn')?.addEventListener('click', () => {
   }
 });
 
-document.getElementById('ctxUnlockNetBtn')?.addEventListener('click', () => {
-  hideContextMenu();
-  unlockAndReroute(State.selectedLine);
-});
-
 document.getElementById('ctxDeleteBtn')?.addEventListener('click', () => {
   hideContextMenu();
-  if (State.selectedLine || State.selectedPlacedIc || State.selectedConnection) {
+  if (State.selectedPlacedIc || State.selectedConnection) {
     deleteLine();
   } else if (State.selectedDot && State.selectedDot.description) {
     State.selectedDot.description = undefined;
@@ -226,7 +223,7 @@ function renderSwatches() {
         badge.style.background = color;
         badge.style.boxShadow = `0 0 6px ${color}`;
       }
-      if (State.selectedLine) {
+      if (State.selectedConnection) {
         setLineColor(color);
       } else if (State.selectedDot) {
         setDotColor(color);
@@ -372,7 +369,7 @@ document.getElementById('addCustomColorToPaletteBtn')?.addEventListener('click',
     State.activeWireColor = hex;
     const badge = document.getElementById('activeColorBadge');
     if (badge) badge.style.background = hex;
-    if (State.selectedLine) {
+    if (State.selectedConnection) {
       setLineColor(hex);
     } else if (State.selectedDot) {
       setDotColor(hex);
@@ -400,8 +397,10 @@ export function updateSelectionStatus() {
   const modeLabel = State.activeToolMode.toUpperCase();
   if (State.selectedPlacedIc) {
     statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;margin-right:4px;"></span> Component Selected (${State.selectedPlacedIc.name}) [Click Pad to Relocate • Del to Remove]`;
-  } else if (State.selectedLine) {
-    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedLine.color || '#777676'};margin-right:4px;"></span> Line Selected (${State.selectedLine.width || 4}px) [Mode: ${modeLabel}]`;
+  } else if (State.selectedConnection) {
+    const net = State.nets.find(n => n.id === State.selectedConnection!.netId);
+    const col = State.selectedConnection.color || '#3b82f6';
+    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${col};margin-right:4px;"></span> Connection Selected (${net?.name ?? 'net'} • ${State.selectedConnection.width || 4}px) [Mode: ${modeLabel}]`;
   } else if (State.selectedDot) {
     statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedDot.color || '#a4a0a0'};margin-right:4px;"></span> Pad Selected (${dotCoordinateLabel(State.selectedDot) ?? `${State.selectedDot.x}, ${State.selectedDot.y}`}) [Mode: ${modeLabel}]`;
   } else if (State.selectedIc) {
@@ -513,10 +512,9 @@ document.getElementById('zoomFitBtn')?.addEventListener('click', () => fitToScre
 document.getElementById('toggleSidebarBtn')?.addEventListener('click', () => toggleSidebar());
 
 // Solder-side view toggle. Component side = the logical layer (components +
-// connections); solder side = physical wiring (mirrored, components hidden,
-// nets / tidy / routing live here). Flipping to the solder side is the build
-// step: it routes every net whose terminals changed since it was last routed
-// (docs/logical-connections.md §3).
+// connections); solder side = the physical wiring, drawn statelessly from the
+// connections every repaint (docs/logical-connections.md §11) — flipping is
+// just a view change now, the wiring is always live.
 let solderSide = false;
 document.getElementById('toggleSolderSideBtn')?.addEventListener('click', () => {
   solderSide = !solderSide;
@@ -527,18 +525,14 @@ document.getElementById('toggleSolderSideBtn')?.addEventListener('click', () => 
     State.selectedPlacedIc = undefined;
     State.selectedIc = undefined;
     State.isDraggingIc = false;
-    State.selectedConnection = undefined;
     State.hoverConnection = undefined;
     State.pendingTerminal = undefined;
-    routeOnFlip();
-  } else {
-    State.selectedLine = undefined;
   }
+  State.selectedConnection = undefined;
 
   document.getElementById('netsPanelWrap')?.toggleAttribute('hidden', !solderSide);
   document.getElementById('componentsPanelWrap')?.toggleAttribute('hidden', solderSide);
   document.getElementById('connectionsPanelWrap')?.toggleAttribute('hidden', solderSide);
-  document.getElementById('wireGaugeSectionWrap')?.toggleAttribute('hidden', !solderSide);
   updateSidebarVisibility();
 
   redrawCanvas();

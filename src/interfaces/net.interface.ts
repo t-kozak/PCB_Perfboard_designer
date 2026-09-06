@@ -1,20 +1,16 @@
 /**
- * Logical layer — a set of pads that are electrically one node. Derived from
- * the physical wire list (union-find over `State.lines`) and then persisted, so
- * hand-tuned names / colours / locks survive a reload. See docs/autorouting.md.
+ * Logical layer — a set of pins that are electrically one node. Derived from
+ * `State.connections` (union-find over terminals) on demand; not persisted.
+ * See docs/logical-connections.md.
  */
 export interface INet {
   id: string;
   /** "GND", "VCC", or an auto-assigned "N$3". */
   name: string;
-  color?: string;
-  /** Hand-edited — a future router must not rewrite this net's wires. */
-  locked?: boolean;
   /**
-   * Sorted, joined pad keys (`"x,y"`) of this net's terminals as of its last
-   * routing pass. Compared against the net's current signature to decide
-   * whether flipping to the solder side needs to re-route it (see
-   * docs/logical-connections.md §3).
+   * A derived palette colour, used only for the net's swatch in the Nets /
+   * Connections sidebar panels. It is NOT a wire colour — wire appearance
+   * lives on `IConnection.color` — and it is not persisted or user-editable.
    */
-  routedSignature?: string;
+  color?: string;
 }
