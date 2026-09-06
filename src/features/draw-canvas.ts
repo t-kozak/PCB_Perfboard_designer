@@ -244,9 +244,22 @@ export function redrawCanvas() {
       : dotInHighlightedNet(dot, componentHighlight?.terminals ?? null);
     drawDot(dot, onHoverNet, shortPads.has(key));
   }
-  // 2. IC bodies — component side only. Drawn on top of the dots they conceal.
+  // 2. IC bodies. Component side: drawn solid on top of the dots they conceal.
+  //    Solder side: the same mirrored artwork, but as faint 20%-opacity ghosts
+  //    so you can line copper up with the parts overhead without the packages
+  //    dominating the copper view. Drawn before the wires (step 3) so traces
+  //    stay fully opaque over them. Selection chrome is suppressed — components
+  //    are inert on this face.
   if (!solder) {
     for (const ic of State.placedIcs) ic.drawBody();
+  } else {
+    const keepSelected = State.selectedPlacedIc;
+    State.selectedPlacedIc = undefined;
+    Canvas.ctx.save();
+    Canvas.ctx.globalAlpha = 0.4;
+    for (const ic of State.placedIcs) ic.drawBody();
+    Canvas.ctx.restore();
+    State.selectedPlacedIc = keepSelected;
   }
   // 2b. Re-draw each component's own pins on top of its body/artwork so they
   //     stay visible — only foreign holes stay obscured underneath. Leaded
