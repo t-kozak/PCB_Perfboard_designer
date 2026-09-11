@@ -46,7 +46,7 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
   {widthPin: 1, heightPin: 1, pinDescription: "1:", name: "Bridge", kind: "bridge", category: "Junction"},
 
   // Static 2-terminal parts. The actual value is entered by the user as a note.
-  {widthPin: 3, heightPin: 1, pinDescription: "1: 2:", name: "Resistor", kind: "resistor", category: "Passive"},
+  {widthPin: 4, heightPin: 1, pinDescription: "1: 2:", name: "Resistor", kind: "resistor", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1: 2:", name: "Ceramic Capacitor", kind: "cap-ceramic", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1:+ 2:-", name: "Electrolytic Capacitor", kind: "cap-electrolytic", category: "Passive"},
 
@@ -78,8 +78,10 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
     imageSrc: "components/nau7802.webp", imageScaleX: 1.9, imageScaleY: 58.0, imageOffsetX: 0.0, imageOffsetY: -178.0,
   },
 
-  // A4988 stepper driver — pinout not filled in yet.
+  // A4988 - stepper driver
   {name: "A4988", category: "Motor Driver", widthPin: 6, heightPin: 8, pinDescription: "1:~ENABLE 2:MS1 3:MS2 4:MS3 5:RESET 6:SLEEP 7:STEP 8:DIRECTION 9:GND 10:VDD 11:1B 12:1A 13:2A 14:2B 15:GND_MOT 16:V_MOT", },
+  
+  // MP1584 - buck converter
   {name: "MP1584", category:"Buck converter", widthPin:9, heightPin:7, pinDescription: "1:IN- 2: 7:IN+ 14:OUT- 8:OUT+"},
 
   {widthPin: 4, heightPin: 4, pinDescription: "1:GND 2:TRIG 3:OUT 4:RESET 5:CTRL 6:THRESH 7:DISCH 8:VCC", name: "NE555 Timer", category: "Timer IC"},

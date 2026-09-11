@@ -104,7 +104,7 @@ nothing under `src/routing/` may import the DOM, `State`, or `Canvas`.
 
 Components sit on the top face; wires run on the solder side. **Components are
 therefore not obstacles.** Insulated hookup wire crosses other wire freely. The
-board is essentially an open grid with two hard constraints — which is
+board is essentially an open grid with three hard constraints — which is
 why obstacle avoidance, the whole game in real PCB routing, barely features
 here.
 
@@ -113,7 +113,8 @@ here.
 | Two nets on one pad | **Forbidden** | ∞ | A short circuit. |
 | Two wires along one channel | **Forbidden** | ∞ | One gets drawn on top of the other and vanishes. |
 | Wire crosses another wire | Allowed | small | Insulated wire. Tidiness preference, not a violation. |
-| Wire passes over a foreign pad | Allowed | small | Legal, but fiddly to solder around later. |
+| Wire passes over a foreign bare hole | Allowed | small | Legal, but fiddly to solder around later. |
+| Wire crosses a solder joint | **Forbidden** | ∞ | A lead is already in that hole; wire cannot lie flat across it. |
 | Wire passes under a component | Free | 0 | Opposite face of the board entirely. |
 | Long straight run along a row/column | Preferred | length | How people actually build: few wires, each cut once. |
 | Direction change | Allowed | + turn penalty | Suppresses staircase paths; keeps segment count low. |
@@ -129,6 +130,16 @@ channel, so a straight run can never hop over a stretch another wire owns.
 Because the constraint is hard, ordering matters — the board is re-routed up to
 three times with the previous round's failures moved to the front, and the
 attempt with the fewest failures wins.
+
+A **solder joint** is a hole with a component pin in it — `RouteBoard.soldered`,
+which `wire-cache.ts` fills from every placed component's pins, wired or not. It
+stops a run dead: a wire may *end* on one if the joint belongs to its own net
+(that is how a daisy chain reaches a pin), but it may never run across one, and
+it may not land on another component's pin at all — so an unwired pin is a plain
+wall. This is what keeps wire off the pin rows of a DIP instead of laying it
+across fourteen solder blobs, and it is why routing around a densely populated
+IC now sometimes reports a failure rather than drawing something unbuildable.
+`direct` mode ignores all of this by design.
 
 ### Two findings from reading the current code
 

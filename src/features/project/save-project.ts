@@ -39,12 +39,15 @@ export function serializePlacedIc(ic: Ic) {
 
 export function getSaveJson(): IProjectSave {
   return {
-    version: 4,
+    version: 5,
     connections: State.connections,
     dots: State.dots,
     routingMode: State.routingMode,
     canvas: { width: Canvas.boardWidth, height: Canvas.boardHeight },
-    ICs: Ic.IC_CONTAINER || [],
+    // Only custom parts travel with a save — built-ins always come from the
+    // current catalog on load, so widening a built-in (e.g. the resistor) is
+    // never frozen into an old save.
+    ICs: (Ic.IC_CONTAINER || []).filter(ic => ic.isCustom),
     placedIcs: State.placedIcs.map(ic => serializePlacedIc(ic)),
     grid: {
       colLabelMode: State.colLabelMode,

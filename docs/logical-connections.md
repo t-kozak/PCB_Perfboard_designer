@@ -485,25 +485,27 @@ The model now:
 | :--- | :--- | :--- |
 | `State.lines` | persisted router output, undo-tracked, hand-editable | transient render cache, recomputed every paint, never saved |
 | Routing unit | net → MST over its pads → routed edges | **one connection → one wire** |
-| Wire colour / width | `INet.color` + "Color by Net"; per-wire on hand edit | `IConnection.color` / `IConnection.width` only |
+| Wire colour / width | `INet.color` + "Color by Net"; per-wire on hand edit | colour is **always** the net colour (`INet.color`, recomputed every paint); `IConnection.width` for thickness |
 | Routing control | Tidy / Route buttons + per-net lock + unlock affordances | one global `routingMode`: `"orthogonal"` \| `"direct"` |
 | Re-route trigger | flip + `netSignature()` vs `routedSignature`, per net | a full input signature over *all* connections; recompute when it changes |
 | Hand-drawn wires | allowed on the solder side (locked the net) | none — the solder side is a pure view |
 
 - `src/features/wire-cache.ts` owns `refreshWireCache()`: it builds one
-  `RouteEdge` per connection (terminals resolved to pads, colour/width attached,
-  `netId` from the net rebuild), runs `route()` or `directWires()`, and writes
-  `State.lines`. Guarded by `wireSignature()` = `routingMode` + every
-  connection's `id:color:width:padKeyA:padKeyB`, so any component move, rotate,
-  delete or bridge placement changes the signature and forces a recompute — the
-  cache can never be silently stale.
+  `RouteEdge` per connection (terminals resolved to pads, `width` + the net's
+  colour attached, `netId` from the net rebuild), runs `route()` or
+  `directWires()`, and writes `State.lines`. Guarded by `wireSignature()` =
+  `routingMode` + the derived net list (`id=color`) + every connection's
+  `id:netId:width:padKeyA:padKeyB`, so any component move, rotate, delete,
+  bridge placement or net recolour changes the signature and forces a
+  recompute — the cache can never be silently stale.
 - `src/routing/` contract shrinks to `RouteEdge[] → ILine[]`. `route()` still
   does orthogonal A* over the straight-run pad lattice, but pad *ownership* is
   keyed by `netId`, so two connections on one net (a daisy chain) may share a
   pad while different nets still may not. `tidy.ts` / `mst()` are deleted.
-- `INet` is `{id, name, color?}` — `color` is a derived sidebar swatch, never a
-  wire colour. `INet.locked` / `routedSignature` are gone.
-- Save format is **version 4**: `connections` (carrying colour/width) +
-  `routingMode`, no `lines`, no `nets`. A v3 file adopts each connection's saved
-  net colour onto the connection on load so boards keep their look.
+- `INet` is `{id, name, color?}` — `color` (from `colorFor()`, GND/VCC
+  special-cased) is both the sidebar swatch and the solder-side wire colour,
+  recomputed every paint. `INet.locked` / `routedSignature` are gone.
+- Save format is **version 5**: `connections` (carrying `width` only) +
+  `routingMode`, no `lines`, no `nets`. Any `color` on a pre-v5 connection is
+  ignored on load — a wire is always drawn in its net's colour.
 - Undo no longer has wire buckets (`IChange` is connections + components only).

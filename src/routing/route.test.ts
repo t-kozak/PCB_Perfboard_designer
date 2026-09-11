@@ -65,6 +65,17 @@ function overlaps(lines: ILine[]): string[] {
   return out;
 }
 
+/** True when `l` runs across `pad` rather than stopping on it. */
+function crossesPad(l: ILine, pad: IDot): boolean {
+  if (l.start.y === l.end.y && l.start.y === pad.y) {
+    return pad.x > Math.min(l.start.x, l.end.x) && pad.x < Math.max(l.start.x, l.end.x);
+  }
+  if (l.start.x === l.end.x && l.start.x === pad.x) {
+    return pad.y > Math.min(l.start.y, l.end.y) && pad.y < Math.max(l.start.y, l.end.y);
+  }
+  return false;
+}
+
 describe("route (orthogonal)", () => {
   it("connects two pads in a row with a single straight segment", () => {
     const pads = lattice(5, 5);
@@ -176,6 +187,62 @@ describe("route (orthogonal)", () => {
     );
     expect(res.failed).toEqual([]);
     expect(overlaps(res.lines)).toEqual([]);
+  });
+
+  it("never runs a wire across another component's solder joint", () => {
+    // A pin sits at (150,0), straight between the two terminals. The wire has
+    // to leave row 0, go around it and come back.
+    const pads = lattice(9, 3);
+    const res = route(
+      [edge("sig", at(pads, 0, 0), at(pads, 300, 0))],
+      pads,
+      { soldered: [at(pads, 0, 0), at(pads, 300, 0), at(pads, 150, 0)] },
+    );
+    expect(res.failed).toEqual([]);
+    expect(res.lines.some(l => crossesPad(l, at(pads, 150, 0)))).toBe(false);
+    expect(res.lines.reduce((sum, l) => sum + segLen(l), 0)).toBeGreaterThan(300);
+  });
+
+  it("still lets a net's own wires land on its solder joints", () => {
+    // Daisy chain through a shared pin: the joint at (200,0) is a door for
+    // "net", a wall for everyone else.
+    const pads = lattice(6, 6);
+    const joints = [at(pads, 0, 0), at(pads, 200, 0), at(pads, 200, 200)];
+    const res = route(
+      [
+        edge("a", at(pads, 0, 0), at(pads, 200, 0), "net"),
+        edge("b", at(pads, 200, 0), at(pads, 200, 200), "net"),
+      ],
+      pads,
+      { soldered: joints },
+    );
+    expect(res.failed).toEqual([]);
+    expect(res.lines).toHaveLength(2);
+    expect(res.lines.every(l => segLen(l) === 200)).toBe(true);
+  });
+
+  it("treats an unwired component pin as a wall, not a turning point", () => {
+    // (50,0) belongs to no net at all — a wire may neither cross it nor bend
+    // on it, so the only way from (0,0) to (100,0) is around.
+    const pads = lattice(3, 2);
+    const res = route([edge("sig", at(pads, 0, 0), at(pads, 100, 0))], pads, {
+      soldered: [at(pads, 0, 0), at(pads, 100, 0), at(pads, 50, 0)],
+    });
+    expect(res.failed).toEqual([]);
+    expect(res.lines.map(l => `${l.start.x},${l.start.y}->${l.end.x},${l.end.y}`)).toEqual([
+      "0,0->0,50",
+      "0,50->100,50",
+      "100,50->100,0",
+    ]);
+  });
+
+  it("reports a connection walled in by solder joints instead of crossing one", () => {
+    const pads = lattice(3, 1);
+    const res = route([edge("sig", at(pads, 0, 0), at(pads, 100, 0))], pads, {
+      soldered: [at(pads, 0, 0), at(pads, 100, 0), at(pads, 50, 0)],
+    });
+    expect(res.failed).toEqual(["sig"]);
+    expect(res.lines).toEqual([]);
   });
 
   it("reports an unroutable connection by id instead of dropping it", () => {

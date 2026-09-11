@@ -20,7 +20,7 @@ import {applyGridPreset, createDotGrid, readGridInputs} from "./features/project
 import {redrawCanvas} from "./features/draw-canvas";
 import {State} from "./state/State";
 import {changeSelectedDotColor, setDotColor} from "./features/dot";
-import {setLineColor, deleteLine, changeSelectedLineColor} from "./features/line";
+import {deleteLine} from "./features/line";
 import {addNote, updateNoteToggleButton} from "./features/description";
 import {hideContextMenu} from "./features/select";
 import {invalidateWireCache} from "./features/wire-cache";
@@ -152,9 +152,8 @@ document.getElementById('ctxRotateBtn')?.addEventListener('click', () => {
 
 document.getElementById('ctxColorBtn')?.addEventListener('click', () => {
   hideContextMenu();
-  if (State.selectedConnection) {
-    changeSelectedLineColor();
-  } else if (State.selectedDot) {
+  // Only pads are recolourable — wire colour is always the net colour.
+  if (State.selectedDot) {
     changeSelectedDotColor();
   }
 });
@@ -217,15 +216,13 @@ function renderSwatches() {
     swatch.addEventListener('click', (e) => {
       const color = (e.currentTarget as HTMLElement).getAttribute('data-color');
       if (!color) return;
-      State.activeWireColor = color;
+      State.activePadColor = color;
       const badge = document.getElementById('activeColorBadge');
       if (badge) {
         badge.style.background = color;
         badge.style.boxShadow = `0 0 6px ${color}`;
       }
-      if (State.selectedConnection) {
-        setLineColor(color);
-      } else if (State.selectedDot) {
+      if (State.selectedDot) {
         setDotColor(color);
       }
       updateSelectionStatus();
@@ -323,7 +320,7 @@ function updatePickedColorFromMouse(clientX: number, clientY: number) {
     
     if (hexInput) hexInput.value = hex;
     if (previewBox) previewBox.style.background = hex;
-    State.activeWireColor = hex;
+    State.activePadColor = hex;
     const badge = document.getElementById('activeColorBadge');
     if (badge) {
       badge.style.background = hex;
@@ -366,12 +363,10 @@ document.getElementById('addCustomColorToPaletteBtn')?.addEventListener('click',
       saveCustomColorsToLocalStorage();
       renderSwatches();
     }
-    State.activeWireColor = hex;
+    State.activePadColor = hex;
     const badge = document.getElementById('activeColorBadge');
     if (badge) badge.style.background = hex;
-    if (State.selectedConnection) {
-      setLineColor(hex);
-    } else if (State.selectedDot) {
+    if (State.selectedDot) {
       setDotColor(hex);
     }
   }
@@ -399,7 +394,7 @@ export function updateSelectionStatus() {
     statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;margin-right:4px;"></span> Component Selected (${State.selectedPlacedIc.name}) [Click Pad to Relocate • Del to Remove]`;
   } else if (State.selectedConnection) {
     const net = State.nets.find(n => n.id === State.selectedConnection!.netId);
-    const col = State.selectedConnection.color || '#3b82f6';
+    const col = net?.color || '#3b82f6';
     statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${col};margin-right:4px;"></span> Connection Selected (${net?.name ?? 'net'} • ${State.selectedConnection.width || 4}px) [Mode: ${modeLabel}]`;
   } else if (State.selectedDot) {
     statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedDot.color || '#a4a0a0'};margin-right:4px;"></span> Pad Selected (${dotCoordinateLabel(State.selectedDot) ?? `${State.selectedDot.x}, ${State.selectedDot.y}`}) [Mode: ${modeLabel}]`;

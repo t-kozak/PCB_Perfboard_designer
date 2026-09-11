@@ -56,9 +56,21 @@ export function components(connections: IConnection[]): string[][] {
   return [...byRoot.values()];
 }
 
+/**
+ * Sidebar net swatches (solder-side Nets panel). Front-loaded for maximum
+ * mutual contrast: the first ~12 are vivid, well-separated hues so small
+ * designs read cleanly. Entries further down reuse hue families at lighter /
+ * shifted tints — any prefix stays distinguishable, and even late neighbours
+ * differ in hue, lightness or saturation. GND / VCC are named nets and get
+ * their own fixed colours below, outside this cycle.
+ */
 const NET_PALETTE = [
-  "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#06b6d4",
-  "#eab308", "#f43f5e", "#22c55e", "#3b82f6", "#a855f7",
+  "#3cb44b", "#4363d8", "#f58231", "#e6194b", "#42d4f4",
+  "#f032e6", "#ffe119", "#911eb4", "#469990", "#f4a6c0",
+  "#bfef45", "#9a6324", "#8b0000", "#808000", "#1f3fff",
+  "#00b8a0", "#dc7dff", "#7dffb0", "#ff9d5c", "#7a4fd8",
+  "#ff6d6d", "#6dff9e", "#6d9eff", "#ffb26d", "#c46dff",
+  "#3ad0b0", "#ff6dcf", "#d4ff6d", "#6dd4ff", "#ffc73d",
 ];
 
 export function colorFor(index: number): string {
@@ -167,73 +179,6 @@ export function deriveNets(connections: IConnection[], placedIcs: Ic[], existing
   }
 
   return { nets, connectionNet };
-}
-
-/** Pads whose incident wires carry two or more distinct netIds — a physical wired short. */
-export function findShorts(lines: ILine[]): string[] {
-  const byPad = new Map<string, Set<string>>();
-  for (const l of lines) {
-    if (!l.netId) continue;
-    for (const k of [dotKey(l.start), dotKey(l.end)]) {
-      const s = byPad.get(k) ?? byPad.set(k, new Set()).get(k)!;
-      s.add(l.netId);
-    }
-  }
-  return [...byPad.entries()].filter(([, s]) => s.size > 1).map(([k]) => k);
-}
-
-/**
- * Logical short: terminals on one electrical node (one connected component of
- * the connection graph) resolve to two different canonical net names — e.g. a
- * connection from a GND pin to a VCC pin.
- */
-export function labelConflicts(connections: IConnection[], placedIcs: Ic[]): string[] {
-  const resolve = terminalResolver(placedIcs);
-  const out: string[] = [];
-  for (const comp of components(connections)) {
-    const names = new Set<string>();
-    for (const tk of comp) {
-      const name = nameFromLabel(resolve(tk));
-      if (name) names.add(name);
-    }
-    if (names.size > 1) {
-      for (const tk of comp) {
-        const pad = resolveTerminal({ icId: tk.slice(0, tk.lastIndexOf("#")), pin: Number(tk.slice(tk.lastIndexOf("#") + 1)) }, placedIcs);
-        if (pad) out.push(dotKey(pad));
-      }
-    }
-  }
-  return out;
-}
-
-/**
- * Physical short: two terminals of *different* logical nets resolve to the
- * same pad — overlapping component placement. Only detectable now that
- * terminals and pads are separate concepts (docs/logical-connections.md M9).
- */
-export function physicalTerminalShorts(connections: IConnection[], placedIcs: Ic[]): string[] {
-  const comps = components(connections);
-  const rootOfTerm = new Map<string, number>();
-  comps.forEach((grp, i) => grp.forEach(k => rootOfTerm.set(k, i)));
-  let nextIsolated = comps.length;
-
-  const padRoots = new Map<string, Set<number>>();
-  for (const ic of placedIcs) {
-    for (let pin = 1; pin <= ic.pinCount; pin++) {
-      const pad = ic.pinDot(pin);
-      if (!pad) continue;
-      const tk = terminalKey({ icId: ic.id, pin });
-      let root = rootOfTerm.get(tk);
-      if (root === undefined) {
-        root = nextIsolated++;
-        rootOfTerm.set(tk, root);
-      }
-      const pk = dotKey(pad);
-      const set = padRoots.get(pk) ?? padRoots.set(pk, new Set()).get(pk)!;
-      set.add(root);
-    }
-  }
-  return [...padRoots.entries()].filter(([, s]) => s.size > 1).map(([k]) => k);
 }
 
 /**

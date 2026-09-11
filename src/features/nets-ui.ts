@@ -1,7 +1,6 @@
 import { State } from "../state/State";
-import { findShorts, labelConflicts, physicalTerminalShorts } from "../nets/derive";
 
-// Sidebar "Nets" panel (solder side): the derived net list plus any shorts.
+// Sidebar "Nets" panel (solder side): the derived net list.
 // Nets are recomputed automatically on every connection/component mutation and
 // before every solder-side repaint — there is no manual "rebuild" any more.
 // The derive helpers stay pure; this file is the DOM half.
@@ -9,12 +8,6 @@ import { findShorts, labelConflicts, physicalTerminalShorts } from "../nets/deri
 function renderNetInfo(): void {
   const el = document.getElementById("netInfo");
   if (!el) return;
-
-  const shorts = new Set<string>([
-    ...findShorts(State.lines),
-    ...labelConflicts(State.connections, State.placedIcs),
-    ...physicalTerminalShorts(State.connections, State.placedIcs),
-  ]);
 
   if (State.nets.length === 0) {
     el.innerHTML =
@@ -34,10 +27,7 @@ function renderNetInfo(): void {
 
   el.innerHTML =
     `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">${State.nets.length} net(s)</div>` +
-    rows +
-    (shorts.size
-      ? `<div style="margin-top:6px;color:#f87171;font-weight:700;font-size:0.75rem;">⚠ ${shorts.size} shorted pad(s)</div>`
-      : "");
+    rows;
 }
 
 // Connection / component mutations and project loads dispatch this so the panel stays current.

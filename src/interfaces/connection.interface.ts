@@ -21,12 +21,13 @@ export interface IConnection {
   /** Optional user annotation shown on the component side. */
   label?: string;
   /**
-   * Wire appearance on the solder side. The connection owns this — the solder
-   * side keeps no wire state, it just renders each connection as a wire in
-   * this colour / thickness (see docs/logical-connections.md §11). `undefined`
-   * falls back to a default at paint time.
+   * Wire thickness on the solder side. The connection owns this — the solder
+   * side keeps no wire state, it just renders each connection as a wire of this
+   * thickness (see docs/logical-connections.md §11). `undefined` falls back to
+   * a default at paint time. Wire *colour* is not stored: it is always the
+   * connection's net colour, computed fresh every paint (see src/nets/derive.ts
+   * `colorFor` and the Nets panel).
    */
-  color?: string;
   width?: number;
 }
 
@@ -51,7 +52,7 @@ export function sameConnection(x: IConnection, a: ITerminal, b: ITerminal): bool
 export function makeConnection(
   a: ITerminal,
   b: ITerminal,
-  opts: { label?: string; color?: string; width?: number } = {},
+  opts: { label?: string; width?: number } = {},
 ): IConnection | null {
   if (isSelfLoop(a, b)) return null;
   const [ca, cb] = canonicalPair(a, b);

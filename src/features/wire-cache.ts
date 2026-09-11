@@ -26,6 +26,15 @@ function terminalDot(t: ITerminal): IDot | undefined {
   return pad ? canonicalDot(pad.x, pad.y) : undefined;
 }
 
+/**
+ * A wire is always drawn in its net's colour — never a per-connection value
+ * (that concept is gone). `rebuildNets()` runs just before `collectEdges()`, so
+ * `State.nets` and every `IConnection.netId` are fresh here.
+ */
+function netColorOf(netId: string | undefined): string {
+  return State.nets.find(n => n.id === netId)?.color ?? DEFAULT_WIRE_COLOR;
+}
+
 /** One `RouteEdge` per connection whose terminals both resolve to distinct pads. */
 function collectEdges(): RouteEdge[] {
   const edges: RouteEdge[] = [];
@@ -38,7 +47,7 @@ function collectEdges(): RouteEdge[] {
       netId: c.netId ?? c.id,
       a,
       b,
-      color: c.color ?? DEFAULT_WIRE_COLOR,
+      color: netColorOf(c.netId),
       width: c.width ?? DEFAULT_WIRE_WIDTH,
     });
   }
@@ -46,18 +55,46 @@ function collectEdges(): RouteEdge[] {
 }
 
 /**
- * Full input signature of the router: routing mode, plus every connection's
- * id / colour / width and both its terminals' current pad keys. A component
- * move, rotate or delete, a bridge placement, or a colour tweak all change a
- * field here — so the cache can never be silently stale.
+ * Every hole with a component pin soldered into it — wire may end on one of
+ * its own net's joints but never run across one (autorouting.md §3). Includes
+ * pins nothing is wired to: an unconnected pin is still solder in the hole.
  */
-function wireSignature(): string {
-  const parts: string[] = [State.routingMode];
+function solderedPads(): IDot[] {
+  const pads: IDot[] = [];
+  const seen = new Set<string>();
+  for (const ic of State.placedIcs) {
+    for (let pin = 1; pin <= ic.pinCount; pin++) {
+      const p = ic.pinDot(pin);
+      if (!p || seen.has(dotKey(p))) continue;
+      seen.add(dotKey(p));
+      const pad = canonicalDot(p.x, p.y);
+      if (pad) pads.push(pad);
+    }
+  }
+  return pads;
+}
+
+/**
+ * Full input signature of the router: routing mode, every solder joint on the
+ * board, the derived net list (id → colour, since a wire is drawn in its net's
+ * colour), plus every connection's id / net / width and both its terminals'
+ * current pad keys. A component move, rotate or delete, a bridge placement, or
+ * a net recolour all change a field here — so the cache can never be silently
+ * stale. Solder joints are in their own right because a component nothing is
+ * wired to still steers the router.
+ */
+function wireSignature(soldered: IDot[]): string {
+  const nets = State.nets.map(n => `${n.id}=${n.color ?? ""}`).sort().join(" ");
+  const parts: string[] = [
+    State.routingMode,
+    `pins:${soldered.map(dotKey).sort().join(" ")}`,
+    `nets:${nets}`,
+  ];
   for (const c of State.connections) {
     const a = terminalDot(c.a);
     const b = terminalDot(c.b);
     parts.push(
-      `${c.id}:${c.color ?? ""}:${c.width ?? ""}:${a ? dotKey(a) : "-"}:${b ? dotKey(b) : "-"}`,
+      `${c.id}:${c.netId ?? ""}:${c.width ?? ""}:${a ? dotKey(a) : "-"}:${b ? dotKey(b) : "-"}`,
     );
   }
   return parts.sort().join("|");
@@ -89,11 +126,15 @@ let cacheSig: string | null = null;
  * when nothing relevant moved.
  */
 export function refreshWireCache(): void {
-  const sig = wireSignature();
+  const soldered = solderedPads();
+  const sig = wireSignature(soldered);
   if (sig === cacheSig) return;
   rebuildNets();
   const edges = collectEdges();
-  const result = State.routingMode === "direct" ? directWires(edges) : route(edges, State.dots);
+  const result =
+    State.routingMode === "direct"
+      ? directWires(edges)
+      : route(edges, State.dots, { soldered });
   State.lines = result.lines;
   cacheSig = sig;
   announce(result.failed);

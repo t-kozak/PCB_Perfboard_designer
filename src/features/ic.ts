@@ -650,17 +650,6 @@ export class Ic{
     }
   }
 
-  /**
-   * Pixel offset that pulls the first/last edge-pin label off the IC's
-   * perpendicular border line so it stays readable. Positive nudges the
-   * top pin down / left pin right; negative nudges the bottom / right one.
-   */
-  private edgePinLabelNudge(i: number, pinsPerSide: number): number {
-    if (i === 0) return 9;
-    if (i === pinsPerSide - 1) return -9;
-    return 0;
-  }
-
   drawPinLabels() {
     if (!this.topLeftDot) return;
     Canvas.ctx.save();
@@ -695,71 +684,40 @@ export class Ic{
         Canvas.ctx.textAlign = "left";
         Canvas.fillText(label, p.x + 8, p.y + 3);
       }
-    } else if (this.rotationAngle === 0) {
-      // 0°: Vertical (Left: 1..N, Right: 2N..N+1)
-      const pinsPerSide = this.heightPin;
-      const rightX = this.topLeftDot.x + 50 * (this.widthPin - 1);
-      for (let i = 0; i < pinsPerSide; i++) {
-        const py = this.topLeftDot.y + i * 50;
-        const labelY = py + 3 + this.edgePinLabelNudge(i, pinsPerSide);
-        const leftPinNum = i + 1;
-        const leftDesc = this.pinDescription[leftPinNum];
-        Canvas.ctx.textAlign = "left";
-        Canvas.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, labelY);
-
-        const rightPinNum = pinsPerSide * 2 - i;
-        const rightDesc = this.pinDescription[rightPinNum];
-        Canvas.ctx.textAlign = "right";
-        Canvas.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, labelY);
+    } else {
+      // DIP perimeter, any rotation: the part turns rigidly (see ic-geometry.ts),
+      // so drive every label off pinDot() rather than re-deriving the layout per
+      // angle. Labels sit just inside the body, offset from whichever edge
+      // (vertical at 0°/180°, horizontal at 90°/270°) the pin currently lands on;
+      // the pin number faces the outer edge.
+      const vertical = this.rotationAngle === 0 || this.rotationAngle === 180;
+      const pins: Array<{ pin: number; x: number; y: number }> = [];
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (let pin = 1; pin <= this.pinCount; pin++) {
+        const p = this.pinDot(pin);
+        if (!p) continue;
+        pins.push({ pin, x: p.x, y: p.y });
+        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
       }
-    } else if (this.rotationAngle === 90) {
-      // 90°: Top: 1..N, Bottom: 2N..N+1
-      const pinsPerSide = this.widthPin;
-      const bottomY = this.topLeftDot.y + 50 * (this.heightPin - 1);
-      for (let i = 0; i < pinsPerSide; i++) {
-        const px = this.topLeftDot.x + i * 50 + this.edgePinLabelNudge(i, pinsPerSide);
-        const topPinNum = i + 1;
-        const topDesc = this.pinDescription[topPinNum];
-        Canvas.ctx.textAlign = "center";
-        Canvas.fillText(topDesc ? `${topPinNum}:${topDesc}` : `${topPinNum}`, px, this.topLeftDot.y + 16);
-
-        const bottomPinNum = pinsPerSide * 2 - i;
-        const bottomDesc = this.pinDescription[bottomPinNum];
-        Canvas.ctx.textAlign = "center";
-        Canvas.fillText(bottomDesc ? `${bottomDesc}:${bottomPinNum}` : `${bottomPinNum}`, px, bottomY - 10);
-      }
-    } else if (this.rotationAngle === 180) {
-      // 180°: Left: 2N..N+1, Right: 1..N
-      const pinsPerSide = this.heightPin;
-      const rightX = this.topLeftDot.x + 50 * (this.widthPin - 1);
-      for (let i = 0; i < pinsPerSide; i++) {
-        const py = this.topLeftDot.y + i * 50;
-        const labelY = py + 3 + this.edgePinLabelNudge(i, pinsPerSide);
-        const leftPinNum = pinsPerSide * 2 - i;
-        const leftDesc = this.pinDescription[leftPinNum];
-        Canvas.ctx.textAlign = "left";
-        Canvas.fillText(leftDesc ? `${leftPinNum}:${leftDesc}` : `${leftPinNum}`, this.topLeftDot.x + 10, labelY);
-
-        const rightPinNum = i + 1;
-        const rightDesc = this.pinDescription[rightPinNum];
-        Canvas.ctx.textAlign = "right";
-        Canvas.fillText(rightDesc ? `${rightDesc}:${rightPinNum}` : `${rightPinNum}`, rightX - 10, labelY);
-      }
-    } else if (this.rotationAngle === 270) {
-      // 270°: Top: 2N..N+1, Bottom: 1..N
-      const pinsPerSide = this.widthPin;
-      const bottomY = this.topLeftDot.y + 50 * (this.heightPin - 1);
-      for (let i = 0; i < pinsPerSide; i++) {
-        const px = this.topLeftDot.x + i * 50 + this.edgePinLabelNudge(i, pinsPerSide);
-        const topPinNum = pinsPerSide * 2 - i;
-        const topDesc = this.pinDescription[topPinNum];
-        Canvas.ctx.textAlign = "center";
-        Canvas.fillText(topDesc ? `${topPinNum}:${topDesc}` : `${topPinNum}`, px, this.topLeftDot.y + 16);
-
-        const bottomPinNum = i + 1;
-        const bottomDesc = this.pinDescription[bottomPinNum];
-        Canvas.ctx.textAlign = "center";
-        Canvas.fillText(bottomDesc ? `${bottomDesc}:${bottomPinNum}` : `${bottomPinNum}`, px, bottomY - 10);
+      const midX = (minX + maxX) / 2;
+      const midY = (minY + maxY) / 2;
+      for (const p of pins) {
+        const desc = this.pinDescription[p.pin];
+        if (vertical) {
+          const onLeft = p.x <= midX;
+          const nudge = p.y === minY ? 9 : p.y === maxY ? -9 : 0;
+          Canvas.ctx.textAlign = onLeft ? "left" : "right";
+          const label = onLeft
+            ? (desc ? `${p.pin}:${desc}` : `${p.pin}`)
+            : (desc ? `${desc}:${p.pin}` : `${p.pin}`);
+          Canvas.fillText(label, onLeft ? p.x + 10 : p.x - 10, p.y + 3 + nudge);
+        } else {
+          const onTop = p.y <= midY;
+          const nudge = p.x === minX ? 9 : p.x === maxX ? -9 : 0;
+          Canvas.ctx.textAlign = "center";
+          Canvas.fillText(desc ? `${p.pin}:${desc}` : `${p.pin}`, p.x + nudge, onTop ? p.y + 16 : p.y - 10);
+        }
       }
     }
 

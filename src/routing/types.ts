@@ -28,6 +28,20 @@ export interface RouteEdge {
   width: number;
 }
 
+/**
+ * Board facts beyond the pad lattice that constrain where wire may run.
+ * Geometry, not cost — everything here is a hard rule.
+ */
+export interface RouteBoard {
+  /**
+   * Holes with a component pin soldered into them. A wire may *end* on one of
+   * its own net's solder joints, but never run across one.
+   */
+  soldered?: IDot[];
+  /** Wire already on the board that a route must neither overlap nor ignore. */
+  obstacles?: ILine[];
+}
+
 export interface RouteOpts {
   /** Extra cost charged once per direction change; suppresses staircase paths. */
   turnPenalty?: number;

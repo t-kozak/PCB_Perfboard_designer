@@ -157,24 +157,21 @@
 
       <div class="sidebar-divider"></div>
 
-      <!-- Styling & Color Palette — dropped while placing a component or connecting pins -->
+      <!-- Styling & Color Palette (pads only — wire colour is always the net colour).
+           Hidden while placing a component or connecting pins. -->
       <div id="colorPanelWrap">
       <div class="sidebar-section">
         <div class="section-title section-collapsed" data-collapse="colorSection">
           <span class="section-icon">🎨</span>
           <span>Styling & Colors</span>
           <span style="margin-left:auto; display:flex; align-items:center; gap:4px; font-size:0.7rem; color:var(--text-muted); font-weight:400; text-transform:none; letter-spacing:0;">
-            <span id="activeColorBadge" class="active-color-dot" title="Active Wire Color"></span>
+            <span id="activeColorBadge" class="active-color-dot" title="Active Pad Color"></span>
           </span>
           <span class="collapse-chevron">▾</span>
         </div>
         <div class="section-body collapsed" id="colorSection">
           <input type="color" id="colorPicker" style="display:none">
           <div class="color-actions">
-            <button id="changeLineColorBtn" class="color-action-btn">
-              <span class="color-action-icon" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);"></span>
-              Line Color
-            </button>
             <button id="changeDotColorBtn" class="color-action-btn">
               <span class="color-action-icon" style="background:linear-gradient(135deg,#10b981,#06b6d4);"></span>
               Dot Color

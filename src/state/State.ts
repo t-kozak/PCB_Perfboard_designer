@@ -60,7 +60,9 @@ export class State {
 
   static activeToolMode: 'select' | 'connect' | 'ic' = 'select';
   static selectedWireWidth = 4;
-  static activeWireColor = "#3b82f6";
+  /** Last colour chosen in the Styling & Colors panel — applied to pads only
+   *  (wire colour is always the net colour, never user-set). */
+  static activePadColor = "#a4a0a0";
 
 
   static extraSelectionRatio = 4;

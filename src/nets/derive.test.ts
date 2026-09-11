@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   deriveNets,
-  labelConflicts,
-  physicalTerminalShorts,
   netAtTerminal,
   components,
 } from "./derive";
@@ -73,38 +71,6 @@ describe("derive: net naming", () => {
     expect(second.nets).toHaveLength(1);
     expect(second.nets[0].id).toBe(first.nets[0].id);
     expect(second.nets[0].name).toBe("MY_NET");
-  });
-});
-
-describe("derive: shorts", () => {
-  it("labelConflicts flags a net tying GND and VCC together", () => {
-    const ics = [fakeIc("u1", { 1: "GND", 2: "VCC" }, { 1: { x: 0, y: 0 }, 2: { x: 50, y: 0 } })];
-    const connections = [conn({ icId: "u1", pin: 1 }, { icId: "u1", pin: 2 })];
-    const shorts = labelConflicts(connections, ics);
-    expect(shorts.sort()).toEqual(["0,0", "50,0"]);
-  });
-
-  it("labelConflicts is silent when a net has only one canonical name", () => {
-    const ics = [fakeIc("u1", { 1: "GND", 2: "GND" }, { 1: { x: 0, y: 0 }, 2: { x: 50, y: 0 } })];
-    const connections = [conn({ icId: "u1", pin: 1 }, { icId: "u1", pin: 2 })];
-    expect(labelConflicts(connections, ics)).toEqual([]);
-  });
-
-  it("physicalTerminalShorts flags two unconnected pins overlapping the same pad", () => {
-    const ics = [
-      fakeIc("u1", {}, { 1: { x: 0, y: 0 } }),
-      fakeIc("u2", {}, { 1: { x: 0, y: 0 } }),
-    ];
-    expect(physicalTerminalShorts([], ics)).toEqual(["0,0"]);
-  });
-
-  it("physicalTerminalShorts is silent when the overlapping pins are the same net", () => {
-    const ics = [
-      fakeIc("u1", {}, { 1: { x: 0, y: 0 } }),
-      fakeIc("u2", {}, { 1: { x: 0, y: 0 } }),
-    ];
-    const connections = [conn({ icId: "u1", pin: 1 }, { icId: "u2", pin: 1 })];
-    expect(physicalTerminalShorts(connections, ics)).toEqual([]);
   });
 });
 

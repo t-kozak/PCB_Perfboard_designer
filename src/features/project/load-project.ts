@@ -117,7 +117,7 @@ function migrateLinesToConnections(lines: LegacyLine[], placedIcs: Ic[]): IConne
       console.warn("Dropped a wire whose endpoints migrated to the same pin", line);
       continue;
     }
-    const conn = makeConnection(a, b, { color: line.color, width: line.width });
+    const conn = makeConnection(a, b, { width: line.width });
     if (conn && !connections.some(c => sameConnection(c, conn.a, conn.b))) {
       connections.push(conn);
     }
@@ -194,11 +194,18 @@ export function loadProject(project: IProjectSave){
   State.changeIndex = -1;
 
   if (project.ICs) {
-    Ic.IC_CONTAINER = project.ICs.map(ic => {
-      const inst = unserialize(ic, Ic);
+    // Merge in only the save's *custom* parts — built-ins already come from the
+    // current catalog (loadDefaultIcs ran at startup), so widening a built-in is
+    // never frozen at save time. Legacy saves stored the whole catalog;
+    // filtering to isCustom drops those stale built-ins.
+    for (const raw of project.ICs) {
+      const inst = unserialize(raw, Ic);
+      if (!inst.isCustom) continue;
       inst.id = legacy || inst.id == null ? crypto.randomUUID() : String(inst.id);
-      return inst;
-    });
+      if (!Ic.IC_CONTAINER.some(c => String(c.id) === String(inst.id))) {
+        Ic.IC_CONTAINER.push(inst);
+      }
+    }
     Ic.showICs();
   }
   if (project.placedIcs) {
@@ -216,16 +223,9 @@ export function loadProject(project: IProjectSave){
   if (preConnections) {
     State.connections = migrateLinesToConnections(legacyLines, State.placedIcs);
   } else {
+    // v5 drops per-connection `color`; a wire is always drawn in its net's
+    // colour. Any `color` on an older (v3/v4) file is simply left unread.
     State.connections = project.connections ?? [];
-    // v3 → v4: wire appearance moved from the (now discarded) net layer onto
-    // each connection. Adopt the saved net colour so the board keeps its look.
-    const netColorById = new Map((project.nets ?? []).map(n => [n.id, n.color]));
-    for (const c of State.connections) {
-      if (c.color === undefined && c.netId) {
-        const col = netColorById.get(c.netId);
-        if (col) c.color = col;
-      }
-    }
   }
 
   State.selectedPlacedIc = undefined;

@@ -7,12 +7,12 @@
  * handful of long segments instead of forty tiny ones — which matters because
  * every segment is a rendered line.
  *
- * Two hard constraints (autorouting.md §3):
+ * Three hard constraints (autorouting.md §3):
  *
- * 1. **Two *nets* never share a pad.** A route may *pass over* a foreign pad
- *    (small cost) but never stop or turn on one, and once a net has claimed a
- *    pad, other nets treat it as foreign. Edges of the *same* net freely share
- *    pads (a daisy chain A–B, B–C meets at B).
+ * 1. **Two *nets* never share a pad.** A route may *pass over* a foreign bare
+ *    hole (small cost) but never stop or turn on one, and once a net has
+ *    claimed a pad, other nets treat it as foreign. Edges of the *same* net
+ *    freely share pads (a daisy chain A–B, B–C meets at B).
  * 2. **A *channel* carries at most one wire.** A channel is the gap between two
  *    adjacent pads in a row or column — the atomic piece of board a wire can
  *    occupy. Wires may *cross* (they meet at a pad, using perpendicular
@@ -20,6 +20,11 @@
  *    along the same stretch of the same row or column, which would draw one on
  *    top of the other and hide it. This one applies across *all* wires, same
  *    net included — two physical wires are two physical wires.
+ * 3. **A solder joint is never crossed.** A hole with a component pin in it
+ *    (`RouteBoard.soldered`) stops a run dead: the wire may *end* there if the
+ *    joint belongs to its own net — that is how a daisy chain reaches a pin —
+ *    but it may not run across it, and it may not land on some other
+ *    component's pin at all.
  *
  * An edge that cannot be routed under both rules is reported by id, never
  * silently dropped. Because the constraints are hard, order matters: the whole
@@ -28,7 +33,16 @@
  */
 import type { IDot } from "../interfaces/dot.interface";
 import type { ILine } from "../interfaces/line.interface";
-import { RouteEdge, RouteOpts, RouteResult, DEFAULT_OPTS, key, manhattan, wire } from "./types";
+import {
+  RouteBoard,
+  RouteEdge,
+  RouteOpts,
+  RouteResult,
+  DEFAULT_OPTS,
+  key,
+  manhattan,
+  wire,
+} from "./types";
 import { astar } from "./astar";
 
 type Axis = "h" | "v" | "none";
@@ -47,12 +61,12 @@ const MAX_ATTEMPTS = 3;
 export function route(
   edges: RouteEdge[],
   allPads: IDot[],
-  obstacles: ILine[] = [],
+  board: RouteBoard = {},
   opts: RouteOpts = {},
 ): RouteResult {
   const o = { ...DEFAULT_OPTS, ...opts };
 
-  let best = attempt(edges, allPads, obstacles, o, []);
+  let best = attempt(edges, allPads, board, o, []);
   let priority: string[] = [];
   for (let i = 1; i < MAX_ATTEMPTS && best.failed.length > 0; i++) {
     // Retry with the losers first — a hard constraint makes ordering matter,
@@ -61,7 +75,7 @@ export function route(
     const next = best.failed;
     if (next.join(",") === priority.join(",")) break;
     priority = next;
-    const res = attempt(edges, allPads, obstacles, o, priority);
+    const res = attempt(edges, allPads, board, o, priority);
     if (res.failed.length < best.failed.length) best = res;
   }
   return best;
@@ -71,7 +85,7 @@ export function route(
 function attempt(
   edges: RouteEdge[],
   allPads: IDot[],
-  obstacles: ILine[],
+  board: RouteBoard,
   o: Required<RouteOpts>,
   priority: string[],
 ): RouteResult {
@@ -109,11 +123,14 @@ function attempt(
   // --- channel occupancy (hard constraint 2) ------------------------------
   const usedChannels = new Set<string>();
 
+  // --- solder joints (hard constraint 3) ----------------------------------
+  const soldered = new Set((board.soldered ?? []).map(key));
+
   // --- crossing index: fixed coordinate → the spans of wire sitting on it --
   const vSpans = new Map<number, Array<[number, number]>>(); // x → [yLo, yHi]
   const hSpans = new Map<number, Array<[number, number]>>(); // y → [xLo, xHi]
 
-  for (const l of obstacles) {
+  for (const l of board.obstacles ?? []) {
     if (!l.start || !l.end) continue;
     claim(canon(l.start), canon(l.end));
   }
@@ -200,19 +217,28 @@ function attempt(
         const q = arr[i];
         const qk = key(q);
         const own = owner.get(qk);
-        if (own !== undefined && own !== netId && qk !== goalKey) {
-          // Foreign pad: legal to pass over, never to stop or turn on.
-          foreign++;
-          continue;
-        }
-        out.push({
+        const mine = own === netId || qk === goalKey;
+        const hop = {
           node: { pad: q, axis },
           cost:
             manhattan(here, q) +
             turn +
             foreign * o.foreignPadPenalty +
             crossings * o.crossingPenalty,
-        });
+        };
+
+        if (soldered.has(qk)) {
+          // A solder joint is a wall with a door: this net's own wire may end
+          // on it, anything else stops here — and nothing runs across it.
+          if (mine) out.push(hop);
+          return;
+        }
+        if (own !== undefined && !mine) {
+          // Foreign bare hole: legal to pass over, never to stop or turn on.
+          foreign++;
+          continue;
+        }
+        out.push(hop);
       }
     }
   }

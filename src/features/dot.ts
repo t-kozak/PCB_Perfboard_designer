@@ -20,7 +20,7 @@ export function changeSelectedDotColor(){
   const colorPicker = Utils.getSafeHtmlElement<HTMLInputElement>('colorPicker');
   colorPicker.value = Utils.normalizeColor(State.selectedDot.color, "#a4a0a0");
   colorPicker.oninput = colorPicker.onchange = function() {
-    State.activeWireColor = colorPicker.value;
+    State.activePadColor = colorPicker.value;
     const badge = document.getElementById('activeColorBadge');
     if (badge) badge.style.background = colorPicker.value;
     if(State.selectedDot){

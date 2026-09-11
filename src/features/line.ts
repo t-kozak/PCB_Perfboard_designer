@@ -9,44 +9,14 @@ import {invalidateWireCache} from "./wire-cache";
 import {deletePlacedIcCascade} from "./connect";
 
 
-Utils.getSafeHtmlElement<HTMLButtonElement>('changeLineColorBtn').addEventListener('click', function() {
-  changeSelectedLineColor()
-});
-
 // Delete line
 Utils.getSafeHtmlElement<HTMLButtonElement>('deleteLineBtn').addEventListener('click', function() {
  deleteLine();
 });
 
-/** Set the selected connection's wire colour (works on either face). */
-export function setLineColor(color: string){
-  if (!State.selectedConnection) return;
-  State.selectedConnection.color = color;
-  invalidateWireCache();
-  redrawCanvas();
-}
-
-/**
- * "Line Color" restyles the selected connection's wire — colour is a
- * per-connection property now (docs/logical-connections.md §11), so this is the
- * same action on the component side (recolours the rubber band) and the solder
- * side (recolours the physical wire).
- */
-export function changeSelectedLineColor(){
-  const conn = State.selectedConnection;
-  if (!conn) return;
-  const colorPicker = Utils.getSafeHtmlElement<HTMLInputElement>('colorPicker');
-  colorPicker.value = Utils.normalizeColor(conn.color, "#3b82f6");
-  colorPicker.oninput = colorPicker.onchange = function() {
-    conn.color = colorPicker.value;
-    State.activeWireColor = colorPicker.value;
-    const badge = document.getElementById('activeColorBadge');
-    if (badge) badge.style.background = colorPicker.value;
-    invalidateWireCache();
-    redrawCanvas();
-  };
-  colorPicker.click();
-}
+// Wire colour is not user-editable: a wire is always drawn in its net's colour
+// (see src/nets/derive.ts `colorFor` + the Nets panel). The "Line Color" control
+// is gone; the Styling & Colors panel now only recolours pads.
 
 export function deleteLine(){
   if (State.selectedConnection) {
@@ -75,7 +45,4 @@ export function deleteLine(){
 }
 
 ShortcutRegistry.add({key: "Delete", event: deleteLine, description: "Delete selected connection / component / pad note."})
-ShortcutRegistry.add({key: "c", event: () => {
-    changeSelectedLineColor()
-    changeSelectedDotColor()
-  }, description: "Change dot/connection color."})
+ShortcutRegistry.add({key: "c", event: changeSelectedDotColor, description: "Change selected pad colour."})

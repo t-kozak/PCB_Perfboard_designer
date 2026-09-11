@@ -3,20 +3,27 @@ import {State} from "../state/State";
 import {Canvas} from "../state/Canvas";
 import {IDot} from "../interfaces/dot.interface";
 import {ILine} from "../interfaces/line.interface";
-import {wiresOfNet, netAtTerminal, dotKey, findShorts, labelConflicts, physicalTerminalShorts, resolveTerminal, terminalAtDot} from "../nets/derive";
+import {wiresOfNet, netAtTerminal, dotKey, resolveTerminal, terminalAtDot} from "../nets/derive";
 import {drawGridLabels} from "./grid-labels";
 import {scheduleAutosave} from "./project/autosave";
-import {refreshWireCache} from "./wire-cache";
+import {refreshWireCache, DEFAULT_WIRE_COLOR} from "./wire-cache";
 
 function netColor(netId: string | undefined): string | undefined {
   if (!netId) return undefined;
   return State.nets.find(n => n.id === netId)?.color;
 }
 
-function drawDot(dot: IDot, onHoverNet: boolean, isShort: boolean){
+/** The colour every pad is created with — treated as "no explicit colour" so a net tint can show through. */
+const DEFAULT_PAD_COLOR = "#a4a0a0";
+
+function drawDot(dot: IDot, onHoverNet: boolean, netFill?: string){
+  // Fill precedence: a non-default pad colour the user picked wins; otherwise
+  // the solder-side net-terminal tint (so you can see what's soldered where);
+  // then the default bare-copper grey.
+  const userColor = dot.color && dot.color !== DEFAULT_PAD_COLOR ? dot.color : undefined;
   Canvas.ctx.beginPath();
   Canvas.ctx.arc(dot.x, dot.y, State.dotRadius, 0, Math.PI*2);
-  Canvas.ctx.fillStyle = dot.color || "#a4a0a0";
+  Canvas.ctx.fillStyle = userColor || netFill || DEFAULT_PAD_COLOR;
   Canvas.ctx.fill();
 
   if (dot === State.selectedDot) {
@@ -45,15 +52,6 @@ function drawDot(dot: IDot, onHoverNet: boolean, isShort: boolean){
     Canvas.ctx.arc(dot.x, dot.y, State.dotRadius + 3, 0, Math.PI * 2);
     Canvas.ctx.strokeStyle = "#38bdf8";
     Canvas.ctx.lineWidth = 2;
-    Canvas.ctx.stroke();
-  }
-
-  if (isShort) {
-    // A pad wired into two nets — a short circuit (docs/logical-connections.md M9).
-    Canvas.ctx.beginPath();
-    Canvas.ctx.arc(dot.x, dot.y, State.dotRadius + 6, 0, Math.PI * 2);
-    Canvas.ctx.strokeStyle = "#ef4444";
-    Canvas.ctx.lineWidth = 2.5;
     Canvas.ctx.stroke();
   }
 
@@ -158,7 +156,7 @@ function drawConnections(highlightTerms: Set<string> | null) {
     if (!a || !b) continue;
     const isSelected = conn === State.selectedConnection;
     const isHover = !isSelected && (conn === State.hoverConnection || (highlightTerms?.has(`${conn.a.icId}#${conn.a.pin}`) ?? false));
-    drawRubberBand(a, b, conn.color || netColor(conn.netId) || "#38bdf8", isSelected ? "selected" : isHover ? "hover" : "none");
+    drawRubberBand(a, b, netColor(conn.netId) || "#38bdf8", isSelected ? "selected" : isHover ? "hover" : "none");
   }
 
   // Pending terminal: rubber band from the armed pin to the cursor.
@@ -217,18 +215,26 @@ export function redrawCanvas() {
   // solder-side hit-testing or drawing reads `State.lines`.
   if (solder) refreshWireCache();
 
-  // Net highlight + short reporting are solder-side (physical) only. Highlight
-  // is keyed off the connection under the cursor (its wire, resolved by netId).
+  // Net highlight is solder-side (physical) only. Keyed off the connection
+  // under the cursor (its wire, resolved by netId).
   const highlight = solder && State.hoverConnection?.netId
     ? wiresOfNet(State.hoverConnection.netId, State.lines)
     : null;
-  const shortPads = solder
-    ? new Set<string>([
-      ...findShorts(State.lines),
-      ...labelConflicts(State.connections, State.placedIcs),
-      ...physicalTerminalShorts(State.connections, State.placedIcs),
-    ])
-    : new Set<string>();
+
+  // Solder-side: tint every pad a wire lands on with that wire's colour, so the
+  // copper view shows at a glance which trace terminates where. A wire is always
+  // drawn in its net's colour (the exact value `drawLine()` strokes with, see
+  // wire-cache.ts), so a pad always matches the wire you see running into it.
+  const terminalNetFill = new Map<string, string>();
+  if (solder) {
+    for (const conn of State.connections) {
+      const tint = netColor(conn.netId) || DEFAULT_WIRE_COLOR;
+      for (const t of [conn.a, conn.b]) {
+        const pad = resolveTerminal(t, State.placedIcs);
+        if (pad) terminalNetFill.set(dotKey(pad), tint);
+      }
+    }
+  }
 
   // Component-side net highlight, from whichever pin/connection is hovered.
   const hoverTerm = !solder ? (State.hoverConnection?.a ?? (State.hoverDot && terminalAtDot(State.hoverDot, State.placedIcs))) : undefined;
@@ -242,7 +248,7 @@ export function redrawCanvas() {
     const onHoverNet = solder
       ? (highlight?.pads.has(key) ?? false)
       : dotInHighlightedNet(dot, componentHighlight?.terminals ?? null);
-    drawDot(dot, onHoverNet, shortPads.has(key));
+    drawDot(dot, onHoverNet, terminalNetFill.get(key));
   }
   // 2. IC bodies. Component side: drawn solid on top of the dots they conceal.
   //    Solder side: the same mirrored artwork, but as faint 20%-opacity ghosts
@@ -275,8 +281,7 @@ export function redrawCanvas() {
         const coord = ic.pinDot(pin);
         const dot = coord && dotByKey.get(dotKey(coord));
         if (!dot) continue;
-        const key = dotKey(dot);
-        drawDot(dot, dotInHighlightedNet(dot, componentHighlight?.terminals ?? null), shortPads.has(key));
+        drawDot(dot, dotInHighlightedNet(dot, componentHighlight?.terminals ?? null));
       }
     }
   }
