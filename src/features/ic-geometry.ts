@@ -14,7 +14,7 @@ export interface IcGeometry {
 }
 
 /** Kinds with their own fixed 2-terminal pin model (see Ic.LEADED_KINDS) — never single-row. */
-const LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic"];
+const LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", "led-green", "led-blue"];
 
 /** Kinds laid out as a full rectangular pin grid (see isGridLayout) rather than the two-sided DIP perimeter. */
 const GRID_KINDS = ["pin-header"];

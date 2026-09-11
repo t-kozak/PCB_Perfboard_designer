@@ -21,6 +21,34 @@ interface IcCatalogEntry {
   imageOffsetY?: number;
 }
 
+function svgDataUri(svg: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * MOSFET body art. Both variants share the same 1-column, 3-pin (Gate/Drain/
+ * Source) footprint — only the icon differs, sized well past the pin span via
+ * imageScaleX/Y (see the catalog entries below). "Standing" = a TO-92-style
+ * part mounted upright (black body, flat cut face), icon ~1 dot wide x 4 long,
+ * running lengthwise along the pin column like the pins are just holes in it.
+ * "Flat" = a TO-220-style part lying flat: legs bend out from the edge of the
+ * black body and down into the board, so unlike Standing the icon runs
+ * *across* the pin column (rotated 90°) — black body's outer edge sits right
+ * on the pins (imageOffsetX shifts the whole icon left by half its length so
+ * that edge, not the icon's center, lands at the pin column), with the grey
+ * mounting tab + screw hole extending away to the left.
+ */
+const MOSFET_STANDING_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="50" height="200" viewBox="0 0 50 200">
+  <rect x="2" y="2" width="46" height="196" rx="6" fill="#111111" stroke="#3a3a3a" stroke-width="2"/>
+  <rect x="27" y="2" width="21" height="196" fill="#8a8a8a"/>
+</svg>`;
+
+const MOSFET_FLAT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="150" viewBox="0 0 300 150">
+  <rect x="4" y="8" width="130" height="134" fill="#9a9a9a" stroke="#5a5a5a" stroke-width="3"/>
+  <circle cx="69" cy="75" r="20" fill="#161616" stroke="#4a4a4a" stroke-width="3"/>
+  <rect x="142" y="4" width="154" height="142" rx="8" fill="#111111" stroke="#3a3a3a" stroke-width="3"/>
+</svg>`;
+
 /** Expands the `"1:GND 2:TRIG ..."` shorthand into a `{pin: label}` map; passes a map through unchanged. */
 function parsePinDescription(pins: Record<number, string> | string): Record<number, string> {
   if (typeof pins !== "string") return pins;
@@ -49,6 +77,27 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
   {widthPin: 4, heightPin: 1, pinDescription: "1: 2:", name: "Resistor", kind: "resistor", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1: 2:", name: "Ceramic Capacitor", kind: "cap-ceramic", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1:+ 2:-", name: "Electrolytic Capacitor", kind: "cap-electrolytic", category: "Passive"},
+
+  // LEDs: 2-hole 2-terminal footprint (a diode's actual lead spacing), one variant per colour.
+  {widthPin: 2, heightPin: 1, pinDescription: "1:A 2:K", name: "LED (Red)", kind: "led-red", category: "Passive"},
+  {widthPin: 2, heightPin: 1, pinDescription: "1:A 2:K", name: "LED (Green)", kind: "led-green", category: "Passive"},
+  {widthPin: 2, heightPin: 1, pinDescription: "1:A 2:K", name: "LED (Blue)", kind: "led-blue", category: "Passive"},
+
+  // MOSFETs (general category — exact part added as a note by the user, like Resistor/Capacitor above).
+  // Both variants are a single column of 3 pins (Gate, Drain, Source); only
+  // the body art differs in size — the icon spans further than the actual
+  // pin footprint (widthPin=1 keeps spanW at 0, so imageScaleX/Y do all the
+  // work), same trick as the zero-width single-row breakout boards.
+  {
+    widthPin: 1, heightPin: 3, pinDescription: "1:G 2:D 3:S", name: "MOSFET (Standing)",
+    category: "Transistor", kind: "mosfet-standing",
+    imageSrc: svgDataUri(MOSFET_STANDING_SVG), imageScaleX: 5, imageScaleY: 1.85,
+  },
+  {
+    widthPin: 1, heightPin: 3, pinDescription: "1:G 2:D 3:S", name: "MOSFET (Flat)",
+    category: "Transistor", kind: "mosfet-flat",
+    imageSrc: svgDataUri(MOSFET_FLAT_SVG), imageScaleX: 43.75, imageScaleY: 1.85, imageOffsetX: -175,
+  },
 
   // Dupont-style male pin headers: bare legs soldered into the perfboard to
   // take a female Dupont connector. Custom-rendered (see Ic.drawPinHeaderBody)

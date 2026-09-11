@@ -47,9 +47,9 @@ export class Ic{
     /**
      * Visual family of the component. "chip" (default) draws the black DIP
      * package. The "leaded" kinds — "resistor", "cap-ceramic",
-     * "cap-electrolytic" — are 2-terminal parts drawn as schematic-style
-     * artwork between their two end pads (see drawLeadedBody). Ignored when
-     * imageSrc is set.
+     * "cap-electrolytic", "led-red", "led-green", "led-blue" — are 2-terminal
+     * parts drawn as schematic-style artwork between their two end pads (see
+     * drawLeadedBody). Ignored when imageSrc is set.
      */
     public kind: string = "chip",
     /**
@@ -78,7 +78,14 @@ export class Ic{
   }
 
   /** Kinds rendered as 2-terminal leaded parts rather than a chip package. */
-  private static LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic"];
+  private static LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", "led-green", "led-blue"];
+
+  /** Body colour for each LED variant, keyed by kind. */
+  private static LED_COLORS: Record<string, string> = {
+    "led-red": "#ef4444",
+    "led-green": "#22c55e",
+    "led-blue": "#3b82f6",
+  };
 
   /** True for resistors / capacitors — drawn as artwork spanning two end pads. */
   get isLeaded(): boolean {
@@ -103,6 +110,12 @@ export class Ic{
       case "cap-electrolytic": return "🛢️";
       case "bridge": return "•";
       case "pin-header": return "🔌";
+      case "led-red": return "🔴";
+      case "led-green": return "🟢";
+      case "led-blue": return "🔵";
+      case "mosfet-standing":
+      case "mosfet-flat":
+        return "⚡";
       default: return "📦";
     }
   }
@@ -351,7 +364,7 @@ export class Ic{
       return { x: this.topLeftDot.x - s / 2, y: this.topLeftDot.y - s / 2, w: s, h: s };
     }
     if (this.isLeaded) {
-      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : 30;
+      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : this.kind.startsWith("led-") ? 54 : 30;
       if (spanW >= spanH) {
         return { x: this.topLeftDot.x, y: this.topLeftDot.y - t / 2, w: spanW, h: t };
       }
@@ -406,7 +419,7 @@ export class Ic{
     const length = Math.max(spanW, spanH, 50);
     const cx = this.topLeftDot.x + spanW / 2;
     const cy = this.topLeftDot.y + spanH / 2;
-    const bodyHalf = this.kind === "cap-electrolytic" ? 12 : Math.max(16, length * 0.3);
+    const bodyHalf = this.kind === "cap-electrolytic" ? 12 : this.kind.startsWith("led-") ? length / 2 : Math.max(16, length * 0.3);
 
     ctx.save();
     ctx.translate(cx, cy);
@@ -424,7 +437,8 @@ export class Ic{
 
     if (this.kind === "resistor") this.drawResistorArt(bodyHalf, isSelected);
     else if (this.kind === "cap-ceramic") this.drawCeramicCapArt(bodyHalf, isSelected);
-    else this.drawElectrolyticCapArt(isSelected);
+    else if (this.kind === "cap-electrolytic") this.drawElectrolyticCapArt(isSelected);
+    else this.drawLedArt(bodyHalf, isSelected);
 
     ctx.restore();
   }
@@ -501,6 +515,45 @@ export class Ic{
     Canvas.fillText("−", r - 4, 0);
     ctx.fillStyle = isSelected ? "#38bdf8" : "#cbd5e1";
     Canvas.fillText("+", -r + 5, 0);
+    ctx.textBaseline = "alphabetic";
+  }
+
+  /**
+   * Top-down LED body (colour by variant): a filled circle — no side profile,
+   * since the board is drawn from directly above — with a flat edge cut into
+   * the pin-2 (+x / cathode / −) side, mirroring the flat rim real through-hole
+   * LEDs carry on their cathode to hint the correct placement orientation.
+   * Also carries a small dot marking each leg and a +/− polarity sign (pin 1 =
+   * anode = +, pin 2 = cathode = −, matching the leads' local +x/-x split).
+   */
+  private drawLedArt(bodyHalf: number, isSelected: boolean) {
+    const ctx = Canvas.ctx;
+    const color = Ic.LED_COLORS[this.kind] ?? "#ef4444";
+    const flatX = bodyHalf * 0.9;
+    const theta = Math.acos(flatX / bodyHalf);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, bodyHalf, theta, 2 * Math.PI - theta, false);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#1f2937";
+    ctx.stroke();
+
+    const legR = 2.5;
+    ctx.fillStyle = isSelected ? "#38bdf8" : "#cbd5e1";
+    ctx.beginPath();
+    ctx.arc(-bodyHalf, 0, legR, 0, Math.PI * 2);
+    ctx.arc(bodyHalf, 0, legR, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = "bold 10px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = isSelected ? "#38bdf8" : "#e2e8f0";
+    Canvas.fillText("+", -bodyHalf, -10);
+    Canvas.fillText("−", bodyHalf, -10);
     ctx.textBaseline = "alphabetic";
   }
 
