@@ -75,6 +75,7 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
 
   // Static 2-terminal parts. The actual value is entered by the user as a note.
   {widthPin: 4, heightPin: 1, pinDescription: "1: 2:", name: "Resistor", kind: "resistor", category: "Passive"},
+  {widthPin: 4, heightPin: 1, pinDescription: "1: 2:", name: "Polyfuse", kind: "polyfuse", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1: 2:", name: "Ceramic Capacitor", kind: "cap-ceramic", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1:+ 2:-", name: "Electrolytic Capacitor", kind: "cap-electrolytic", category: "Passive"},
 
@@ -135,6 +136,14 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
 
   {widthPin: 4, heightPin: 4, pinDescription: "1:GND 2:TRIG 3:OUT 4:RESET 5:CTRL 6:THRESH 7:DISCH 8:VCC", name: "NE555 Timer", category: "Timer IC"},
   {widthPin: 4, heightPin: 7, pinDescription: "1:1A 2:1B 3:1Y 4:2A 5:2B 6:2Y 7:GND 14:VCC", name: "DIP-14 Logic", category: "Logic IC"},
+  // CD4013BE - dual D-type flip-flop, 14-pin DIP (2x7 legs). widthPin=4 is a
+  // placeholder body width, same convention as the other DIP-14 parts above —
+  // tune once the real chip's footprint is measured.
+  {
+    widthPin: 4, heightPin: 7,
+    pinDescription: "1:1Q 2:1Q# 3:1CLK 4:1RESET 5:1D 6:1SET 7:GND 8:2SET 9:2D 10:2RESET 11:2CLK 12:2Q# 13:2Q 14:VCC",
+    name: "CD4013BE", category: "Flip-Flop",
+  },
   {widthPin: 4, heightPin: 8, pinDescription: "1:EN 2:1D 3:1Q 4:2D 5:2Q 8:GND 16:VCC", name: "DIP-16 Logic", category: "Logic IC"},
   {widthPin: 4, heightPin: 14, pinDescription: "1:RESET 2:RX 3:TX 7:VCC 8:GND 22:GND 20:AVCC", name: "ATmega328P", category: "Microcontroller"},
 ];

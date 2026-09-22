@@ -78,7 +78,7 @@ export class Ic{
   }
 
   /** Kinds rendered as 2-terminal leaded parts rather than a chip package. */
-  private static LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", "led-green", "led-blue"];
+  private static LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", "led-green", "led-blue", "polyfuse"];
 
   /** Body colour for each LED variant, keyed by kind. */
   private static LED_COLORS: Record<string, string> = {
@@ -106,6 +106,7 @@ export class Ic{
   get icon(): string {
     switch (this.kind) {
       case "resistor": return "🟫";
+      case "polyfuse": return "🟨";
       case "cap-ceramic": return "🔵";
       case "cap-electrolytic": return "🛢️";
       case "bridge": return "•";
@@ -364,7 +365,7 @@ export class Ic{
       return { x: this.topLeftDot.x - s / 2, y: this.topLeftDot.y - s / 2, w: s, h: s };
     }
     if (this.isLeaded) {
-      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : this.kind.startsWith("led-") ? 54 : 30;
+      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : this.kind === "polyfuse" ? 18 : this.kind.startsWith("led-") ? 54 : 30;
       if (spanW >= spanH) {
         return { x: this.topLeftDot.x, y: this.topLeftDot.y - t / 2, w: spanW, h: t };
       }
@@ -438,6 +439,7 @@ export class Ic{
     if (this.kind === "resistor") this.drawResistorArt(bodyHalf, isSelected);
     else if (this.kind === "cap-ceramic") this.drawCeramicCapArt(bodyHalf, isSelected);
     else if (this.kind === "cap-electrolytic") this.drawElectrolyticCapArt(isSelected);
+    else if (this.kind === "polyfuse") this.drawPolyfuseArt(bodyHalf, isSelected);
     else this.drawLedArt(bodyHalf, isSelected);
 
     ctx.restore();
@@ -466,6 +468,19 @@ export class Ic{
       ctx.fillRect(-half + step * (i + 1), -h / 2, step * 0.5, h);
     });
     ctx.restore();
+  }
+
+  /** Flat yellow polyfuse (resettable fuse) body — same footprint as a resistor, no colour bands. */
+  private drawPolyfuseArt(half: number, isSelected: boolean) {
+    const ctx = Canvas.ctx;
+    const h = 12;
+    ctx.beginPath();
+    this.roundRectPath(-half, -h / 2, half * 2, h, 4);
+    ctx.fillStyle = "#f2c94c";
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#a67c00";
+    ctx.stroke();
   }
 
   /** Tan ceramic-disc capacitor drawn edge-on as a rounded lozenge. */
