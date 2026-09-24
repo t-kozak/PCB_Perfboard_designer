@@ -39,7 +39,7 @@ pnpm lint            # eslint src (flat config: eslint.config.js)
 pnpm typecheck       # tsc --noEmit (build itself does NOT typecheck — esbuild only)
 pnpm test            # vitest run — ONLY src/routing/, src/nets/derive.test.ts, src/features/ic-geometry.test.ts (vitest.config.ts). Do not widen.
 pnpm format          # prettier --write .
-pnpm deploy          # build + gh-pages -d dist
+pnpm deploy          # build + gh-pages -d dist (legacy manual path; CI deploys on push to `prod`)
 ```
 
 Node ≥ 20.19 (see `engines` / `.nvmrc`).
@@ -180,7 +180,7 @@ Node ≥ 20.19 (see `engines` / `.nvmrc`).
   control, a wire is **always** drawn in its net's colour). There is no wire
   tool — the Connect tool (`activeToolMode === 'connect'`, component side only)
   creates connections.
-- No CI. `lint` + `typecheck` + `format` + `test` are the checks; `lint` still
+- CI: `.github/workflows/deploy-pages.yml` — push to `prod` → typecheck + test + build → GitHub Pages (Actions source). No PR checks. `lint` + `typecheck` + `format` + `test` are the checks; `lint` still
   emits 6 `any`-related warnings (0 errors) — `no-explicit-any` is deliberately
   set to `warn` in `eslint.config.js`. Tests (Vitest) exist ONLY for
   `src/routing/`, `src/nets/derive.test.ts`, and
