@@ -26,6 +26,12 @@ export class State {
    * which label lands on which row.
    */
   static rowLabelsBottomUp = false;
+  /**
+   * Draw every component's name badge, pin labels and note all the time. Off by
+   * default: they only appear for the component under the cursor. A view
+   * preference — not saved with the project.
+   */
+  static showAllLabels = false;
   static selectedDot?: IDot;
   static hoverDot?: IDot
 

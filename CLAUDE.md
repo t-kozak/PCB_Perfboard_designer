@@ -43,7 +43,6 @@ pnpm deploy          # build + gh-pages -d dist (legacy manual path; CI deploys 
 ```
 
 Node ≥ 20.19 (see `engines` / `.nvmrc`).
-
 ## Layout / where things are
 
 | Path | Purpose |

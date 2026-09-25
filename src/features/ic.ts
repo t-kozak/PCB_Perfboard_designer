@@ -822,12 +822,22 @@ export class Ic{
 
   drawLabel(){
     if (!this.topLeftDot) return;
-    // A bridge is a bare junction, not a named part — skip its name badge and
-    // pin label, but it can still carry a note.
+    // Name badge and note stay hidden until the component is hovered (or the
+    // "Labels" view toggle is on). Real chips are the exception: their pin
+    // labels are the whole point of the package, so they are always drawn.
+    const showDetails = State.showAllLabels || this === State.hoverIc;
+    // A bridge is a bare junction, not a named part — no name badge or pin
+    // label, but it can still carry a note.
     if (this.isBridge) {
-      this.drawNote();
+      if (showDetails) this.drawNote();
       return;
     }
+    if (showDetails) this.drawNameBadge();
+    if (!this.isLeaded && (showDetails || this.kind === "chip")) this.drawPinLabels();
+    if (showDetails) this.drawNote();
+  }
+
+  drawNameBadge() {
     const isSelected = this === State.selectedPlacedIc;
     const rect = this.bodyRect();
     const centerX = rect.x + (rect.w / 2);
@@ -858,9 +868,6 @@ export class Ic{
     Canvas.ctx.textAlign = "center";
     Canvas.fillText(this.name, centerX, centerY + 4);
     Canvas.ctx.restore();
-
-    if (!this.isLeaded) this.drawPinLabels();
-    this.drawNote();
   }
 
   /**

@@ -8,6 +8,17 @@ import {Canvas} from "../state/Canvas";
 // Notes belong to placed components only. To label a bare hole, place a bridge
 // there and annotate that.
 
+// View option: labels/notes are hover-only unless this is toggled on (view
+// preference, so it's neither saved with the project nor tracked by undo).
+const labelsToggleBtn = Utils.getSafeHtmlElement<HTMLButtonElement>('toggleLabelsBtn');
+labelsToggleBtn.addEventListener('click', function() {
+  State.showAllLabels = !State.showAllLabels;
+  labelsToggleBtn.setAttribute('aria-pressed', String(State.showAllLabels));
+  labelsToggleBtn.classList.toggle('btn-accent', State.showAllLabels);
+  labelsToggleBtn.classList.toggle('btn', !State.showAllLabels);
+  redrawCanvas();
+});
+
 // Add/Remove Note toggle — label and action follow whether the current
 // selection (or hover) already carries a note.
 const noteToggleBtn = Utils.getSafeHtmlElement<HTMLButtonElement>('noteToggleBtn');
