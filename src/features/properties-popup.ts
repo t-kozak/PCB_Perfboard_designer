@@ -168,7 +168,13 @@ Canvas.c.addEventListener("dblclick", (e) => {
   if (Canvas.solderSide || State.activeToolMode === "connect" || State.selectedIc) return;
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
   const target = State.placedIcs.find(ic => ic.containsPoint(x, y));
-  if (target) openPropertiesEditor(target, e.clientX, e.clientY);
+  if (!target) return;
+  // The popup edits one component: double-clicking breaks up a Shift+click
+  // group and leaves just the double-clicked part selected.
+  State.selectedPlacedIcs = [];
+  State.selectedPlacedIc = target;
+  redrawCanvas();
+  openPropertiesEditor(target, e.clientX, e.clientY);
 });
 
 // A click anywhere outside the popup closes it (as do Escape and Enter).

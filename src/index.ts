@@ -13,17 +13,15 @@ import "./features/shortcut-keys";
 import "./features/dot";
 import "./features/nets-ui";
 import "./features/connections-ui";
+import "./features/properties-popup";
 import "./features/routing";
 import "./features/project/reset-project";
-import {openPropertiesEditor} from "./features/properties-popup";
 import {resetCanvas} from "./features/reset-canvas";
 import {applyGridPreset, createDotGrid, readGridInputs} from "./features/project/resize-grid";
 import {redrawCanvas} from "./features/draw-canvas";
 import {State} from "./state/State";
-import {changeSelectedDotColor, setDotColor} from "./features/dot";
-import {deleteLine} from "./features/line";
-import {addNote, updateNoteToggleButton} from "./features/description";
-import {hideContextMenu} from "./features/select";
+import {setDotColor} from "./features/dot";
+import {updateNoteToggleButton} from "./features/description";
 import {invalidateWireCache} from "./features/wire-cache";
 import {Ic} from "./features/ic";
 import {Canvas} from "./state/Canvas";
@@ -142,42 +140,6 @@ document.querySelectorAll('#wireGaugeSelector .gauge-btn').forEach((btn) => {
   });
 });
 
-import {rotateSelectedIc} from "./features/ic";
-
-// Context Menu item handlers
-document.getElementById('ctxRotateBtn')?.addEventListener('click', () => {
-  rotateSelectedIc();
-  hideContextMenu();
-});
-
-document.getElementById('ctxColorBtn')?.addEventListener('click', () => {
-  hideContextMenu();
-  // Only pads are recolourable — wire colour is always the net colour.
-  if (State.selectedDot) {
-    changeSelectedDotColor();
-  }
-});
-
-document.getElementById('ctxPropsBtn')?.addEventListener('click', (e) => {
-  hideContextMenu();
-  if (State.selectedPlacedIc) {
-    openPropertiesEditor(State.selectedPlacedIc, e.clientX, e.clientY);
-  }
-});
-
-document.getElementById('ctxNoteBtn')?.addEventListener('click', () => {
-  hideContextMenu();
-  if (State.selectedPlacedIc) {
-    addNote();
-  }
-});
-
-document.getElementById('ctxDeleteBtn')?.addEventListener('click', () => {
-  hideContextMenu();
-  if (State.selectedPlacedIc || State.selectedConnection) {
-    deleteLine();
-  }
-});
 
 // Custom Colors Palette & LocalStorage Persistence
 let customColors: string[] = [];
@@ -498,6 +460,7 @@ document.getElementById('toggleSolderSideBtn')?.addEventListener('click', () => 
   // Component / connection tooling only makes sense on the component side.
   if (solderSide) {
     State.selectedPlacedIc = undefined;
+    State.selectedPlacedIcs = [];
     State.selectedIc = undefined;
     State.isDraggingIc = false;
     State.hoverConnection = undefined;

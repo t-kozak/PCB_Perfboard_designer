@@ -706,43 +706,6 @@ kbd {
   font-weight: 600;
 }
 
-/* Context Menu Floating Popup */
-.context-menu {
-  position: fixed;
-  z-index: 100;
-  background-color: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  padding: 0.35rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 140px;
-}
-
-.context-menu button {
-  width: 100%;
-  justify-content: flex-start;
-  font-size: 0.8rem;
-  padding: 0.45rem 0.75rem;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-}
-
-.context-menu button:hover {
-  background-color: #334155;
-}
-
-.context-menu button.ctx-danger {
-  color: #f87171;
-}
-
-.context-menu button.ctx-danger:hover {
-  background-color: rgba(239, 68, 68, 0.2);
-}
-
 /* Rainbow Hue Bar Slider */
 input[type=range].rainbow-slider {
   -webkit-appearance: none;

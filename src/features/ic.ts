@@ -233,6 +233,11 @@ export class Ic{
     }
   }
 
+  /** Selected on its own or as a member of the Shift+click group. */
+  get isSelected(): boolean {
+    return this === State.selectedPlacedIc || State.selectedPlacedIcs.includes(this);
+  }
+
   updatePosition(x: number, y: number){
     let minDistance: number | null = null;
     let minDot: IDot | null = null;
@@ -653,7 +658,7 @@ export class Ic{
 
   drawBody(){
     if (!this.topLeftDot) return;
-    const isSelected = this === State.selectedPlacedIc;
+    const isSelected = this.isSelected;
 
     if (this.isBridge) {
       this.drawBridgeBody(isSelected);
@@ -826,7 +831,7 @@ export class Ic{
   }
 
   drawNameBadge() {
-    const isSelected = this === State.selectedPlacedIc;
+    const isSelected = this.isSelected;
     const rect = this.bodyRect();
     const centerX = rect.x + (rect.w / 2);
     // Leaded parts and pin headers are small enough that a centered badge
@@ -1049,6 +1054,7 @@ Canvas.c.addEventListener('drop', (e) => {
 
 export function rotateSelectedIc() {
   if (Canvas.solderSide) return; // components are hidden / inert on the solder side
+  if (State.selectedPlacedIcs.length) return; // no rotating a Shift+click group
   if (State.selectedPlacedIc) {
     State.selectedPlacedIc.rotate();
     redrawCanvas();

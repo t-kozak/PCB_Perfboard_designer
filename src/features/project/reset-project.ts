@@ -23,6 +23,7 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('resetBtn').addEventListener('click'
   State.pendingTerminal = undefined;
   State.selectedIc = undefined;
   State.selectedPlacedIc = undefined;
+  State.selectedPlacedIcs = [];
   loadDefaultIcs(); // restore the built-in IC catalog
   localStorage.removeItem('save');
   invalidateWireCache();

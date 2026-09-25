@@ -40,17 +40,19 @@ Canvas.c.addEventListener('mousedown', (e) => {
 });
 
 /**
- * Delete a placed component and cascade-delete every connection referencing
- * it, as one undo entry (docs/logical-connections.md §2 rule 4).
+ * Delete placed component(s) and cascade-delete every connection referencing
+ * them, as one undo entry (docs/logical-connections.md §2 rule 4).
  */
-export function deletePlacedIcCascade(ic: Ic): void {
-  const idx = State.placedIcs.indexOf(ic);
-  if (idx === -1) return;
-  const removedConnections = State.connections.filter(c => c.a.icId === ic.id || c.b.icId === ic.id);
+export function deletePlacedIcCascade(target: Ic | Ic[]): void {
+  const ics = (Array.isArray(target) ? target : [target]).filter(ic => State.placedIcs.includes(ic));
+  if (!ics.length) return;
+  const ids = new Set(ics.map(ic => ic.id));
+  const removedConnections = State.connections.filter(c => ids.has(c.a.icId) || ids.has(c.b.icId));
   State.connections = State.connections.filter(c => !removedConnections.includes(c));
-  State.placedIcs.splice(idx, 1);
-  if (State.selectedPlacedIc === ic) State.selectedPlacedIc = undefined;
-  recordChange({ componentsRemoved: [ic], connectionsRemoved: removedConnections });
+  State.placedIcs = State.placedIcs.filter(ic => !ics.includes(ic));
+  if (State.selectedPlacedIc && ics.includes(State.selectedPlacedIc)) State.selectedPlacedIc = undefined;
+  State.selectedPlacedIcs = State.selectedPlacedIcs.filter(ic => !ics.includes(ic));
+  recordChange({ componentsRemoved: ics, connectionsRemoved: removedConnections });
   rebuildNets();
   redrawCanvas();
   window.dispatchEvent(new Event('nets-changed'));

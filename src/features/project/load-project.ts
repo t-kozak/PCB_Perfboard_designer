@@ -241,6 +241,7 @@ export function loadProject(project: IProjectSave){
   }
 
   State.selectedPlacedIc = undefined;
+  State.selectedPlacedIcs = [];
   State.selectedDot = undefined;
   State.selectedConnection = undefined;
   State.selectedIc = undefined;

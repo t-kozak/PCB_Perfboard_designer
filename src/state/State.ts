@@ -61,6 +61,12 @@ export class State {
   static selectedIc?: Ic;
   static placedIcs: Ic[] = [];
   static selectedPlacedIc?: Ic;
+  /**
+   * Shift+click multi-selection of placed components. Dragging any member moves
+   * the whole group; Delete removes them all. Empty when nothing is grouped —
+   * a lone selection lives in `selectedPlacedIc` only.
+   */
+  static selectedPlacedIcs: Ic[] = [];
   static hoverIc?: Ic;
   static isDraggingIc = false;
 

@@ -5,6 +5,9 @@ import {ShortcutRegistry} from "./shortcut-keys";
 import {panBy} from "./viewport";
 import {updateSidebarVisibility} from "./sidebar-mode";
 import {assignDesignator} from "./component-props";
+import {terminalAtDot} from "../nets/derive";
+import {startIcDragAt} from "./ic-drag";
+import {Ic} from "./ic";
 let isPanningBoard = false;
 let panLastX = 0;
 let panLastY = 0;
@@ -21,7 +24,6 @@ Canvas.c.addEventListener('mousedown', function(e) {
   }
 
   if (e.button === 0) {
-    hideContextMenu();
     const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
     // On the solder side components are hidden and not interactive.
     const solder = Canvas.solderSide;
@@ -39,6 +41,32 @@ Canvas.c.addEventListener('mousedown', function(e) {
       return;
     }
 
+    // Shift+click a component: toggle it in the multi-selection group (any
+    // tool). A lone selected component is folded into the group first, so
+    // click A, then Shift+click B selects both.
+    if (!solder && e.shiftKey) {
+      const hit = State.placedIcs.find(ic => ic.containsPoint(x, y));
+      if (hit) {
+        toggleGroupMember(hit);
+        redrawCanvas();
+        return;
+      }
+    }
+
+    // A connection (rubber band) under the cursor wins over the component body
+    // it may cross. Its hit zone stops short of its end pins (hover.ts), so
+    // grabbing a component by a pin still drags it. In Connect mode a click on
+    // a pin still belongs to the Connect tool.
+    const onPin = !!State.hoverDot && !!terminalAtDot(State.hoverDot, State.placedIcs);
+    if (!solder && State.hoverConnection && !(State.activeToolMode === 'connect' && onPin)) {
+      State.selectedConnection = State.hoverConnection;
+      State.selectedPlacedIc = undefined;
+      State.selectedPlacedIcs = [];
+      State.selectedDot = undefined;
+      redrawCanvas();
+      return;
+    }
+
     // Connect tool (component side): pin-to-pin connections are handled
     // entirely by features/connect.ts, which listens on this same event.
     if (State.activeToolMode === 'connect' && !solder) {
@@ -48,17 +76,22 @@ Canvas.c.addEventListener('mousedown', function(e) {
     // Check hit on an existing placed IC on canvas (Enable Drag & Drop)
     const hitPlacedIc = solder ? undefined : State.placedIcs.find(ic => ic.containsPoint(x, y));
     if (hitPlacedIc) {
+      // Grabbing a member of the group drags the whole group; any other
+      // component replaces the group with a single selection.
+      const inGroup = State.selectedPlacedIcs.includes(hitPlacedIc);
+      if (!inGroup) State.selectedPlacedIcs = [];
       State.selectedPlacedIc = hitPlacedIc;
-      State.isDraggingIc = true;
+      startIcDragAt(inGroup ? State.selectedPlacedIcs : [hitPlacedIc], x, y);
       State.selectedDot = undefined;
       State.selectedConnection = undefined;
       redrawCanvas();
       return;
     }
 
-    // Deselect placed IC if clicking on empty space
-    if (State.selectedPlacedIc) {
+    // Deselect placed IC(s) if clicking on empty space
+    if (State.selectedPlacedIc || State.selectedPlacedIcs.length) {
       State.selectedPlacedIc = undefined;
+      State.selectedPlacedIcs = [];
       redrawCanvas();
       // Fall through to normal dot/line/connection selection
     }
@@ -83,59 +116,11 @@ window.addEventListener('mouseup', () => {
   State.isDraggingIc = false;
 });
 
-// Right click context menu handler
-Canvas.c.addEventListener('contextmenu', function(e) {
-  e.preventDefault();
-  const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
-
-  if (Canvas.solderSide) {
-    solderSelect(e);
-    redrawCanvas();
-  } else {
-    State.selectedConnection = State.hoverDot ? undefined : State.hoverConnection;
-    if (!State.selectedConnection && State.hoverDot) {
-      State.selectedDot = State.hoverDot;
-      redrawCanvas();
-    }
-  }
-
-  // Right-click on a component body (away from its pins) targets the component.
-  if (!Canvas.solderSide && !State.selectedDot && !State.selectedConnection) {
-    const hitIc = State.placedIcs.find(ic => ic.containsPoint(x, y));
-    if (hitIc) {
-      State.selectedPlacedIc = hitIc;
-      redrawCanvas();
-    }
-  }
-
-  if (State.selectedDot || State.selectedPlacedIc || State.selectedConnection) {
-    showContextMenu(e.clientX, e.clientY);
-  } else {
-    hideContextMenu();
-  }
-});
-
-export function showContextMenu(x: number, y: number) {
-  const menu = document.getElementById('contextMenu');
-  if (!menu) return;
-  menu.style.display = 'block';
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
-}
-
-export function hideContextMenu() {
-  const menu = document.getElementById('contextMenu');
-  if (menu) {
-    menu.style.display = 'none';
-  }
-}
+// No right-click menu — double-click a component for its properties, Delete
+// to remove the selection. Suppress the browser's own menu over the board.
+Canvas.c.addEventListener('contextmenu', (e) => e.preventDefault());
 
 window.addEventListener('click', (e) => {
-  const menu = document.getElementById('contextMenu');
-  if (menu && !menu.contains(e.target as Node)) {
-    hideContextMenu();
-  }
-
   // Ends a "statefull" component-placement session (armed via clicking a
   // Components catalog label — see selectIc() in ic.ts): any click that lands
   // outside both the canvas (where placement clicks land) and the catalog
@@ -152,22 +137,19 @@ window.addEventListener('click', (e) => {
   }
 });
 
-function selectDot(){
-  if (!State.hoverDot){
-    return;
-  }
-  State.selectedDot = State.hoverDot;
+function toggleGroupMember(ic: Ic) {
+  const group = State.selectedPlacedIcs.length
+    ? [...State.selectedPlacedIcs]
+    : (State.selectedPlacedIc ? [State.selectedPlacedIc] : []);
+  const idx = group.indexOf(ic);
+  if (idx === -1) group.push(ic);
+  else group.splice(idx, 1);
+  State.selectedPlacedIcs = group;
+  // The primary selection (rotate / properties / Delete target when alone)
+  // follows the last member added, or whatever is left.
+  State.selectedPlacedIc = idx === -1 ? ic : group[group.length - 1];
   State.selectedConnection = undefined;
-  redrawCanvas();
-}
-
-/** Component-side: select whatever connection (rubber band) is currently hovered. */
-function selectConnection(){
-  if (State.hoverDot) {
-    return;
-  }
-  State.selectedConnection = State.hoverConnection;
-  redrawCanvas();
+  State.selectedDot = undefined;
 }
 
 /**
@@ -191,29 +173,17 @@ function selectWireConnection(event: MouseEvent) {
   return undefined;
 }
 
-/** Solder-side click/right-click target: a wire's connection if on one, else the hovered pad. */
-function solderSelect(event: MouseEvent) {
-  const conn = selectWireConnection(event);
-  if (conn) {
-    State.selectedConnection = conn;
-    State.selectedDot = undefined;
-  } else if (State.hoverDot) {
-    State.selectedDot = State.hoverDot;
-    State.selectedConnection = undefined;
-  } else {
-    State.selectedConnection = undefined;
-    State.selectedDot = undefined;
-  }
-}
-
+/**
+ * Click on anything that isn't a component: a wire's connection (solder side)
+ * or rubber band (component side) if on one, else a hole with a component pin
+ * in it. Empty holes are never selectable — clicking one clears the selection.
+ */
 function setSelection(event: MouseEvent) {
-  if (Canvas.solderSide) {
-    solderSelect(event);
-    redrawCanvas();
-  } else {
-    selectDot();
-    selectConnection();
-  }
+  const conn = Canvas.solderSide ? selectWireConnection(event) : State.hoverConnection;
+  const pad = State.hoverDot && terminalAtDot(State.hoverDot, State.placedIcs) ? State.hoverDot : undefined;
+  State.selectedConnection = conn;
+  State.selectedDot = conn ? undefined : pad;
+  redrawCanvas();
 }
 
 ShortcutRegistry.add({key: "Escape", description: "Unselect dot or connection", event: ()=>{
@@ -222,8 +192,8 @@ ShortcutRegistry.add({key: "Escape", description: "Unselect dot or connection", 
   State.pendingTerminal = undefined;
   State.selectedIc = undefined;
   State.selectedPlacedIc = undefined;
+  State.selectedPlacedIcs = [];
   State.isDraggingIc = false;
-  hideContextMenu();
   updateSidebarVisibility();
   redrawCanvas();
 }});

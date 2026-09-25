@@ -32,6 +32,10 @@ export function deleteLine(){
       return;
     }
   }
+  if (State.selectedPlacedIcs.length) {
+    deletePlacedIcCascade(State.selectedPlacedIcs);
+    return;
+  }
   if (State.selectedPlacedIc) {
     deletePlacedIcCascade(State.selectedPlacedIc);
     return;

@@ -4,6 +4,7 @@ import {Canvas} from "../state/Canvas";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {resolveTerminal} from "../nets/derive";
 import {refreshWireCache} from "./wire-cache";
+import {dragIcsTo} from "./ic-drag";
 
 Canvas.c.addEventListener('mousemove', function(e) {
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
@@ -42,10 +43,12 @@ Canvas.c.addEventListener('mousemove', function(e) {
       const a = resolveTerminal(conn.a, State.placedIcs);
       const b = resolveTerminal(conn.b, State.placedIcs);
       if (!a || !b) continue;
-      const d1 = Math.hypot(a.x - x, a.y - y);
-      const d2 = Math.hypot(b.x - x, b.y - y);
-      const d = Math.hypot(b.x - a.x, b.y - a.y);
-      if (Math.abs(d - (d1 + d2)) < State.lineSelectTolerance) {
+      // A band beats the component body it crosses (select.ts), so use a true
+      // perpendicular distance — the ellipse test above widens to ~30px mid-span
+      // on a long band and would swallow body clicks. Right on an end pin the
+      // pin (component drag / Connect tool) wins.
+      const nearPin = Math.min(Math.hypot(a.x - x, a.y - y), Math.hypot(b.x - x, b.y - y)) < State.dotRadius * 2;
+      if (!nearPin && distanceToSegment(x, y, a, b) < State.lineSelectTolerance + 1) {
         State.hoverConnection = conn;
         break;
       }
@@ -58,8 +61,8 @@ Canvas.c.addEventListener('mousemove', function(e) {
     ? undefined
     : State.placedIcs.find(ic => ic.containsPoint(x, y));
 
-  if (!Canvas.solderSide && State.isDraggingIc && State.selectedPlacedIc) {
-    State.selectedPlacedIc.updatePosition(x, y);
+  if (!Canvas.solderSide && State.isDraggingIc) {
+    dragIcsTo(x, y);
   }
 
   redrawCanvas();
@@ -82,3 +85,10 @@ ShortcutRegistry.add({key: "m", description: "Move the point. select a point, th
     });
     State.selectedDot = undefined
   }})
+
+function distanceToSegment(x: number, y: number, a: {x: number; y: number}, b: {x: number; y: number}): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len2)) : 0;
+  return Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy));
+}

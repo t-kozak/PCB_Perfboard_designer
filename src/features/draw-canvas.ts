@@ -17,6 +17,9 @@ function netColor(netId: string | undefined): string | undefined {
 /** The colour every pad is created with — treated as "no explicit colour" so a net tint can show through. */
 const DEFAULT_PAD_COLOR = "#a4a0a0";
 
+/** The hovered hole, but only when a component pin sits in it — empty holes get no hover ring. Set per paint. */
+let hoverPinDot: IDot | undefined;
+
 function drawDot(dot: IDot, onHoverNet: boolean, netFill?: string){
   // Fill precedence: a non-default pad colour the user picked wins; otherwise
   // the solder-side net-terminal tint (so you can see what's soldered where);
@@ -41,7 +44,7 @@ function drawDot(dot: IDot, onHoverNet: boolean, netFill?: string){
     Canvas.ctx.strokeStyle = "#ffffff";
     Canvas.ctx.lineWidth = 1.5;
     Canvas.ctx.stroke();
-  } else if (dot === State.hoverDot) {
+  } else if (dot === hoverPinDot) {
     Canvas.ctx.beginPath();
     Canvas.ctx.arc(dot.x, dot.y, State.dotRadius + 3, 0, Math.PI * 2);
     Canvas.ctx.strokeStyle = "#94a3b8";
@@ -230,6 +233,8 @@ export function redrawCanvas() {
   const hoverTerm = !solder ? (State.hoverConnection?.a ?? (State.hoverDot && terminalAtDot(State.hoverDot, State.placedIcs))) : undefined;
   const componentHighlight = hoverTerm ? netAtTerminal(hoverTerm, State.connections) : null;
 
+  hoverPinDot = State.hoverDot && terminalAtDot(State.hoverDot, State.placedIcs) ? State.hoverDot : undefined;
+
   // 1. Grid dots — every hole, drawn before any component body so a chip's
   //    package/artwork (step 2) paints over whichever ones it covers.
   for (let i = 0; i < State.dots.length; i++) {
@@ -250,12 +255,15 @@ export function redrawCanvas() {
     for (const ic of State.placedIcs) ic.drawBody();
   } else {
     const keepSelected = State.selectedPlacedIc;
+    const keepGroup = State.selectedPlacedIcs;
     State.selectedPlacedIc = undefined;
+    State.selectedPlacedIcs = [];
     Canvas.ctx.save();
     Canvas.ctx.globalAlpha = 0.4;
     for (const ic of State.placedIcs) ic.drawBody();
     Canvas.ctx.restore();
     State.selectedPlacedIc = keepSelected;
+    State.selectedPlacedIcs = keepGroup;
   }
   // 2b. Re-draw each component's own pins on top of its body/artwork so they
   //     stay visible — only foreign holes stay obscured underneath. Leaded
