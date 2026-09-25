@@ -159,7 +159,8 @@ export function loadProject(project: IProjectSave){
   const preConnections = !project.version || project.version < 3;
 
   Canvas.setBoardSize(project.canvas.width, project.canvas.height);
-  State.dots = project.dots;
+  // Pads no longer carry notes; drop any a older save has (label a hole with a bridge).
+  State.dots = project.dots.map(({x, y, color}) => ({x, y, color}));
   addLabelGutter(project, State.dots);
 
   // Axis label notation, and the Grid Configuration inputs that mirror it.

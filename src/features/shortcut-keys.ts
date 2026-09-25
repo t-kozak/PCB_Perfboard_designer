@@ -37,6 +37,24 @@ export class ShortcutRegistry {
   }
 
   static show(){
-    Utils.getSafeHtmlElement("shortcuts").innerHTML = "<b>Shortcuts:</b> <br>" + this.shortcuts.map(s=> `key: <b>${s.ctrl ? "ctrl + ":""} ${s.key} </b> - ${s.description}`).join("<br>")
+    Utils.getSafeHtmlElement("shortcuts").innerHTML = this.shortcuts.map(s=> `<kbd>${s.ctrl ? "ctrl + ":""}${s.key}</kbd> ${s.description}`).join("<br>")
   }
 }
+
+// The shortcut list lives in a popover opened from the keyboard button above the canvas.
+const shortcutsBtn = Utils.getSafeHtmlElement<HTMLButtonElement>("shortcutsBtn");
+const shortcutsPopover = Utils.getSafeHtmlElement<HTMLElement>("shortcutsPopover");
+
+function setShortcutsOpen(open: boolean) {
+  shortcutsPopover.hidden = !open;
+  shortcutsBtn.setAttribute("aria-expanded", String(open));
+}
+
+shortcutsBtn.addEventListener("click", () => setShortcutsOpen(!!shortcutsPopover.hidden));
+window.addEventListener("click", (e) => {
+  const t = e.target as Node;
+  if (!shortcutsPopover.contains(t) && !shortcutsBtn.contains(t)) setShortcutsOpen(false);
+});
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") setShortcutsOpen(false);
+});

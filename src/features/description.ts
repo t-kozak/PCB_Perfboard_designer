@@ -3,10 +3,10 @@ import {redrawCanvas} from "./draw-canvas";
 import {Utils} from "../utils/utils";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {Ic} from "./ic";
-import {IDot} from "../interfaces/dot.interface";
+import {Canvas} from "../state/Canvas";
 
-/** Anything that can carry a free-text note: a board pad or a placed component. */
-type NoteTarget = IDot | Ic;
+// Notes belong to placed components only. To label a bare hole, place a bridge
+// there and annotate that.
 
 // Add/Remove Note toggle — label and action follow whether the current
 // selection (or hover) already carries a note.
@@ -26,40 +26,29 @@ export function updateNoteToggleButton() {
   noteToggleBtn.classList.toggle('btn-danger', hasNote);
 }
 
-/**
- * Resolve the thing a note action should apply to. Explicit selections win over
- * whatever is merely under the cursor; a placed component wins over a pad so a
- * pin dot beneath a chip doesn't shadow the chip.
- */
-function resolveNoteTarget(explicit?: NoteTarget): NoteTarget | undefined {
-  return explicit
-    || State.selectedPlacedIc
-    || State.selectedDot
-    || State.hoverIc
-    || State.hoverDot;
+/** The component a note action applies to: an explicit selection wins over mere hover. */
+function resolveNoteTarget(explicit?: Ic): Ic | undefined {
+  return explicit || State.selectedPlacedIc || State.hoverIc;
 }
 
-export function addNote(target?: NoteTarget){
+export function addNote(target?: Ic){
   const t = resolveNoteTarget(target);
   if(!t){
-    alert("Click a pad or component first to add a note.");
+    alert("Click a component first to add a note.");
     return;
   }
-  const subject = t instanceof Ic ? `component "${t.name}"` : "this pad";
-  const current = t.description || "";
-  const description = prompt(`Enter a note / annotation for ${subject}:`, current);
+  const description = prompt(`Enter a note / annotation for component "${t.name}":`, t.description || "");
   if (description !== null) {
     t.description = description.trim() ? description.trim() : undefined;
-    State.selectedDot = undefined;
     redrawCanvas();
     updateNoteToggleButton();
   }
 }
 
-export function removeNote(target?: NoteTarget){
+export function removeNote(target?: Ic){
   const t = resolveNoteTarget(target);
   if(!t){
-    alert("Select a pad or component first by clicking on it.");
+    alert("Select a component first by clicking on it.");
     return;
   }
   t.description = undefined;
@@ -67,8 +56,19 @@ export function removeNote(target?: NoteTarget){
   updateNoteToggleButton();
 }
 
-// Kept for existing call sites that only ever mean a pad.
-export const addDescriptionToDot = addNote;
+// Double-click a component to edit its note. Hit-tested directly rather than
+// via resolveNoteTarget(), which would fall back to a stale selection and open
+// the prompt for something that isn't under the cursor.
+Canvas.c.addEventListener('dblclick', (e) => {
+  // Components are hidden on the solder side; the Connect tool and armed
+  // placement own clicks on the component side.
+  if (Canvas.solderSide || State.activeToolMode === 'connect' || State.selectedIc) return;
+  const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
+  const target = State.placedIcs.find(ic => ic.containsPoint(x, y));
+  if (target) {
+    addNote(target);
+  }
+});
 
-ShortcutRegistry.add({key: "d", event: () => addNote(), description: "Add note (pad or component)."})
-ShortcutRegistry.add({key: "D", event: () => removeNote(), description: "Remove note (pad or component)."})
+ShortcutRegistry.add({key: "d", event: () => addNote(), description: "Add note to component."})
+ShortcutRegistry.add({key: "D", event: () => removeNote(), description: "Remove note from component."})

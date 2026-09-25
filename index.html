@@ -11,43 +11,33 @@
 
 <body>
 
-  <!-- App Header -->
-  <header class="app-header">
-    <div class="brand-logo">
-      <div class="brand-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-          <circle cx="6" cy="6" r="2" />
-          <circle cx="18" cy="6" r="2" />
-          <circle cx="6" cy="18" r="2" />
-          <circle cx="18" cy="18" r="2" />
-          <path d="M8 6h8M6 8v8M18 8v8M8 18h8" />
-        </svg>
-      </div>
-      <div>
-        <span class="brand-title">Perfboard Designer</span>
-        <span class="brand-tag">v1.0</span>
-      </div>
-    </div>
-    
-    <div class="header-actions">
-      <button id="toggleFullscreenBtn" class="btn-accent">⛶ Fullscreen</button>
-      <button id="downloadBtn" class="btn-primary">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download Image
-      </button>
-      <button id="saveProjectBtn" class="btn-accent">Save Project</button>
-      <button id="loadProjectTrigger" class="btn">Load Project</button>
-      <button id="resetBtn" class="btn-danger">Reset</button>
-      <input type="file" id="loadProjectBtn" style="display:none">
-    </div>
-  </header>
-
   <!-- Main App Layout -->
   <main class="app-layout" id="mainAppLayout">
     
     <!-- Left Sidebar: Tools & Controls -->
-    <aside id="controls" class="tool-panel sidebar-scroll">
-      
+    <aside id="controls" class="sidebar-scroll">
+
+      <!-- Project -->
+      <div class="sidebar-section">
+        <div class="section-title" data-collapse="projectSection">
+          <span class="section-icon">💾</span>
+          <span>Project</span>
+          <span class="collapse-chevron">▾</span>
+        </div>
+        <div class="section-body" id="projectSection">
+          <div class="project-grid">
+            <button id="downloadBtn" class="btn-primary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Save Image
+            </button>
+            <button id="saveProjectBtn" class="btn-accent">Save Project</button>
+            <button id="loadProjectTrigger" class="btn">Load Project</button>
+            <button id="resetBtn" class="btn-danger">Reset</button>
+          </div>
+          <input type="file" id="loadProjectBtn" style="display:none">
+        </div>
+      </div>
+
       <!-- Tools -->
       <div class="sidebar-section">
         <div class="section-title" data-collapse="toolsSection">
@@ -78,7 +68,6 @@
 
       <!-- IC Components Container — component-side only -->
       <div id="componentsPanelWrap">
-        <div class="sidebar-divider"></div>
         <div class="sidebar-section" id="ic">
           <div class="section-title" data-collapse="icSection">
             <span class="section-icon">🔌</span>
@@ -92,8 +81,6 @@
           </div>
         </div>
       </div>
-
-      <div class="sidebar-divider"></div>
 
       <!-- Grid Configuration — component-side only -->
       <div id="gridPanelWrap">
@@ -142,7 +129,6 @@
 
       <!-- Connections — the logical layer, component-side only -->
       <div id="connectionsPanelWrap">
-        <div class="sidebar-divider"></div>
         <div class="sidebar-section">
           <div class="section-title section-collapsed" data-collapse="connectionsSection">
             <span class="section-icon">🔗</span>
@@ -154,8 +140,6 @@
           </div>
         </div>
       </div>
-
-      <div class="sidebar-divider"></div>
 
       <!-- Styling & Color Palette (pads only — wire colour is always the net colour).
            Hidden while placing a component or connecting pins. -->
@@ -220,7 +204,6 @@
 
       <!-- Wire Gauge Selector — sets the selected connection's wire thickness (and the brush for new ones) -->
       <div id="wireGaugeSectionWrap">
-        <div class="sidebar-divider"></div>
         <div class="sidebar-section">
           <div class="section-title section-collapsed" data-collapse="wireGaugeSection">
             <span class="section-icon">〰</span>
@@ -248,7 +231,6 @@
 
       <!-- Nets — solder-side only (physical wiring) -->
       <div id="netsPanelWrap" hidden>
-        <div class="sidebar-divider"></div>
         <div class="sidebar-section">
           <div class="section-title section-collapsed" data-collapse="netsSection">
             <span class="section-icon">🔗</span>
@@ -266,14 +248,28 @@
         </div>
       </div>
 
+      <!-- Brand -->
+      <div class="brand-logo">
+        <div class="brand-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <circle cx="6" cy="6" r="2" />
+            <circle cx="18" cy="6" r="2" />
+            <circle cx="6" cy="18" r="2" />
+            <circle cx="18" cy="18" r="2" />
+            <path d="M8 6h8M6 8v8M18 8v8M8 18h8" />
+          </svg>
+        </div>
+        <div>
+          <span class="brand-title">Perfboard Designer</span>
+          <span class="brand-tag">v1.0</span>
+        </div>
+      </div>
+
     </aside>
 
     <!-- Center Workspace: Canvas Viewport -->
     <section class="canvas-viewport" id="canvasViewportSection">
       <div class="status-bar">
-        <div id="activeSelectionStatus" class="status-badge">
-          <span>Pointer: Idle / Select</span>
-        </div>
         <div style="display:flex; align-items:center; gap:6px;">
           <button id="toggleSidebarBtn" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;">◀ Sidebar</button>
           <button id="zoomOutBtn" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;">🔍 -</button>
@@ -282,26 +278,23 @@
           <button id="zoomFitBtn" class="btn-accent" style="padding:0.25rem 0.5rem; font-size:0.75rem;">🎯 Fit</button>
           <button id="toggleSolderSideBtn" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;">🔄 Solder Side</button>
           <button id="canvasFullscreenTrigger" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;">⛶ Fullscreen</button>
+          <div class="shortcuts-wrap">
+            <button id="shortcutsBtn" class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" aria-expanded="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
+            <div id="shortcutsPopover" class="shortcuts-popover" hidden>
+              <div class="section-title">Keyboard Shortcuts</div>
+              <div id="shortcuts"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div id="canvas-container" style="position:relative; overflow:hidden; flex:1; display:flex; justify-content:center; align-items:center; width:100%; height:100%; min-height:400px; padding:1rem;">
+      <div id="canvas-container" style="position:relative; overflow:hidden; flex:1; display:flex; justify-content:center; align-items:center; width:100%; height:100%; min-height:0; padding:1rem;">
         <div id="solderSideBadge" style="display:none; position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:20; background:#f59e0b; color:#1f2937; font-weight:800; font-size:0.72rem; letter-spacing:1px; padding:4px 12px; border-radius:6px; box-shadow:0 2px 10px rgba(0,0,0,0.5); pointer-events:none;">SOLDER SIDE · MIRRORED VIEW</div>
         <div id="canvasZoomWrapper" style="display:inline-block; transform-origin: center center; transition: transform 0.15s ease-out;">
           <canvas id="myCanvas" width="500" height="500"></canvas>
         </div>
       </div>
-
-      <div id="dotDescription" style="width: 100%;">
-        Hover or click a pad or component to view its note...
-      </div>
     </section>
-
-    <!-- Right Sidebar: Shortcuts & Legend -->
-    <aside class="right-sidebar tool-panel">
-      <div class="section-title">Keyboard Shortcuts</div>
-      <div id="shortcuts"></div>
-    </aside>
 
   </main>
 

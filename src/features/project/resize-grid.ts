@@ -94,7 +94,6 @@ export function createDotGrid(horizontalDotNumbers: number, verticalDotNumbers: 
       State.dots.push({
         x: origin + col * State.dotSpace,
         y: origin + row * State.dotSpace,
-        description: null,
         color: "#a4a0a0",
       });
     }

@@ -78,7 +78,7 @@ export class Ic{
   }
 
   /** Kinds rendered as 2-terminal leaded parts rather than a chip package. */
-  private static LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", "led-green", "led-blue", "polyfuse"];
+  private static LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", "led-green", "led-blue", "polyfuse", "diode"];
 
   /** Body colour for each LED variant, keyed by kind. */
   private static LED_COLORS: Record<string, string> = {
@@ -107,6 +107,7 @@ export class Ic{
     switch (this.kind) {
       case "resistor": return "🟫";
       case "polyfuse": return "🟨";
+      case "diode": return "⬛";
       case "cap-ceramic": return "🔵";
       case "cap-electrolytic": return "🛢️";
       case "bridge": return "•";
@@ -365,7 +366,7 @@ export class Ic{
       return { x: this.topLeftDot.x - s / 2, y: this.topLeftDot.y - s / 2, w: s, h: s };
     }
     if (this.isLeaded) {
-      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : this.kind === "polyfuse" ? 18 : this.kind.startsWith("led-") ? 54 : 30;
+      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : this.kind === "polyfuse" ? 18 : this.kind === "diode" ? 20 : this.kind.startsWith("led-") ? 54 : 30;
       if (spanW >= spanH) {
         return { x: this.topLeftDot.x, y: this.topLeftDot.y - t / 2, w: spanW, h: t };
       }
@@ -440,6 +441,7 @@ export class Ic{
     else if (this.kind === "cap-ceramic") this.drawCeramicCapArt(bodyHalf, isSelected);
     else if (this.kind === "cap-electrolytic") this.drawElectrolyticCapArt(isSelected);
     else if (this.kind === "polyfuse") this.drawPolyfuseArt(bodyHalf, isSelected);
+    else if (this.kind === "diode") this.drawDiodeArt(isSelected);
     else this.drawLedArt(bodyHalf, isSelected);
 
     ctx.restore();
@@ -480,6 +482,32 @@ export class Ic{
     ctx.fill();
     ctx.lineWidth = isSelected ? 2.5 : 1.5;
     ctx.strokeStyle = isSelected ? "#38bdf8" : "#a67c00";
+    ctx.stroke();
+  }
+
+  /** Black axial diode (1N400x-style) body; the grey band marks the cathode, which is pin 2 (the +x end). */
+  private drawDiodeArt(isSelected: boolean) {
+    const ctx = Canvas.ctx;
+    const half = 22;
+    const h = 14;
+    const band = 8;
+    ctx.beginPath();
+    this.roundRectPath(-half, -h / 2, half * 2, h, 3);
+    ctx.fillStyle = "#111111";
+    ctx.fill();
+
+    ctx.save();
+    ctx.beginPath();
+    this.roundRectPath(-half, -h / 2, half * 2, h, 3);
+    ctx.clip();
+    ctx.fillStyle = "#9a9a9a";
+    ctx.fillRect(half - band - 2, -h / 2, band, h);
+    ctx.restore();
+
+    ctx.beginPath();
+    this.roundRectPath(-half, -h / 2, half * 2, h, 3);
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#3a3a3a";
     ctx.stroke();
   }
 
@@ -837,8 +865,7 @@ export class Ic{
 
   /**
    * Draws the component's annotation in a pill just below its body. Shows the
-   * full text while the component is hovered, a truncated form otherwise
-   * (mirrors how pad notes render in draw-canvas.ts).
+   * full text while the component is hovered, a truncated form otherwise.
    */
   drawNote() {
     if (!this.topLeftDot || !this.description) return;

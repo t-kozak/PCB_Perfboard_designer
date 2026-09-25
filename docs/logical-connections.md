@@ -181,7 +181,8 @@ place any other part — connecting is then pin-to-pin like everything else. Thi
 keeps the tool doing one thing and keeps the model with no special cases; it
 costs a click, which the controls revamp is free to buy back later.
 
-Pads keep their colour/note annotations, which stay purely cosmetic.
+Pads keep their colour annotation, which stays purely cosmetic. Notes belong to
+components only — to label a bare hole, place a bridge there and annotate that.
 
 ### Rendering connections
 

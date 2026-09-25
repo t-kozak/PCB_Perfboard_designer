@@ -79,6 +79,10 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
   {widthPin: 2, heightPin: 1, pinDescription: "1: 2:", name: "Ceramic Capacitor", kind: "cap-ceramic", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1:+ 2:-", name: "Electrolytic Capacitor", kind: "cap-electrolytic", category: "Passive"},
 
+  // Generic axial diode (1N4007, 1N4148, Schottky, Zener...); the exact part goes in a note, like Resistor.
+  // Pin 1 = anode, pin 2 = cathode (the grey-banded end).
+  {widthPin: 3, heightPin: 1, pinDescription: "1:A 2:K", name: "Diode", kind: "diode", category: "Passive"},
+
   // LEDs: 2-hole 2-terminal footprint (a diode's actual lead spacing), one variant per colour.
   {widthPin: 2, heightPin: 1, pinDescription: "1:A 2:K", name: "LED (Red)", kind: "led-red", category: "Passive"},
   {widthPin: 2, heightPin: 1, pinDescription: "1:A 2:K", name: "LED (Green)", kind: "led-green", category: "Passive"},

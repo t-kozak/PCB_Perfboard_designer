@@ -66,24 +66,11 @@ body {
   flex-direction: column;
 }
 
-/* App Header */
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.85rem 1.5rem;
-  background-color: rgba(17, 24, 39, 0.95);
-  border-bottom: 1px solid var(--border-color);
-  backdrop-filter: blur(8px);
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
-
 .brand-logo {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  padding: 0.5rem 0.5rem 0.25rem;
 }
 
 .brand-icon {
@@ -116,19 +103,16 @@ body {
   font-weight: 500;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 /* Main Layout */
 .app-layout {
   display: flex;
   flex-direction: row;
   gap: 1.25rem;
   padding: 1.25rem;
-  flex: 1;
+  /* Exactly one viewport tall: the side panel scrolls internally and the canvas
+     area stretches to the same height instead of growing the page. */
+  height: 100vh;
+  box-sizing: border-box;
   max-width: 1800px;
   width: 100%;
   margin: 0 auto;
@@ -146,44 +130,21 @@ body {
   min-width: 0;
 }
 
-.right-sidebar {
-  width: 300px;
-  min-width: 300px;
-  flex-shrink: 0;
-}
-
-@media (max-width: 1200px) {
-  .app-layout {
-    flex-wrap: wrap;
-  }
-  .right-sidebar {
-    width: 100%;
-    min-width: 100%;
-  }
-}
-
 @media (max-width: 850px) {
   .app-layout {
     flex-direction: column;
+    height: auto;
   }
   #controls {
     width: 100%;
     min-width: 100%;
   }
+  .canvas-viewport {
+    min-height: 540px;
+  }
 }
 
 /* Tool Sections & Cards */
-.tool-panel {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-}
-
 .section-title {
   font-size: 0.8rem;
   font-weight: 700;
@@ -206,35 +167,22 @@ body {
 #controls {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 0.75rem;
   background: transparent;
   padding: 0;
 }
 
-/* Sidebar scrollable container */
+/* Sidebar scrollable container. Scrolls by wheel/touch/keys with the scrollbar
+   hidden — there is no horizontal room for one without covering the sections. */
 .sidebar-scroll {
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: calc(100vh - 80px);
-  scrollbar-width: thin;
-  scrollbar-color: #334155 transparent;
+  min-height: 0;
+  scrollbar-width: none;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
-  width: 5px;
-}
-
-.sidebar-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar-scroll::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 10px;
-}
-
-.sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  display: none;
 }
 
 /* Sidebar Sections */
@@ -289,11 +237,6 @@ body {
 .section-body.collapsed ~ .collapse-chevron,
 .section-title.section-collapsed .collapse-chevron {
   transform: rotate(-90deg);
-}
-
-.sidebar-divider {
-  height: 4px;
-  flex-shrink: 0;
 }
 
 /* Tool Mode Grid (2x2) */
@@ -420,6 +363,13 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
   flex-shrink: 0;
+}
+
+/* Project actions: 2 x 2 grid */
+.project-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 
 /* Icon button style */
@@ -641,32 +591,21 @@ input[type="number"]:focus, input[type="text"]:focus {
   justify-content: center;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   position: relative;
-  min-height: 540px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .status-bar {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 0.5rem 0.85rem;
   background-color: #111827;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   margin-bottom: 1rem;
   font-size: 0.8rem;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-  background: rgba(6, 182, 212, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(6, 182, 212, 0.3);
-  font-weight: 500;
 }
 
 #canvas-container {
@@ -694,21 +633,30 @@ input[type="number"]:focus, input[type="text"]:focus {
   border-radius: 4px;
 }
 
-/* Description Readout */
-#dotDescription {
-  margin-top: 0.75rem;
-  padding: 0.6rem 1rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  border-left: 3px solid var(--accent-blue);
-  border-radius: 0 6px 6px 0;
-  font-size: 0.85rem;
-  color: #93c5fd;
-  min-height: 38px;
-  display: flex;
-  align-items: center;
+/* Shortcuts popover (toggled from the keyboard button above the canvas) */
+.shortcuts-wrap {
+  position: relative;
 }
 
-/* Shortcuts Panel */
+.shortcuts-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 340px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.85rem 1rem;
+  background-color: #111827;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.shortcuts-popover[hidden] {
+  display: none;
+}
+
 #shortcuts {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -819,11 +767,6 @@ input[type=range].rainbow-slider::-webkit-slider-thumb {
 /* Fullscreen Focus Mode Layout */
 body.fullscreen-active {
   overflow: hidden !important;
-}
-
-body.fullscreen-active .app-header,
-body.fullscreen-active .right-sidebar {
-  display: none !important;
 }
 
 .app-layout.fullscreen-mode {

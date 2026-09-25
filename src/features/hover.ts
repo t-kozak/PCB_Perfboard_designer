@@ -1,11 +1,9 @@
 import {State} from "../state/State";
 import {redrawCanvas} from "./draw-canvas";
 import {Canvas} from "../state/Canvas";
-import {Utils} from "../utils/utils";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {resolveTerminal} from "../nets/derive";
 import {refreshWireCache} from "./wire-cache";
-import {dotCoordinateLabel} from "./grid-labels";
 
 Canvas.c.addEventListener('mousemove', function(e) {
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
@@ -65,12 +63,6 @@ Canvas.c.addEventListener('mousemove', function(e) {
   }
 
   redrawCanvas();
-
-  // Readout: the hovered pad's board coordinate ("B4"), then any note on it.
-  const hoverNote = State.hoverIc?.description || State.hoverDot?.description;
-  const coord = State.hoverDot ? dotCoordinateLabel(State.hoverDot) : null;
-  Utils.getSafeHtmlElement('dotDescription').innerText =
-    [coord, hoverNote].filter(Boolean).join(' — ');
 });
 
 
@@ -84,7 +76,7 @@ ShortcutRegistry.add({key: "m", description: "Move the point. select a point, th
        return { ...State.selectedDot, x: d.x, y: d.y};
      }
       if (d.x == State?.selectedDot?.x && d.y == State.selectedDot?.y){
-        return { description: undefined, color: undefined, x: d.x, y: d.y};
+        return { color: undefined, x: d.x, y: d.y};
       }
      return d
     });

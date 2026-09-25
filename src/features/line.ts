@@ -38,11 +38,10 @@ export function deleteLine(){
   }
   if (State.selectedDot) {
     State.selectedDot.color = "#a4a0a0";
-    State.selectedDot.description = undefined;
     State.selectedDot = undefined;
     redrawCanvas();
   }
 }
 
-ShortcutRegistry.add({key: "Delete", event: deleteLine, description: "Delete selected connection / component / pad note."})
+ShortcutRegistry.add({key: "Delete", event: deleteLine, description: "Delete selected connection / component, or reset selected pad."})
 ShortcutRegistry.add({key: "c", event: changeSelectedDotColor, description: "Change selected pad colour."})

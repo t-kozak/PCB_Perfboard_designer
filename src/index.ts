@@ -28,7 +28,6 @@ import {Ic} from "./features/ic";
 import {Canvas} from "./state/Canvas";
 import {applyZoom, nudgeZoom, resetPan, initViewportGestures} from "./features/viewport";
 import {updateSidebarVisibility} from "./features/sidebar-mode";
-import {dotCoordinateLabel} from "./features/grid-labels";
 
 const initialGrid = readGridInputs() ?? {cols: 10, rows: 10};
 createDotGrid(initialGrid.cols, initialGrid.rows);
@@ -118,7 +117,7 @@ document.querySelectorAll('#toolModeSelector .tool-mode-btn').forEach((btn) => {
     const mode = target.getAttribute('data-mode') as 'select' | 'connect' | 'ic';
     if (mode) {
       State.activeToolMode = mode;
-      updateSelectionStatus();
+      updateNoteToggleButton();
       updateSidebarVisibility();
     }
   });
@@ -160,7 +159,7 @@ document.getElementById('ctxColorBtn')?.addEventListener('click', () => {
 
 document.getElementById('ctxNoteBtn')?.addEventListener('click', () => {
   hideContextMenu();
-  if (State.selectedDot || State.selectedPlacedIc) {
+  if (State.selectedPlacedIc) {
     addNote();
   }
 });
@@ -169,9 +168,6 @@ document.getElementById('ctxDeleteBtn')?.addEventListener('click', () => {
   hideContextMenu();
   if (State.selectedPlacedIc || State.selectedConnection) {
     deleteLine();
-  } else if (State.selectedDot && State.selectedDot.description) {
-    State.selectedDot.description = undefined;
-    redrawCanvas();
   }
 });
 
@@ -225,7 +221,7 @@ function renderSwatches() {
       if (State.selectedDot) {
         setDotColor(color);
       }
-      updateSelectionStatus();
+      updateNoteToggleButton();
     });
 
     swatch.addEventListener('contextmenu', (e) => {
@@ -384,30 +380,9 @@ document.querySelectorAll('#gridPresets .preset-btn').forEach((btn) => {
   });
 });
 
-// Dynamic selection status updater
-export function updateSelectionStatus() {
-  updateNoteToggleButton();
-  const statusEl = document.getElementById('activeSelectionStatus');
-  if (!statusEl) return;
-  const modeLabel = State.activeToolMode.toUpperCase();
-  if (State.selectedPlacedIc) {
-    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;margin-right:4px;"></span> Component Selected (${State.selectedPlacedIc.name}) [Click Pad to Relocate • Del to Remove]`;
-  } else if (State.selectedConnection) {
-    const net = State.nets.find(n => n.id === State.selectedConnection!.netId);
-    const col = net?.color || '#3b82f6';
-    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${col};margin-right:4px;"></span> Connection Selected (${net?.name ?? 'net'} • ${State.selectedConnection.width || 4}px) [Mode: ${modeLabel}]`;
-  } else if (State.selectedDot) {
-    statusEl.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${State.selectedDot.color || '#a4a0a0'};margin-right:4px;"></span> Pad Selected (${dotCoordinateLabel(State.selectedDot) ?? `${State.selectedDot.x}, ${State.selectedDot.y}`}) [Mode: ${modeLabel}]`;
-  } else if (State.selectedIc) {
-    statusEl.innerHTML = `<span>Component Ready: ${State.selectedIc.name} [Click Pad to Place]</span>`;
-  } else {
-    statusEl.innerHTML = `<span>Tool: ${modeLabel} Mode</span>`;
-  }
-}
-
-// Update status badge on user clicks
+// Keep the Add/Remove Note button in step with the selection after a click.
 window.addEventListener('click', () => {
-  setTimeout(updateSelectionStatus, 50);
+  setTimeout(updateNoteToggleButton, 50);
 });
 
 // Fullscreen Focus Mode & Board Zoom Management.
@@ -472,16 +447,14 @@ function toggleSidebar(show?: boolean) {
 function toggleFullscreenMode(enable?: boolean) {
   isFullscreenMode = enable !== undefined ? enable : !isFullscreenMode;
   const layout = document.getElementById('mainAppLayout');
-  const btn1 = document.getElementById('toggleFullscreenBtn');
-  const btn2 = document.getElementById('canvasFullscreenTrigger');
+  const btn = document.getElementById('canvasFullscreenTrigger');
 
   if (isFullscreenMode) {
     document.body.classList.add('fullscreen-active');
     layout?.classList.add('fullscreen-mode');
-    if (btn1) btn1.innerText = '⛶ Exit Fullscreen';
-    if (btn2) {
-      btn2.innerText = '✕ Exit Fullscreen';
-      btn2.className = 'btn-danger';
+    if (btn) {
+      btn.innerText = '✕ Exit Fullscreen';
+      btn.className = 'btn-danger';
     }
     setTimeout(() => {
       fitToScreen(true);
@@ -489,10 +462,9 @@ function toggleFullscreenMode(enable?: boolean) {
   } else {
     document.body.classList.remove('fullscreen-active');
     layout?.classList.remove('fullscreen-mode');
-    if (btn1) btn1.innerText = '⛶ Fullscreen';
-    if (btn2) {
-      btn2.innerText = '⛶ Fullscreen';
-      btn2.className = 'btn';
+    if (btn) {
+      btn.innerText = '⛶ Fullscreen';
+      btn.className = 'btn';
     }
     resetPan();
     applyZoom(1.0, true);
@@ -540,10 +512,9 @@ document.getElementById('toggleSolderSideBtn')?.addEventListener('click', () => 
     btn.classList.toggle('btn-danger', solderSide);
     btn.classList.toggle('btn', !solderSide);
   }
-  updateSelectionStatus();
+  updateNoteToggleButton();
 });
 
-document.getElementById('toggleFullscreenBtn')?.addEventListener('click', () => toggleFullscreenMode());
 document.getElementById('canvasFullscreenTrigger')?.addEventListener('click', () => toggleFullscreenMode());
 
 // Trackpad pinch-zoom / two-finger-pan gestures (see features/viewport.ts).

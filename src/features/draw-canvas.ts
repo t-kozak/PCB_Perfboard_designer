@@ -54,17 +54,6 @@ function drawDot(dot: IDot, onHoverNet: boolean, netFill?: string){
     Canvas.ctx.lineWidth = 2;
     Canvas.ctx.stroke();
   }
-
-  if (dot.description) {
-    Canvas.ctx.font = "10px Inter, Arial";
-    Canvas.ctx.textAlign = "center";
-    Canvas.ctx.fillStyle = dot.color || "#38bdf8";
-    if (dot === State.hoverDot) {
-      Canvas.fillText(dot.description, dot.x, dot.y + State.dotRadius + 12);
-    } else {
-      Canvas.fillText(dot.description.substring(0, 5), dot.x, dot.y + State.dotRadius + 12);
-    }
-  }
 }
 
 function drawLine(line: ILine, onHoverNet: boolean){
