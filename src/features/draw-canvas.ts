@@ -6,6 +6,7 @@ import {ILine} from "../interfaces/line.interface";
 import {wiresOfNet, netAtTerminal, dotKey, resolveTerminal, terminalAtDot} from "../nets/derive";
 import {drawGridLabels} from "./grid-labels";
 import {scheduleAutosave} from "./project/autosave";
+import {drawSolderedMarker, SOLDERED_FILL} from "./soldered-marker";
 import {refreshWireCache, DEFAULT_WIRE_COLOR} from "./wire-cache";
 
 function netColor(netId: string | undefined): string | undefined {
@@ -259,9 +260,9 @@ export function redrawCanvas() {
   // 2b. Re-draw each component's own pins on top of its body/artwork so they
   //     stay visible — only foreign holes stay obscured underneath. Leaded
   //     parts/bridges paint nothing over their pads, so they're skipped; a pin
-  //     header already draws its own silver pin marker over each hole
-  //     (drawPinHeaderBody), so re-punching a plain grey dot on top would just
-  //     hide it again.
+  //     header already draws its own amber pin marker over each hole
+  //     (drawPinHeaderBody), so re-punching a dot on top would just hide it.
+  //     Chip pins get the same amber marker as every other soldered hole.
   if (!solder) {
     const dotByKey = new Map<string, IDot>(State.dots.map((dot) => [dotKey(dot), dot]));
     for (const ic of State.placedIcs) {
@@ -270,7 +271,8 @@ export function redrawCanvas() {
         const coord = ic.pinDot(pin);
         const dot = coord && dotByKey.get(dotKey(coord));
         if (!dot) continue;
-        drawDot(dot, dotInHighlightedNet(dot, componentHighlight?.terminals ?? null));
+        drawSolderedMarker(dot.x, dot.y, 6, false);
+        drawDot(dot, dotInHighlightedNet(dot, componentHighlight?.terminals ?? null), SOLDERED_FILL);
       }
     }
   }

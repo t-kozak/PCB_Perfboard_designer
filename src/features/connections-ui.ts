@@ -1,4 +1,5 @@
 import {State} from "../state/State";
+import {Utils} from "../utils/utils";
 import {redrawCanvas} from "./draw-canvas";
 import {recordChange} from "./project/undo-redo";
 import {rebuildNets} from "../nets/rebuild";
@@ -10,7 +11,7 @@ import type {IConnection, ITerminal} from "../interfaces/connection.interface";
 
 function terminalLabel(t: ITerminal): string {
   const ic = State.placedIcs.find(i => i.id === t.icId);
-  return ic ? `${ic.name} · pin ${t.pin}` : `? · pin ${t.pin}`;
+  return ic ? `${Utils.escapeHtml(ic.label ?? ic.name)} · pin ${t.pin}` : `? · pin ${t.pin}`;
 }
 
 function deleteConnection(conn: IConnection): void {

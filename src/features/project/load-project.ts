@@ -13,6 +13,7 @@ import {invalidateWireCache} from "../wire-cache";
 import {syncRoutingModeButtons} from "../routing";
 import {syncGridInputs} from "./resize-grid";
 import {updateSidebarVisibility} from "../sidebar-mode";
+import {assignMissingDesignators} from "../component-props";
 
 const loadInput = Utils.getSafeHtmlElement<HTMLButtonElement>('loadProjectBtn');
 const loadTrigger = Utils.getSafeHtmlElement<HTMLButtonElement>('loadProjectTrigger');
@@ -69,6 +70,14 @@ export function deserializePlacedIc(data: any, migrateIds = false): Ic | null {
   ic.rotationAngle = Number(data.rotationAngle || 0);
   if (data.description) {
     ic.description = String(data.description);
+  }
+  if (data.label) {
+    ic.label = String(data.label);
+  }
+  if (data.config && typeof data.config === "object") {
+    for (const [key, value] of Object.entries(data.config)) {
+      if (value) ic.config[key] = String(value);
+    }
   }
   if (data.topLeftDotX !== null && data.topLeftDotY !== null) {
     const targetDot = State.dots.find(d => d.x === data.topLeftDotX && d.y === data.topLeftDotY);
@@ -216,6 +225,8 @@ export function loadProject(project: IProjectSave){
   } else {
     State.placedIcs = [];
   }
+  // Saves from before reference designators get R1/C1/U1… on load.
+  assignMissingDesignators(State.placedIcs);
 
   State.nets = [];
 

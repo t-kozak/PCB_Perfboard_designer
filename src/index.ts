@@ -15,6 +15,7 @@ import "./features/nets-ui";
 import "./features/connections-ui";
 import "./features/routing";
 import "./features/project/reset-project";
+import {openPropertiesEditor} from "./features/properties-popup";
 import {resetCanvas} from "./features/reset-canvas";
 import {applyGridPreset, createDotGrid, readGridInputs} from "./features/project/resize-grid";
 import {redrawCanvas} from "./features/draw-canvas";
@@ -154,6 +155,13 @@ document.getElementById('ctxColorBtn')?.addEventListener('click', () => {
   // Only pads are recolourable — wire colour is always the net colour.
   if (State.selectedDot) {
     changeSelectedDotColor();
+  }
+});
+
+document.getElementById('ctxPropsBtn')?.addEventListener('click', (e) => {
+  hideContextMenu();
+  if (State.selectedPlacedIc) {
+    openPropertiesEditor(State.selectedPlacedIc, e.clientX, e.clientY);
   }
 });
 

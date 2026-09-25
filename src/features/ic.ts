@@ -8,6 +8,8 @@ import {redrawCanvas} from "./draw-canvas";
 import {dotForPin, isGridLayout, isRowLayout, pinAtDot, pinCountOf} from "./ic-geometry";
 import {updateSidebarVisibility} from "./sidebar-mode";
 import {loadDefaultIcs} from "./ic-catalog";
+import {drawSolderedMarker} from "./soldered-marker";
+import {assignDesignator} from "./component-props";
 
 
 export class Ic{
@@ -24,6 +26,12 @@ export class Ic{
 
   /** Free-text annotation attached to this placed component (not to catalog templates). */
   public description?: string;
+
+  /** Reference designator ("R1", "C2", "U1") of a placed component — see component-props.ts. */
+  public label?: string;
+
+  /** Typed properties of a placed component (resistance, capacitance…), keyed by the fields in component-props.ts. Empty values are not stored. */
+  public config: Record<string, string> = {};
 
   /**
    * Cache of decoded component artwork, keyed by source URL / data URI.
@@ -444,6 +452,10 @@ export class Ic{
     else if (this.kind === "diode") this.drawDiodeArt(isSelected);
     else this.drawLedArt(bodyHalf, isSelected);
 
+    // Leg markers go on top of the artwork (an LED's body reaches the pads).
+    drawSolderedMarker(-length / 2, 0, 6, isSelected);
+    drawSolderedMarker(length / 2, 0, 6, isSelected);
+
     ctx.restore();
   }
 
@@ -566,7 +578,7 @@ export class Ic{
    * since the board is drawn from directly above — with a flat edge cut into
    * the pin-2 (+x / cathode / −) side, mirroring the flat rim real through-hole
    * LEDs carry on their cathode to hint the correct placement orientation.
-   * Also carries a small dot marking each leg and a +/− polarity sign (pin 1 =
+   * Also carries a +/− polarity sign (pin 1 =
    * anode = +, pin 2 = cathode = −, matching the leads' local +x/-x split).
    */
   private drawLedArt(bodyHalf: number, isSelected: boolean) {
@@ -583,13 +595,6 @@ export class Ic{
     ctx.lineWidth = isSelected ? 2.5 : 1.5;
     ctx.strokeStyle = isSelected ? "#38bdf8" : "#1f2937";
     ctx.stroke();
-
-    const legR = 2.5;
-    ctx.fillStyle = isSelected ? "#38bdf8" : "#cbd5e1";
-    ctx.beginPath();
-    ctx.arc(-bodyHalf, 0, legR, 0, Math.PI * 2);
-    ctx.arc(bodyHalf, 0, legR, 0, Math.PI * 2);
-    ctx.fill();
 
     ctx.font = "bold 10px monospace";
     ctx.textAlign = "center";
@@ -614,23 +619,12 @@ export class Ic{
   /** A small ring on the pad — the bridge's whole "body" (no package). */
   private drawBridgeBody(isSelected: boolean) {
     if (!this.topLeftDot) return;
-    const ctx = Canvas.ctx;
-    const r = 9;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(this.topLeftDot.x, this.topLeftDot.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
-    ctx.fill();
-    ctx.lineWidth = isSelected ? 3 : 2;
-    ctx.strokeStyle = isSelected ? "#38bdf8" : "#94a3b8";
-    ctx.stroke();
-    ctx.restore();
+    drawSolderedMarker(this.topLeftDot.x, this.topLeftDot.y, 9, isSelected);
   }
 
   /**
    * Draws a Dupont-style male pin header: a plain black plastic base spanning
-   * the pin footprint, with a small grey/silver pin sticking up out of the
-   * base at every hole. Unlike the chip package, this box is never rotated
+   * the pin footprint, with an amber pin marker at every hole. Unlike the chip package, this box is never rotated
    * via canvas transform — widthPin/heightPin are already swapped by
    * `rotate()`, so the axis-aligned box + per-hole pins drawn from `pinDot()`
    * are correct in screen space as-is (same trick `drawChipBody` relies on).
@@ -651,21 +645,9 @@ export class Ic{
     ctx.stroke();
     ctx.restore();
 
-    const pinW = 6;
-    const pinH = 14;
     for (let pin = 1; pin <= this.pinCount; pin++) {
       const p = this.pinDot(pin);
-      if (!p) continue;
-      ctx.save();
-      const grad = ctx.createLinearGradient(p.x, p.y - pinH / 2, p.x, p.y + pinH / 2);
-      grad.addColorStop(0, "#e5e7eb");
-      grad.addColorStop(1, "#9ca3af");
-      ctx.fillStyle = grad;
-      ctx.fillRect(p.x - pinW / 2, p.y - pinH / 2, pinW, pinH);
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = "#6b7280";
-      ctx.strokeRect(p.x - pinW / 2, p.y - pinH / 2, pinW, pinH);
-      ctx.restore();
+      if (p) drawSolderedMarker(p.x, p.y, 6, isSelected);
     }
   }
 
@@ -822,19 +804,25 @@ export class Ic{
 
   drawLabel(){
     if (!this.topLeftDot) return;
-    // Name badge and note stay hidden until the component is hovered (or the
-    // "Labels" view toggle is on). Real chips are the exception: their pin
-    // labels are the whole point of the package, so they are always drawn.
-    const showDetails = State.showAllLabels || this === State.hoverIc;
+    // Name badge and note only appear with the "Labels" view toggle on — on
+    // hover the properties card (properties-popup.ts) shows them instead. Pin
+    // labels also show on hover; real chips always draw theirs, since they are
+    // the whole point of the package.
+    const showAll = State.showAllLabels;
+    // With the toggle on, the name badge carries the designator too.
+    if (!showAll) this.drawDesignator();
     // A bridge is a bare junction, not a named part — no name badge or pin
     // label, but it can still carry a note.
     if (this.isBridge) {
-      if (showDetails) this.drawNote();
+      if (showAll) {
+        this.drawDesignator();
+        this.drawNote();
+      }
       return;
     }
-    if (showDetails) this.drawNameBadge();
-    if (!this.isLeaded && (showDetails || this.kind === "chip")) this.drawPinLabels();
-    if (showDetails) this.drawNote();
+    if (showAll) this.drawNameBadge();
+    if (!this.isLeaded && (showAll || this === State.hoverIc || this.kind === "chip")) this.drawPinLabels();
+    if (showAll) this.drawNote();
   }
 
   drawNameBadge() {
@@ -846,9 +834,11 @@ export class Ic{
     const labelAbove = this.isLeaded || this.kind === "pin-header";
     const centerY = labelAbove ? rect.y - 12 : rect.y + (rect.h / 2);
 
+    const text = this.label ? `${this.label} · ${this.name}` : this.name;
+
     Canvas.ctx.save();
     Canvas.ctx.font = "bold 11px Inter, Arial";
-    const textWidth = Canvas.ctx.measureText(this.name).width;
+    const textWidth = Canvas.ctx.measureText(text).width;
     const badgeW = textWidth + 16;
     const badgeH = 20;
 
@@ -866,13 +856,51 @@ export class Ic{
     // Draw high-contrast text
     Canvas.ctx.fillStyle = isSelected ? "#38bdf8" : "#ffffff";
     Canvas.ctx.textAlign = "center";
-    Canvas.fillText(this.name, centerX, centerY + 4);
+    Canvas.fillText(text, centerX, centerY + 4);
     Canvas.ctx.restore();
   }
 
   /**
-   * Draws the component's annotation in a pill just below its body. Shows the
-   * full text while the component is hovered, a truncated form otherwise.
+   * The reference designator (R1, U2…) in white, centred on the body. A dark
+   * halo keeps it readable over any body colour (beige resistor, red LED,
+   * artwork). A bridge's ring is too small to hold text, so its label sits to
+   * the right. Always drawn, on the component side.
+   */
+  drawDesignator() {
+    if (!this.topLeftDot || !this.label) return;
+    const ctx = Canvas.ctx;
+    const rect = this.bodyRect();
+    ctx.save();
+    ctx.font = "bold 11px Inter, Arial";
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+    ctx.shadowBlur = 3;
+    ctx.textBaseline = "middle";
+    let cx = rect.x + rect.w / 2;
+    let cy = rect.y + rect.h / 2;
+    if (this.isBridge) {
+      ctx.textAlign = "left";
+      Canvas.fillText(this.label, rect.x + rect.w + 4, cy);
+    } else {
+      // An odd-length pin row (1x3 header, MOSFET) centres on its middle pin —
+      // slide half a pitch along the row so the text sits between two pins.
+      const onPin = this.pinCount > 1 && Array.from({length: this.pinCount}, (_, i) => this.pinDot(i + 1))
+        .some(p => p && Math.abs(p.x - cx) < 8 && Math.abs(p.y - cy) < 8);
+      if (onPin) {
+        if (this.widthPin >= this.heightPin) cx += 25;
+        else cy += 25;
+      }
+      ctx.textAlign = "center";
+      // Twice: one blurred halo alone is too faint over light bodies.
+      Canvas.fillText(this.label, cx, cy);
+      Canvas.fillText(this.label, cx, cy);
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draws the component's annotation in a pill just below its body. Shows the full text while the
+   * component is hovered, a truncated form otherwise.
    */
   drawNote() {
     if (!this.topLeftDot || !this.description) return;
@@ -1013,6 +1041,7 @@ Canvas.c.addEventListener('drop', (e) => {
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
   const newInstance = ic.clone();
   newInstance.updatePosition(x, y);
+  assignDesignator(newInstance, State.placedIcs);
   State.placedIcs.push(newInstance);
   State.selectedPlacedIc = newInstance;
   redrawCanvas();

@@ -32,6 +32,8 @@ export function serializePlacedIc(ic: Ic) {
     imageSrc: ic.imageSrc,
     rotationAngle: ic.rotationAngle || 0,
     description: ic.description,
+    label: ic.label,
+    config: ic.config,
     topLeftDotX: ic.topLeftDot ? ic.topLeftDot.x : null,
     topLeftDotY: ic.topLeftDot ? ic.topLeftDot.y : null,
   };

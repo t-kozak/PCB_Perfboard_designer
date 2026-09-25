@@ -302,10 +302,15 @@
   <!-- Right-Click Canvas Context Menu -->
   <div id="contextMenu" class="context-menu" style="display:none;">
     <button id="ctxRotateBtn">🔄 Rotate Component</button>
+    <button id="ctxPropsBtn">⚙ Properties…</button>
     <button id="ctxColorBtn">🎨 Change Color</button>
     <button id="ctxNoteBtn">📝 Add/Edit Note</button>
     <button id="ctxDeleteBtn" class="ctx-danger">🗑 Delete Item</button>
   </div>
+
+  <!-- Component properties: double-click editor + read-only hover card (features/properties-popup.ts) -->
+  <div id="propsEditor" class="props-popup" hidden></div>
+  <div id="propsHoverCard" class="props-popup props-hover" hidden></div>
 
   <!-- IC Editor Modal -->
   <div id="icEditorModal" class="modal-overlay" style="display:none;">

@@ -109,7 +109,7 @@ function announce(failedConnIds: string[]): void {
   }
   const label = (t: ITerminal) => {
     const ic = State.placedIcs.find(i => i.id === t.icId);
-    return ic ? `${ic.name}·${t.pin}` : `?·${t.pin}`;
+    return ic ? `${ic.label ?? ic.name}·${t.pin}` : `?·${t.pin}`;
   };
   const names = failedConnIds.map(id => {
     const c = State.connections.find(x => x.id === id);

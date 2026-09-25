@@ -4,6 +4,7 @@ import {Canvas} from "../state/Canvas";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {panBy} from "./viewport";
 import {updateSidebarVisibility} from "./sidebar-mode";
+import {assignDesignator} from "./component-props";
 let isPanningBoard = false;
 let panLastX = 0;
 let panLastY = 0;
@@ -31,6 +32,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
     if (!solder && State.selectedIc && State.hoverDot) {
       const newInstance = State.selectedIc.clone();
       newInstance.updatePosition(State.hoverDot.x, State.hoverDot.y);
+      assignDesignator(newInstance, State.placedIcs);
       State.placedIcs.push(newInstance);
       State.selectedPlacedIc = newInstance;
       redrawCanvas();

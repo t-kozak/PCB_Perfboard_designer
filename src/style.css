@@ -954,3 +954,132 @@ body.fullscreen-active {
   font-size: 0.8rem;
 }
 
+
+/* Component properties popup (double-click editor) + read-only hover card */
+.props-popup {
+  position: fixed;
+  z-index: 150;
+  width: 260px;
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  font-size: 0.78rem;
+}
+
+.props-popup[hidden] {
+  display: none;
+}
+
+.props-hover {
+  pointer-events: none;
+  width: 220px;
+  background-color: #1e293b;
+}
+
+.props-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #334155;
+}
+
+.props-type {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.props-category {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.props-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.props-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.props-row > span,
+.props-list dt {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.props-row input[type="text"],
+.props-row select,
+.props-row textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.78rem;
+  background-color: #1f2937;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-main);
+  outline: none;
+}
+
+.props-row select:focus,
+.props-row textarea:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.props-row-notes {
+  grid-template-columns: 1fr;
+  gap: 0.25rem;
+}
+
+.props-row textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.props-warning {
+  font-size: 0.7rem;
+  color: #fbbf24;
+  padding-left: calc(90px + 0.5rem);
+}
+
+.props-warning[hidden] {
+  display: none;
+}
+
+.props-list {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 0.25rem 0.5rem;
+}
+
+.props-list dd {
+  margin: 0;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+
+.props-empty {
+  color: #4b5563;
+}
+
+.props-notes {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid #334155;
+  color: #fbbf24;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

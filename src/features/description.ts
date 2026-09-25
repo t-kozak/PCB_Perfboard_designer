@@ -3,7 +3,6 @@ import {redrawCanvas} from "./draw-canvas";
 import {Utils} from "../utils/utils";
 import {ShortcutRegistry} from "./shortcut-keys";
 import {Ic} from "./ic";
-import {Canvas} from "../state/Canvas";
 
 // Notes belong to placed components only. To label a bare hole, place a bridge
 // there and annotate that.
@@ -67,19 +66,8 @@ export function removeNote(target?: Ic){
   updateNoteToggleButton();
 }
 
-// Double-click a component to edit its note. Hit-tested directly rather than
-// via resolveNoteTarget(), which would fall back to a stale selection and open
-// the prompt for something that isn't under the cursor.
-Canvas.c.addEventListener('dblclick', (e) => {
-  // Components are hidden on the solder side; the Connect tool and armed
-  // placement own clicks on the component side.
-  if (Canvas.solderSide || State.activeToolMode === 'connect' || State.selectedIc) return;
-  const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
-  const target = State.placedIcs.find(ic => ic.containsPoint(x, y));
-  if (target) {
-    addNote(target);
-  }
-});
+// Double-click opens the full properties popup (notes included) — see
+// properties-popup.ts.
 
 ShortcutRegistry.add({key: "d", event: () => addNote(), description: "Add note to component."})
 ShortcutRegistry.add({key: "D", event: () => removeNote(), description: "Remove note from component."})
