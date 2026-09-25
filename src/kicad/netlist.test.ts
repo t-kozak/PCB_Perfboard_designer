@@ -54,6 +54,23 @@ describe("netlist: parse a KiCad export", () => {
   });
 });
 
+describe("netlist: placement hints", () => {
+  const n = parseNetlist(`(export (version "E")
+    (components
+      (comp (ref "R1") (value "1k") (footprint "Perfboard:resistor") (sheetpath (names "/Channels/CH1/") (tstamps "/a/b/")))
+      (comp (ref "R2") (value "1k") (footprint "Perfboard:resistor") (sheetpath (names "/") (tstamps "/"))))
+    (nets)
+    (perfboard (floorplan (row "PWR" "LOGIC") (row "CH1") (row))))`);
+
+  it("reads a component's sheet path, without the outer slashes; none on the root sheet", () => {
+    expect(n.components.map(c => c.sheet)).toEqual(["Channels/CH1", undefined]);
+  });
+
+  it("reads the floorplan rows, dropping empty ones", () => {
+    expect(n.perfboard?.floorplan).toEqual([["PWR", "LOGIC"], ["CH1"]]);
+  });
+});
+
 describe("netlist: rejects what it can't read", () => {
   it("an XML netlist, with a hint", () => {
     expect(() => parseNetlist(`<?xml version="1.0"?><export/>`)).toThrow(/XML netlist/);

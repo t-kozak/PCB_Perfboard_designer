@@ -15,8 +15,9 @@
  * - **Properties**: `value` → the kind's value field (resistance,
  *   capacitance…); a property whose name matches a field key or label → that
  *   field; anything else → the component's note.
- * - **Position**: `perfboard:at`, else auto-placed (shelf packing, largest
- *   parts first) below whatever is already placed.
+ * - **Position**: `perfboard:at`, else auto-placed below whatever is already
+ *   placed — connectivity-aware, by group (`perfboard:group` or the KiCad
+ *   sheet), with `perfboard:edge` and a `floorplan` as hints; see placement.ts.
  * - **Connections**: nets only record *which* legs are joined, so each net
  *   becomes the shortest set of pin-to-pin connections linking all of its legs
  *   (Prim's MST, Manhattan distance between pads). Each connection carries its
@@ -26,7 +27,8 @@
 import type {CatalogPart} from "../catalog/parts";
 import {fieldsForKind, valueFieldForKind} from "../features/component-props";
 import {dotForPin, IcGeometry, pinCountOf} from "../features/ic-geometry";
-import {Netlist, NetlistComponent, PerfboardBlock, PROP_AT, PROP_NOTE, PROP_PINS} from "./netlist";
+import {Netlist, NetlistComponent, PerfboardBlock, PROP_AT, PROP_EDGE, PROP_GROUP, PROP_NOTE, PROP_PINS} from "./netlist";
+import {Edge, EDGES, PlaceNet, placeComponents} from "./placement";
 
 export type Rotation = 0 | 90 | 180 | 270;
 
@@ -51,6 +53,8 @@ export interface PlannedComponent {
   row: number;
   config: Record<string, string>;
   note?: string;
+  /** Placement group of an auto-placed part ("" when it joined none). */
+  group?: string;
 }
 
 export interface PlannedTerminal {
@@ -76,7 +80,7 @@ export interface PlanOptions {
 
 const PITCH = 50;
 const MIN_BOARD = 10;
-/** Empty holes kept around auto-placed parts, so wires have room to route. */
+/** Empty holes kept between saved parts and the auto-placed ones below them. */
 const GAP = 2;
 
 /** Uppercase alphanumerics only — for loose name matching. */
@@ -364,38 +368,6 @@ function footprintSize(c: PlannedComponent): {w: number; h: number} {
   return {w: g.widthPin, h: g.heightPin};
 }
 
-/** Shelf-packs `items` (largest first) into rows starting at `top`; returns the bottom-right hole used. */
-function autoPlace(items: PlannedComponent[], top: number, minWidth: number, extentOf: (p: CatalogPart) => Extent): {right: number; bottom: number} {
-  const boxes = items.map(c => {
-    const e = extentOf(c.part);
-    return {c, e, w: e.left + c.part.widthPin + e.right, h: e.top + c.part.heightPin + e.bottom};
-  });
-  boxes.sort((a, b) => b.w * b.h - a.w * a.h || byRef(a.c.ref, b.c.ref));
-
-  const area = boxes.reduce((s, b) => s + (b.w + GAP) * (b.h + GAP), 0);
-  // Roughly 3:2 landscape, never narrower than the widest part or the board already is.
-  const width = Math.max(minWidth - 1, ...boxes.map(b => b.w + 1), Math.ceil(Math.sqrt(area * 1.5)));
-
-  let x = 1;
-  let y = top;
-  let shelf = 0;
-  let right = 0;
-  for (const b of boxes) {
-    if (x > 1 && x + b.w > width) {
-      x = 1;
-      y += shelf + GAP;
-      shelf = 0;
-    }
-    b.c.col = x + b.e.left;
-    b.c.row = y + b.e.top;
-    b.c.rotation = 0;
-    x += b.w + GAP;
-    shelf = Math.max(shelf, b.h);
-    right = Math.max(right, x - GAP);
-  }
-  return {right, bottom: boxes.length ? y + shelf : top};
-}
-
 /** Prim's MST over the legs of one net (Manhattan distance between pads). */
 function spanningTree(points: {t: PlannedTerminal; x: number; y: number}[]): [number, number][] {
   const n = points.length;
@@ -430,7 +402,7 @@ export function planProject(netlist: Netlist, parts: CatalogPart[], opts: PlanOp
   // Components.
   const components: PlannedComponent[] = [];
   const byRefMap = new Map<string, PlannedComponent>();
-  const unplaced: PlannedComponent[] = [];
+  const unplaced: {c: PlannedComponent; group?: string; edge?: Edge}[] = [];
   for (const comp of netlist.components) {
     if (!comp.ref) {
       warnings.push("Skipped a component with no reference.");
@@ -467,34 +439,19 @@ export function planProject(netlist: Netlist, parts: CatalogPart[], opts: PlanOp
     };
     components.push(planned);
     byRefMap.set(comp.ref, planned);
-    if (!at) unplaced.push(planned);
+    if (!at) {
+      const edge = comp.properties[PROP_EDGE]?.trim().toLowerCase();
+      if (edge && !EDGES.includes(edge as Edge)) warnings.push(`${comp.ref}: unknown edge "${edge}" — ignored.`);
+      const group = (comp.properties[PROP_GROUP]?.trim().replace(/^\/+|\/+$/g, "") || comp.sheet) ?? undefined;
+      unplaced.push({c: planned, group, edge: EDGES.find(e => e === edge)});
+    }
   }
 
-  // Board: the saved size, grown to fit everything already placed, then the auto-placed shelf below it.
-  const saved = netlist.perfboard?.board;
-  let cols = saved?.cols ?? MIN_BOARD;
-  let rows = saved?.rows ?? MIN_BOARD;
-  let placedBottom = 0;
-  for (const c of components) {
-    if (unplaced.includes(c)) continue;
-    const {w, h} = footprintSize(c);
-    cols = Math.max(cols, c.col + w);
-    rows = Math.max(rows, c.row + h);
-    placedBottom = Math.max(placedBottom, c.row + h);
-  }
-  if (unplaced.length) {
-    const top = placedBottom ? placedBottom + GAP : 1;
-    const used = autoPlace(unplaced, top, saved ? cols : 0, extentOf);
-    cols = Math.max(cols, used.right + 1, MIN_BOARD);
-    rows = Math.max(rows, used.bottom + 1, MIN_BOARD);
-  }
-
-  // Connections: one spanning tree per net.
-  const connections: ProjectPlan["connections"] = [];
-  const nets: ProjectPlan["nets"] = [];
+  // Each net's legs, resolved to our pin numbers (placement needs them before positions exist).
+  const legs: PlaceNet[] = [];
   for (const net of netlist.nets) {
     const seen = new Set<string>();
-    const points: {t: PlannedTerminal; x: number; y: number}[] = [];
+    const resolved: PlannedTerminal[] = [];
     for (const node of net.nodes) {
       const c = byRefMap.get(node.ref);
       if (!c) {
@@ -509,8 +466,42 @@ export function planProject(netlist: Netlist, parts: CatalogPart[], opts: PlanOp
       const key = `${node.ref}#${pin}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      const pos = dotForPin(geometry(c.part, c.rotation, c.col, c.row), pin);
-      if (pos) points.push({t: {ref: node.ref, pin}, ...pos});
+      resolved.push({ref: node.ref, pin});
+    }
+    legs.push({name: net.name, legs: resolved});
+  }
+
+  // Board: the saved size, grown to fit everything already placed, then the auto-placed shelf below it.
+  const saved = netlist.perfboard?.board;
+  let cols = saved?.cols ?? MIN_BOARD;
+  let rows = saved?.rows ?? MIN_BOARD;
+  let placedBottom = 0;
+  for (const c of components) {
+    if (unplaced.some(u => u.c === c)) continue;
+    const {w, h} = footprintSize(c);
+    cols = Math.max(cols, c.col + w);
+    rows = Math.max(rows, c.row + h);
+    placedBottom = Math.max(placedBottom, c.row + h);
+  }
+  if (unplaced.length) {
+    const top = placedBottom ? placedBottom + GAP : 1;
+    const items = unplaced.map(({c, group, edge}) => ({ref: c.ref, part: c.part, extent: extentOf(c.part), group, edge}));
+    const used = placeComponents(items, legs, {top, floorplan: netlist.perfboard?.floorplan});
+    for (const {c} of unplaced) Object.assign(c, used.at.get(c.ref));
+    warnings.push(...used.warnings);
+    cols = Math.max(cols, used.right + 1, MIN_BOARD);
+    rows = Math.max(rows, used.bottom + 1, MIN_BOARD);
+  }
+
+  // Connections: one spanning tree per net.
+  const connections: ProjectPlan["connections"] = [];
+  const nets: ProjectPlan["nets"] = [];
+  for (const net of legs) {
+    const points: {t: PlannedTerminal; x: number; y: number}[] = [];
+    for (const t of net.legs) {
+      const c = byRefMap.get(t.ref)!;
+      const pos = dotForPin(geometry(c.part, c.rotation, c.col, c.row), t.pin);
+      if (pos) points.push({t, ...pos});
     }
     points.sort((a, b) => byRef(a.t.ref, b.t.ref) || a.t.pin - b.t.pin);
     if (points.length < 2) continue;

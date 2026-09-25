@@ -2,7 +2,7 @@
 
 PCB Perfboard Designer saves and loads projects as **KiCad netlists** (S-expression
 `.net` files). To design a circuit for it, write a netlist that uses only the parts
-below, and open it with **Project → Load Project**. Components are placed on the board
+below, and open it with **Project → Import**. Components are placed on the board
 automatically, and the solder-side wires are generated from the nets.
 
 ## Writing the netlist
@@ -53,7 +53,19 @@ Rules:
    the part, that pin is used, whatever the number says.
 5. A pin belongs to at most one net. A net with a single pin is ignored. `code` just
    numbers the nets; `name` is free (GND, VCC, …).
-6. Don't add positions or wires. Layout and routing happen in the app.
+6. Don't add positions or wires. Layout and routing happen in the app. Instead, help the
+   layout by **grouping** parts that belong together (a power input, one channel, a chip
+   with its decoupling caps and pull-ups): put each group on its own KiCad sheet with
+   `(sheetpath (names "/<group>/") (tstamps "/<group>/"))` in the `comp`, or add
+   `(property (name "perfboard:group") (value "<group>"))`. Parts of a group are placed
+   together, close to the pins they connect to; repeated groups (CH1, CH2…) usually come out
+   identical. Optionally:
+   - `(property (name "perfboard:edge") (value "left"))` (`left`, `right`, `top`,
+     `bottom`) keeps a part, usually a connector, on that side of its group and its group
+     on that side of the board;
+   - a `floorplan` after `nets` arranges the groups in rows, top to bottom:
+     `(perfboard (floorplan (row "PWR" "LOGIC") (row "CH1" "CH2" "CH3" "CH4")))`.
+     Groups it doesn't name are placed where they need the least wire.
 7. To join wires where there's no component leg (a junction, test point or off-board wire),
    place a `bridge` and connect its pin 1.
 8. **Parts not in the library:** use a generic footprint and put the real part number in

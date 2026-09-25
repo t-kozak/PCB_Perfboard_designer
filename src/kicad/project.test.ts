@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CATALOG_PARTS, CatalogPart } from "../catalog/parts";
-import { Netlist, NetlistComponent, parseNetlist, PROP_AT, PROP_NOTE, PROP_PINS } from "./netlist";
+import { Netlist, NetlistComponent, parseNetlist, PROP_AT, PROP_EDGE, PROP_GROUP, PROP_NOTE, PROP_PINS } from "./netlist";
 import { Extent, givenNetName, parametricPart, planProject, PlannedComponent, ProjectPlan } from "./project";
 
 type NodeSpec = [ref: string, pin: string, pinfunction?: string];
@@ -314,11 +314,16 @@ describe("project: labels and refs", () => {
   });
 });
 
-/** Every hole a component's footprint (plus overhang) covers. */
-function cells(c: PlannedComponent, extent: Extent = { left: 0, top: 0, right: 0, bottom: 0 }): string[] {
+/** Every hole a component's footprint (plus overhang, given unrotated) covers. */
+function cells(c: PlannedComponent, e: Extent = { left: 0, top: 0, right: 0, bottom: 0 }): string[] {
   const swapped = c.rotation === 90 || c.rotation === 270;
   const w = swapped ? c.part.heightPin : c.part.widthPin;
   const h = swapped ? c.part.widthPin : c.part.heightPin;
+  const extent: Extent =
+    c.rotation === 90 ? { left: e.bottom, top: e.left, right: e.top, bottom: e.right }
+    : c.rotation === 180 ? { left: e.right, top: e.bottom, right: e.left, bottom: e.top }
+    : c.rotation === 270 ? { left: e.top, top: e.right, right: e.bottom, bottom: e.left }
+    : e;
   const out: string[] = [];
   for (let x = c.col - extent.left; x < c.col + w + extent.right; x++) {
     for (let y = c.row - extent.top; y < c.row + h + extent.bottom; y++) out.push(`${x},${y}`);
@@ -337,7 +342,6 @@ describe("project: placement", () => {
     const p = plan(mixed());
     const seen = new Set<string>();
     for (const c of p.components) {
-      expect(c.rotation).toBe(0);
       for (const cell of cells(c)) {
         expect(seen.has(cell), `${c.ref} overlaps at ${cell}`).toBe(false);
         seen.add(cell);
@@ -347,7 +351,7 @@ describe("project: placement", () => {
     }
   });
 
-  it("keeps a margin round the edge and at least two free holes between parts", () => {
+  it("keeps a margin round the edge, a free hole between parts and two between groups", () => {
     const p = plan(mixed());
     for (const c of p.components) {
       expect(c.col).toBeGreaterThanOrEqual(1);
@@ -359,7 +363,7 @@ describe("project: placement", () => {
         const near = cells(a).some(ca => cells(b).some(cb => {
           const [ax, ay] = ca.split(",").map(Number);
           const [bx, by] = cb.split(",").map(Number);
-          return Math.max(Math.abs(ax - bx), Math.abs(ay - by)) <= 2;
+          return Math.max(Math.abs(ax - bx), Math.abs(ay - by)) <= (a.group === b.group ? 1 : 2);
         }));
         expect(near, `${a.ref} too close to ${b.ref}`).toBe(false);
       }
@@ -376,7 +380,7 @@ describe("project: placement", () => {
         expect(seen.has(cell), `${c.ref} artwork overlaps at ${cell}`).toBe(false);
         seen.add(cell);
       }
-      expect(c.col - extentOf(c.part).left).toBeGreaterThanOrEqual(1);
+      expect(Math.min(...cells(c, extentOf(c.part)).map(k => Number(k.split(",")[0])))).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -418,6 +422,35 @@ describe("project: placement", () => {
     expect(inside.board).toEqual(board);
     const outside = plan(netlist([comp("U1", "Perfboard:ne555", "", { properties: { [PROP_AT]: "25 10 90" } })], {}, { perfboard: { board, pads: [], customParts: [] } }));
     expect(outside.board).toMatchObject({ cols: 29, rows: 14 });
+  });
+});
+
+describe("project: placement hints", () => {
+  const sheet = (ref: string, footprint: string, sheetName?: string, properties: Record<string, string> = {}) =>
+    comp(ref, footprint, "", { sheet: sheetName, properties });
+
+  it("groups by KiCad sheet, overridden by perfboard:group", () => {
+    const p = plan(netlist([
+      sheet("U1", "Perfboard:ne555", "Timer"),
+      sheet("R1", "Perfboard:resistor", "Timer", { [PROP_GROUP]: "/Out/" }),
+      sheet("R2", "Perfboard:resistor"),
+    ], { OUT: [["U1", "3"], ["R2", "1"]] }));
+    expect(Object.fromEntries(p.components.map(c => [c.ref, c.group]))).toEqual({ U1: "Timer", R1: "Out", R2: "Timer" });
+  });
+
+  it("warns about an unknown edge and ignores it", () => {
+    const p = plan(netlist([comp("J1", "Perfboard:pin-header-1x2", "", { properties: { [PROP_EDGE]: "Middle" } })]));
+    expect(p.warnings).toEqual(['J1: unknown edge "middle" — ignored.']);
+  });
+
+  it("follows the floorplan and reports names it can't find", () => {
+    const p = plan(netlist(
+      [sheet("R1", "Perfboard:resistor", "A"), sheet("R2", "Perfboard:resistor", "B")],
+      {},
+      { perfboard: { pads: [], customParts: [], floorplan: [["B"], ["A", "Z"]] } },
+    ));
+    expect(byRef(p).R2.row).toBeLessThan(byRef(p).R1.row);
+    expect(p.warnings).toEqual(['Floorplan: no group "Z" — ignored.']);
   });
 });
 

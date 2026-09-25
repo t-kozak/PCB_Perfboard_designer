@@ -17,6 +17,7 @@ import "./features/connections-ui";
 import "./features/properties-popup";
 import "./features/routing";
 import "./features/project/reset-project";
+import "./features/project/project-menu";
 import {resetCanvas} from "./features/reset-canvas";
 import {applyGridPreset, createDotGrid, readGridInputs} from "./features/project/resize-grid";
 import {redrawCanvas} from "./features/draw-canvas";

@@ -10,9 +10,14 @@
  *
  * - per-component: `perfboard:at` ("col row rotation" of the top-left pad),
  *   `perfboard:note`, `perfboard:pins` (pin names, when they differ from the
- *   part's), as ordinary properties;
+ *   part's), and the auto-placement hints `perfboard:group` / `perfboard:edge`,
+ *   as ordinary properties;
  * - board-level: a top-level `(perfboard …)` block — grid size and axis
- *   labels, routing mode, pad colours, custom part definitions.
+ *   labels, routing mode, pad colours, custom part definitions, and a
+ *   `floorplan` hint for auto-placement (read, never written).
+ *
+ * A component's KiCad sheet path (`sheetpath (names "/CH1/")`) is its
+ * placement group unless `perfboard:group` says otherwise.
  *
  * A netlist without any of that (hand-written, from an LLM, or exported by
  * KiCad) is still a complete project: see src/kicad/project.ts for how the
@@ -43,6 +48,8 @@ export interface NetlistComponent {
   part?: string;
   /** `fields` + `property` entries, name → value, in file order. */
   properties: Record<string, string>;
+  /** KiCad hierarchical sheet, "/" separated, without the outer slashes ("CH1", "Power/Input"); unset on the root sheet. */
+  sheet?: string;
 }
 
 export type AxisLabels = "number" | "letter";
@@ -59,6 +66,8 @@ export interface PerfboardBlock {
   /** Pads whose colour differs from the default, by hole index. */
   pads: {col: number; row: number; color: string}[];
   customParts: CatalogPart[];
+  /** Rows of placement group names, top to bottom (auto-placement hint). */
+  floorplan?: string[][];
 }
 
 export interface Netlist {
@@ -67,12 +76,19 @@ export interface Netlist {
   /** `"lib:part"` → pins, from the `libparts` section (KiCad exports; never written here). */
   libparts: Map<string, {num: string; name: string}[]>;
   perfboard?: PerfboardBlock;
+  /** `design (source …)` when it isn't the tool's own placeholder — the board name, or KiCad's schematic path. */
+  title?: string;
 }
+
+/** Written as the design `source` when a board has no name of its own. */
+const TOOL_NAME = "PCB Perfboard Designer";
 
 /** Property names the app itself reads/writes on a `comp`. */
 export const PROP_AT = "perfboard:at";
 export const PROP_NOTE = "perfboard:note";
 export const PROP_PINS = "perfboard:pins";
+export const PROP_GROUP = "perfboard:group";
+export const PROP_EDGE = "perfboard:edge";
 
 const num = (s: string | undefined): number | undefined => {
   const n = Number(s);
@@ -91,6 +107,8 @@ function readComponent(c: SExpr[]): NetlistComponent {
     if (name) properties[name] = text(p, "value") ?? "";
   }
   const libsource = child(c, "libsource");
+  const sheetpath = child(c, "sheetpath");
+  const sheet = (sheetpath ? text(sheetpath, "names") : undefined)?.replace(/^\/+|\/+$/g, "");
   return {
     ref: text(c, "ref") ?? "",
     value: text(c, "value") ?? "",
@@ -98,6 +116,7 @@ function readComponent(c: SExpr[]): NetlistComponent {
     lib: libsource ? text(libsource, "lib") : undefined,
     part: libsource ? text(libsource, "part") : undefined,
     properties,
+    sheet: sheet || undefined,
   };
 }
 
@@ -155,6 +174,8 @@ function readPerfboard(p: SExpr[]): PerfboardBlock {
     const part = readCustomPart(cp);
     if (part) block.customParts.push(part);
   }
+  const floorplan = children(child(p, "floorplan") ?? [], "row").map(row => atoms(row)).filter(row => row.length);
+  if (floorplan.length) block.floorplan = floorplan;
   return block;
 }
 
@@ -184,7 +205,9 @@ export function parseNetlist(source: string): Netlist {
   }));
 
   const perfboard = child(root, "perfboard");
+  const designSource = text(child(root, "design") ?? [], "source");
   return {
+    title: designSource && designSource !== TOOL_NAME ? designSource : undefined,
     components: children(child(root, "components") ?? [], "comp").map(readComponent),
     nets,
     libparts,
@@ -213,8 +236,8 @@ function customPartExpr(p: CatalogPart): SExpr {
   return expr;
 }
 
-export function writeNetlist(n: Netlist, opts: {date?: string} = {}): string {
-  const design: SExpr[] = ["design", ["source", "PCB Perfboard Designer"], ["tool", "PCB Perfboard Designer"]];
+export function writeNetlist(n: Netlist, opts: {date?: string; title?: string} = {}): string {
+  const design: SExpr[] = ["design", ["source", opts.title || n.title || TOOL_NAME], ["tool", TOOL_NAME]];
   if (opts.date) design.push(["date", opts.date]);
 
   const components: SExpr[] = ["components", ...n.components.map(c => {

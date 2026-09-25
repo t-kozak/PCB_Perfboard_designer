@@ -1,8 +1,13 @@
-import {getSaveNetlist} from "./save-project";
+import {serializeProject} from "./boards";
+
+/** localStorage key of the autosaved project file (all boards). */
+export const AUTOSAVE_KEY = "project";
+/** Where single-board autosaves from before multi-board projects live — read once, then dropped. */
+export const LEGACY_AUTOSAVE_KEY = "save";
 
 /**
- * Autosave: persist the whole project — as the same KiCad netlist text the
- * Save button downloads — to `localStorage['save']` shortly after
+ * Autosave: persist the whole project — every board, as the same project file
+ * Export → Project downloads — to `localStorage['project']` shortly after
  * any state mutation, with no user interaction. `redrawCanvas()` runs after
  * every mutation (and on hover), so it is the single call site — we debounce
  * here and skip the write when the serialized project is byte-for-byte
@@ -24,9 +29,10 @@ function flush() {
   timer = undefined;
   firstScheduledAt = 0;
   try {
-    const text = getSaveNetlist();
+    const text = serializeProject();
     if (text === lastSaved) return;
-    localStorage.setItem("save", text);
+    localStorage.setItem(AUTOSAVE_KEY, text);
+    localStorage.removeItem(LEGACY_AUTOSAVE_KEY);
     lastSaved = text;
   } catch (e) {
     console.error("Autosave failed", e);
@@ -52,7 +58,7 @@ export function scheduleAutosave() {
  */
 export function armAutosave() {
   try {
-    lastSaved = localStorage.getItem("save");
+    lastSaved = localStorage.getItem(AUTOSAVE_KEY);
   } catch {
     lastSaved = null;
   }

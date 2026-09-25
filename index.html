@@ -25,17 +25,36 @@
           <span class="collapse-chevron">▾</span>
         </div>
         <div class="section-body" id="projectSection">
-          <div class="project-grid">
-            <button id="downloadBtn" class="btn-primary">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Save Image
-            </button>
-            <button id="saveProjectBtn" class="btn-accent">Save Project</button>
-            <button id="loadProjectTrigger" class="btn" title="Open a project (.net KiCad netlist, or an older .json save)">Load Project</button>
-            <button id="partsLibraryBtn" class="btn" title="Download the parts list and netlist rules (Markdown) for writing a project by hand or with an LLM">Parts Library</button>
-            <button id="resetBtn" class="btn-danger">Reset</button>
+          <div class="board-row">
+            <select id="boardSelect" aria-label="Board" title="The board you are editing"></select>
+            <button id="addBoardBtn" class="btn" title="Add an empty board to the project">＋ Add Board</button>
           </div>
-          <input type="file" id="loadProjectBtn" accept=".net,.json" style="display:none">
+          <div class="project-grid">
+            <div class="menu-anchor">
+              <button id="exportBtn" class="btn-primary" aria-haspopup="menu" aria-expanded="false">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export <span class="menu-caret">▾</span>
+              </button>
+              <div id="exportMenu" class="dropdown-menu" role="menu" hidden>
+                <button role="menuitem" data-export="image">
+                  <span class="menu-item-title">Board → Image</span>
+                  <span class="menu-item-hint">PNG of both sides of this board (P)</span>
+                </button>
+                <button role="menuitem" data-export="kicad">
+                  <span class="menu-item-title">Board → KiCad</span>
+                  <span class="menu-item-hint">This board as a KiCad netlist (.net)</span>
+                </button>
+                <button role="menuitem" data-export="project">
+                  <span class="menu-item-title">Project</span>
+                  <span class="menu-item-hint">Every board in one file (.perfboard)</span>
+                </button>
+              </div>
+            </div>
+            <button id="importBtn" class="btn-accent" title="Open a project (.perfboard), or add a board from a KiCad netlist (.net) or an older .json save. You can also drop the file onto the page.">Import</button>
+            <button id="partsLibraryBtn" class="btn" title="Download the parts list and netlist rules (Markdown) for writing a project by hand or with an LLM">Parts Library</button>
+            <button id="newProjectBtn" class="btn-danger" title="Discard every board and start over">New Project</button>
+          </div>
+          <input type="file" id="importInput" accept=".perfboard,.net,.json" hidden>
         </div>
       </div>
 

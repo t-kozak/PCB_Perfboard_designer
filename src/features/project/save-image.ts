@@ -1,11 +1,6 @@
 import {Canvas} from "../../state/Canvas";
-import {Utils} from "../../utils/utils";
 import {ShortcutRegistry} from "../shortcut-keys";
 import {redrawCanvas} from "../draw-canvas";
-
-Utils.getSafeHtmlElement<HTMLButtonElement>('downloadBtn').addEventListener('click', function() {
- downloadAsImage()
-});
 
 /** Board-unit gap between the two panels and the caption strip above each. */
 const PANEL_GAP = 40;
@@ -13,7 +8,7 @@ const CAPTION_H = 44;
 const MARGIN = 16;
 const SURROUND = "#0f172a";
 
-export function downloadAsImage(){
+export function downloadAsImage(fileName = 'canvas.png'){
   // Export at 100% zoom so the PNG is the true board size (still at device
   // resolution via the render transform), regardless of the current view zoom.
   const viewZoom = Canvas.zoom;
@@ -54,9 +49,9 @@ export function downloadAsImage(){
   redrawCanvas();
 
   const link = document.createElement('a');
-  link.download = 'canvas.png';
+  link.download = fileName;
   link.href = out.toDataURL();
   link.click();
 }
 
-ShortcutRegistry.add({key: "p", description: "download as image", event: downloadAsImage})
+ShortcutRegistry.add({key: "p", description: "download as image", event: () => downloadAsImage()})

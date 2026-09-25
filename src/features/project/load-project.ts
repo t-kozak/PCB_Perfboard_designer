@@ -1,4 +1,3 @@
-import {Utils} from "../../utils/utils";
 import {State} from "../../state/State";
 import {redrawCanvas} from "../draw-canvas";
 import {Canvas} from "../../state/Canvas";
@@ -20,45 +19,13 @@ import {Extent, planProject, ProjectPlan} from "../../kicad/project";
 import type {CatalogPart} from "../../catalog/parts";
 import {createDotGrid} from "./resize-grid";
 
-const loadInput = Utils.getSafeHtmlElement<HTMLButtonElement>('loadProjectBtn');
-const loadTrigger = Utils.getSafeHtmlElement<HTMLButtonElement>('loadProjectTrigger');
-
-loadTrigger.addEventListener('click', function() {
-  loadInput.click();
-});
-
-loadInput.addEventListener('change', function(e) {
-  const file = (e.target as HTMLInputElement).files?.[0];
-
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const warnings = loadProjectText(String(e.target?.result ?? ""));
-      if (warnings.length) {
-        const shown = warnings.slice(0, 20);
-        if (warnings.length > shown.length) shown.push(`…and ${warnings.length - shown.length} more (see the console).`);
-        console.warn("Project loaded with warnings:\n" + warnings.join("\n"));
-        alert(`Loaded with ${warnings.length} warning(s):\n\n${shown.join("\n")}`);
-      }
-    } catch (err) {
-      console.error(err);
-      alert(`Could not load ${file.name}: ${err instanceof Error ? err.message : err}`);
-    }
-  };
-  reader.readAsText(file);
-  // Let the same file be picked again (e.g. after editing it).
-  loadInput.value = "";
-});
-
 /**
- * Loads a project from file / localStorage text: a KiCad netlist (the current
+ * Loads one board from file / localStorage text into `State`: a KiCad netlist (the current
  * format — see src/kicad/netlist.ts), or a legacy JSON save (v1–v5). Returns
  * the warnings from reading a netlist (guessed parts, unmapped pins…); throws
  * on unreadable input without touching the board.
  */
-export function loadProjectText(text: string): string[] {
+export function loadBoardText(text: string): string[] {
   if (text.trimStart().startsWith("{")) {
     loadProject(JSON.parse(text) as IProjectSave);
     return [];
@@ -146,13 +113,15 @@ function applyPlan(plan: ProjectPlan) {
   finishLoad();
 }
 
-/** Selection reset + derived-state rebuild shared by both loaders. */
-function finishLoad() {
+/** Selection reset + derived-state rebuild after the board in `State` is swapped out (both loaders, board switching). */
+export function finishLoad() {
   State.selectedPlacedIc = undefined;
   State.selectedPlacedIcs = [];
   State.selectedDot = undefined;
   State.selectedConnection = undefined;
   State.hoverConnection = undefined;
+  State.hoverIc = undefined;
+  State.hoverDot = undefined;
   State.selectedIc = undefined;
   State.pendingTerminal = undefined;
 

@@ -1,5 +1,4 @@
 import {State} from "../../state/State";
-import {Utils} from "../../utils/utils";
 import {Ic} from "../ic";
 import {availableParts, partOf} from "../ic-catalog";
 import {components} from "../../nets/derive";
@@ -12,18 +11,17 @@ import {parametricPart} from "../../kicad/project";
 /** Pad colour a fresh grid is created with (resize-grid.ts) — only other colours are saved. */
 const DEFAULT_PAD_COLOR = "#a4a0a0";
 
-const saveBtn = Utils.getSafeHtmlElement<HTMLButtonElement>('saveProjectBtn');
-saveBtn.addEventListener('click', function() {
-  const text = getSaveNetlist(new Date().toISOString());
-  const url = URL.createObjectURL(new Blob([text], {type: "text/plain"}));
-  const downloadAnchorNode = document.createElement('a');
-  downloadAnchorNode.setAttribute("href", url);
-  downloadAnchorNode.setAttribute("download", "perfboard_project.net");
-  document.body.appendChild(downloadAnchorNode); // required for firefox
-  downloadAnchorNode.click();
-  downloadAnchorNode.remove();
+/** Offers `text` to the browser as a file download. */
+export function downloadText(text: string, fileName: string, type = "text/plain") {
+  const url = URL.createObjectURL(new Blob([text], {type}));
+  const a = document.createElement('a');
+  a.setAttribute("href", url);
+  a.setAttribute("download", fileName);
+  document.body.appendChild(a); // required for firefox
+  a.click();
+  a.remove();
   URL.revokeObjectURL(url);
-});
+}
 
 /** Hole index of a board coordinate (pads start at the label gutter + half a pitch). */
 function holeIndex(v: number): number {
@@ -102,9 +100,10 @@ function snapshot(): BoardSnapshot {
 }
 
 /**
- * The whole project as a KiCad netlist (see src/kicad/netlist.ts). `date` is
- * left out of autosaves so an unchanged board serializes to identical text.
+ * The open board as a KiCad netlist (see src/kicad/netlist.ts), `title` (the
+ * board name) as its design source. `date` is left out of autosaves so an
+ * unchanged board serializes to identical text.
  */
-export function getSaveNetlist(date?: string): string {
-  return writeNetlist(snapshotToNetlist(snapshot()), {date});
+export function getSaveNetlist(date?: string, title?: string): string {
+  return writeNetlist(snapshotToNetlist(snapshot()), {date, title});
 }
