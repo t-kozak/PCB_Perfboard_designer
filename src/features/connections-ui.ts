@@ -42,7 +42,7 @@ function renderConnectionsInfo(): void {
 
   const rows = [...byNet.entries()].map(([netId, conns]) => {
     const net = State.nets.find(n => n.id === netId);
-    const header = `<div style="font-size:0.72rem;font-weight:700;color:${net?.color || "var(--text-muted)"};margin-top:6px;">${net?.name ?? "Unassigned"}</div>`;
+    const header = `<div style="font-size:0.72rem;font-weight:700;color:${net?.color || "var(--text-muted)"};margin-top:6px;">${net ? Utils.escapeHtml(net.name) : "Unassigned"}</div>`;
     const items = conns.map(c => `
       <div class="connection-row" data-id="${c.id}" style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.72rem;padding:2px 0;cursor:pointer;${c === State.selectedConnection ? "color:#38bdf8;" : ""}">
         <span>${terminalLabel(c.a)} ↔ ${terminalLabel(c.b)}</span>

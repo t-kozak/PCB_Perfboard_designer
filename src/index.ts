@@ -4,6 +4,7 @@ import "./features/project/save-project";
 import "./features/select";
 import "./features/connect";
 import "./features/project/load-project";
+import "./features/project/parts-library";
 import "./features/hover";
 import "./features/description";
 import "./features/line";

@@ -24,7 +24,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "predeploy": "pnpm run build",
-    "deploy": "pnpm run build && gh-pages -d dist"
+    "deploy": "pnpm run build && gh-pages -d dist",
+    "parts-library": "node scripts/parts-library.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

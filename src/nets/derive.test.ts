@@ -3,6 +3,7 @@ import {
   deriveNets,
   netAtTerminal,
   components,
+  powerNetName,
 } from "./derive";
 import type { IConnection, ITerminal } from "../interfaces/connection.interface";
 import type { Ic } from "../features/ic";
@@ -64,13 +65,56 @@ describe("derive: net naming", () => {
     const ics = [fakeIc("u1", {}, { 1: { x: 0, y: 0 }, 2: { x: 50, y: 0 } })];
     const connections = [conn({ icId: "u1", pin: 1 }, { icId: "u1", pin: 2 })];
     const first = deriveNets(connections, ics);
-    first.nets[0].name = "MY_NET";
+    first.nets[0] = { id: first.nets[0].id, name: "MY_NET" }; // a given (non-auto) name
     for (const c of connections) c.netId = first.connectionNet.get(c);
 
     const second = deriveNets(connections, ics, first.nets);
     expect(second.nets).toHaveLength(1);
     expect(second.nets[0].id).toBe(first.nets[0].id);
     expect(second.nets[0].name).toBe("MY_NET");
+  });
+
+  const twoPins = (labels: Record<number, string>) => [fakeIc("u1", labels, { 1: { x: 0, y: 0 }, 2: { x: 50, y: 0 } })];
+  const link = () => [conn({ icId: "u1", pin: 1 }, { icId: "u1", pin: 2 })];
+
+  it("does not name a net after ordinary pin labels", () => {
+    const { nets } = deriveNets(link(), twoPins({ 1: "1Q", 2: "D" }));
+    expect(nets[0].name).toMatch(/^N\$\d+$/);
+  });
+
+  it("marks derived names auto, and names a net joining both rails GND/VCC", () => {
+    const { nets } = deriveNets(link(), twoPins({ 1: "VCC", 2: "GND" }));
+    expect(nets[0]).toMatchObject({ name: "GND/VCC", auto: true });
+  });
+
+  it("re-derives an auto name on rebuild instead of keeping it", () => {
+    const connections = link();
+    const first = deriveNets(connections, twoPins({}));
+    expect(first.nets[0]).toMatchObject({ name: "N$1", auto: true });
+    for (const c of connections) c.netId = first.connectionNet.get(c);
+    // A GND pin label appears on the net (e.g. the part was swapped).
+    const second = deriveNets(connections, twoPins({ 1: "GND" }), first.nets);
+    expect(second.nets[0]).toMatchObject({ id: first.nets[0].id, name: "GND", auto: true });
+  });
+
+  it("keeps a given name over power pins, and colours it by the rail it names", () => {
+    const connections = link();
+    for (const c of connections) c.netId = "n1";
+    const given = [{ id: "n1", name: "+12V" }];
+    const { nets } = deriveNets(connections, twoPins({ 1: "GND" }), given);
+    expect(nets[0]).toEqual({ id: "n1", name: "+12V", color: "#ef4444" });
+    const plain = deriveNets(connections, twoPins({}), [{ id: "n1", name: "CLK1" }]).nets[0];
+    expect(plain.name).toBe("CLK1");
+    expect(plain.auto).toBeUndefined();
+    expect(plain.color).not.toBe("#ef4444");
+  });
+
+  it.each([
+    ["GND", "GND"], ["AGND", null], ["ground", "GND"], ["VSS", "GND"],
+    ["VCC", "VCC"], ["+5V", "VCC"], ["+12V", "VCC"], ["+3.3V", "VCC"], ["+3V3", "VCC"], ["VBAT", "VCC"],
+    ["1Q", null], ["VL", null], ["", null],
+  ])("powerNetName(%j) → %j", (label, expected) => {
+    expect(powerNetName(label)).toBe(expected);
   });
 });
 

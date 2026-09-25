@@ -1,7 +1,8 @@
-import {getSaveJson} from "./save-project";
+import {getSaveNetlist} from "./save-project";
 
 /**
- * Autosave: persist the whole project to `localStorage['save']` shortly after
+ * Autosave: persist the whole project — as the same KiCad netlist text the
+ * Save button downloads — to `localStorage['save']` shortly after
  * any state mutation, with no user interaction. `redrawCanvas()` runs after
  * every mutation (and on hover), so it is the single call site — we debounce
  * here and skip the write when the serialized project is byte-for-byte
@@ -23,10 +24,10 @@ function flush() {
   timer = undefined;
   firstScheduledAt = 0;
   try {
-    const json = JSON.stringify(getSaveJson());
-    if (json === lastSaved) return;
-    localStorage.setItem("save", json);
-    lastSaved = json;
+    const text = getSaveNetlist();
+    if (text === lastSaved) return;
+    localStorage.setItem("save", text);
+    lastSaved = text;
   } catch (e) {
     console.error("Autosave failed", e);
   }

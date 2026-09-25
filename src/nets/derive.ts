@@ -79,15 +79,20 @@ export function colorFor(index: number): string {
 
 const POWER_PATTERNS: [RegExp, string][] = [
   [/(^|[^a-z])(gnd|ground|vss|vee)([^a-z]|$)/i, "GND"],
-  [/(^|[^a-z])(vcc|vdd|v\+|vbat|vin|\+5v?|\+3v3|\+3\.3v?)([^a-z]|$)/i, "VCC"],
+  // Positive rails: VCC-style names, plus any "+<volts>" rail (+5V, +12V, +3.3V, +3V3).
+  [/(^|[^a-z])(vcc|vdd|v\+|vbat|vin|\+\d+(\.\d+)?v\d*)([^a-z]|$)/i, "VCC"],
 ];
 
-/** A pin-description string reduced to a canonical net name, or null. */
-export function nameFromLabel(info: string | null | undefined): string | null {
+/**
+ * "GND" / "VCC" when a pin label (or a net name) is recognisably a power rail,
+ * else null. Only power pins name a net automatically — a net joining "1Q" to
+ * "D" has no meaningful name to derive, and gluing every pin label together
+ * reads like a short.
+ */
+export function powerNetName(info: string | null | undefined): string | null {
   if (!info) return null;
   for (const [re, name] of POWER_PATTERNS) if (re.test(info)) return name;
-  const slug = info.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  return slug ? slug.slice(0, 12) : null;
+  return null;
 }
 
 /**
@@ -127,10 +132,14 @@ export interface DeriveResult {
 }
 
 /**
- * Group the connection list into nets. Identity and name are carried over from
- * `existing` for any net that still has a terminal in common, so a rebuild
- * keeps net names stable. Colour is a derived palette swatch for the sidebar
- * only (never a wire colour — that lives on `IConnection.color`).
+ * Group the connection list into nets. Identity is carried over from
+ * `existing` for any net that still has a terminal in common, and so is its
+ * name when it was *given* (from a project file) rather than derived. A net
+ * without a given name is named after its power pins ("GND", "VCC", "GND/VCC"
+ * if it joins both), else an anonymous `N$n` — re-derived on every rebuild, so
+ * it tracks the pins actually on the net. Colour is the net's palette swatch
+ * (and its wire colour); a net whose name reads as a power rail gets the fixed
+ * GND / VCC colour.
  */
 export function deriveNets(connections: IConnection[], placedIcs: Ic[], existing: INet[] = []): DeriveResult {
   const resolve = terminalResolver(placedIcs);
@@ -150,28 +159,25 @@ export function deriveNets(connections: IConnection[], placedIcs: Ic[], existing
   let anon = 1;
   for (const comp of components(connections)) {
     const compSet = new Set(comp);
-    const strongNames = new Set<string>();
+    const powerNames = new Set<string>();
     for (const tk of comp) {
-      const name = nameFromLabel(resolve(tk));
-      if (name) strongNames.add(name);
+      const name = powerNetName(resolve(tk));
+      if (name) powerNames.add(name);
     }
 
     const prior = comp.map(t => priorByTerm.get(t)).find(Boolean);
     const id = prior?.id ?? crypto.randomUUID();
-    // A node tying two canonical names together is a short — name it for the
-    // conflict even if it was previously a clean, hand-named net.
-    const derivedName = strongNames.size > 1
-      ? [...strongNames].sort().join("/")
-      : (prior?.name
-        ?? (strongNames.size === 1 ? [...strongNames][0] : undefined)
-        ?? `N$${anon++}`);
+    const given = prior && !prior.auto ? prior.name : undefined;
+    const name = given
+      ?? (powerNames.size ? [...powerNames].sort().join("/") : `N$${anon++}`);
 
     let color = colorFor(nets.length);
-    // GND / VCC get fixed, high-contrast colours against the green board.
-    if (derivedName === "GND") color = "#cbd5e1";
-    else if (derivedName === "VCC") color = "#ef4444";
+    // Power rails get fixed, high-contrast colours against the green board.
+    const rail = powerNetName(name);
+    if (rail === "GND") color = "#cbd5e1";
+    else if (rail === "VCC") color = "#ef4444";
 
-    nets.push({ id, name: derivedName, color });
+    nets.push(given ? { id, name, color } : { id, name, color, auto: true });
 
     for (const c of connections) {
       if (compSet.has(terminalKey(c.a)) || compSet.has(terminalKey(c.b))) connectionNet.set(c, id);

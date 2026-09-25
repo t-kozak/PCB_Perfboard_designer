@@ -13,33 +13,39 @@ export interface PropField {
   placeholder?: string;
   /** When set, the field is a drop-down of these values (plus an empty "—"). */
   options?: string[];
+  /**
+   * This field is the part's *value* — what a KiCad netlist carries in a
+   * component's `(value …)` (10k, 100nF, 1N4007…). At most one per kind; a
+   * kind without one writes its name as the value.
+   */
+  value?: true;
 }
 
-const PART_NUMBER: PropField = {key: "partNumber", label: "Part number", placeholder: "e.g. LM358"};
+const PART_NUMBER: PropField = {key: "partNumber", label: "Part number", placeholder: "e.g. LM358", value: true};
 
 const FIELDS: Record<string, PropField[]> = {
   "resistor": [
-    {key: "resistance", label: "Resistance", placeholder: "e.g. 10kΩ"},
+    {key: "resistance", label: "Resistance", placeholder: "e.g. 10kΩ", value: true},
     {key: "tolerance", label: "Tolerance", options: ["0.1%", "1%", "2%", "5%", "10%"]},
     {key: "power", label: "Power", placeholder: "e.g. 0.25W"},
   ],
   "polyfuse": [
-    {key: "holdCurrent", label: "Hold current", placeholder: "e.g. 500mA"},
+    {key: "holdCurrent", label: "Hold current", placeholder: "e.g. 500mA", value: true},
     {key: "tripCurrent", label: "Trip current", placeholder: "e.g. 1A"},
     {key: "voltage", label: "Max voltage", placeholder: "e.g. 16V"},
   ],
   "cap-ceramic": [
-    {key: "capacitance", label: "Capacitance", placeholder: "e.g. 100nF"},
+    {key: "capacitance", label: "Capacitance", placeholder: "e.g. 100nF", value: true},
     {key: "voltage", label: "Voltage", placeholder: "e.g. 50V"},
     {key: "dielectric", label: "Dielectric", options: ["C0G/NP0", "X7R", "X5R", "Y5V"]},
   ],
   "cap-electrolytic": [
-    {key: "capacitance", label: "Capacitance", placeholder: "e.g. 100µF"},
+    {key: "capacitance", label: "Capacitance", placeholder: "e.g. 100µF", value: true},
     {key: "voltage", label: "Voltage", placeholder: "e.g. 25V"},
   ],
   "diode": [
     {key: "diodeType", label: "Type", options: ["Rectifier", "Signal", "Schottky", "Zener", "TVS"]},
-    {key: "partNumber", label: "Part number", placeholder: "e.g. 1N4007"},
+    {key: "partNumber", label: "Part number", placeholder: "e.g. 1N4007", value: true},
     {key: "zenerVoltage", label: "Zener voltage", placeholder: "e.g. 5.1V"},
   ],
   "led": [
@@ -49,7 +55,7 @@ const FIELDS: Record<string, PropField[]> = {
   ],
   "mosfet": [
     {key: "channel", label: "Channel", options: ["N-channel", "P-channel"]},
-    {key: "partNumber", label: "Part number", placeholder: "e.g. IRLZ44N"},
+    {key: "partNumber", label: "Part number", placeholder: "e.g. IRLZ44N", value: true},
   ],
   "pin-header": [
     {key: "function", label: "Function", placeholder: "e.g. UART, I²C, power in"},
@@ -57,24 +63,39 @@ const FIELDS: Record<string, PropField[]> = {
   "bridge": [],
 };
 
-/** Config fields offered for a component, keyed off its `kind` (LED / MOSFET variants share one set). */
-export function fieldsFor(ic: Ic): PropField[] {
-  if (ic.kind.startsWith("led-")) return FIELDS["led"];
-  if (ic.kind.startsWith("mosfet-")) return FIELDS["mosfet"];
-  return FIELDS[ic.kind] ?? [PART_NUMBER];
+/** Config fields offered for a kind (LED / MOSFET variants share one set). */
+export function fieldsForKind(kind: string): PropField[] {
+  if (kind.startsWith("led-")) return FIELDS["led"];
+  if (kind.startsWith("mosfet-")) return FIELDS["mosfet"];
+  return FIELDS[kind] ?? [PART_NUMBER];
+}
+
+/** Config fields offered for a component, keyed off its `kind`. */
+export function fieldsFor(ic: {kind: string}): PropField[] {
+  return fieldsForKind(ic.kind);
+}
+
+/** The field a netlist `(value …)` maps to for a kind, if any (see `PropField.value`). */
+export function valueFieldForKind(kind: string): PropField | undefined {
+  return fieldsForKind(kind).find(f => f.value);
 }
 
 /** Reference-designator prefix for a kind; "" for a bridge, which gets no label by default. */
-export function designatorPrefix(ic: Ic): string {
-  if (ic.isBridge) return "";
-  if (ic.kind === "resistor") return "R";
-  if (ic.kind === "polyfuse") return "F";
-  if (ic.kind.startsWith("cap-")) return "C";
-  if (ic.kind === "diode" || ic.kind.startsWith("led-")) return "D";
-  if (ic.kind.startsWith("mosfet-")) return "Q";
-  if (ic.kind === "pin-header") return "J";
-  if (ic.kind === "button") return "SW";
+export function designatorPrefixForKind(kind: string): string {
+  if (kind === "bridge") return "";
+  if (kind === "resistor") return "R";
+  if (kind === "polyfuse") return "F";
+  if (kind.startsWith("cap-")) return "C";
+  if (kind === "diode" || kind.startsWith("led-")) return "D";
+  if (kind.startsWith("mosfet-")) return "Q";
+  if (kind === "pin-header") return "J";
+  if (kind === "button") return "SW";
   return "U";
+}
+
+/** Reference-designator prefix for a component — see `designatorPrefixForKind`. */
+export function designatorPrefix(ic: {kind: string}): string {
+  return designatorPrefixForKind(ic.kind);
 }
 
 /**

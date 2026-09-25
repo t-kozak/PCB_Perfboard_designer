@@ -1,19 +1,17 @@
-import {redrawCanvas} from "../draw-canvas";
-import {IProjectSave} from "../../interfaces/project-save.interface";
-import {loadProject} from "./load-project";
+import {loadProjectText} from "./load-project";
 import {armAutosave} from "./autosave";
-window.addEventListener('DOMContentLoaded', () => {
-  if(localStorage.getItem('save') !== null) {
-    try {
-      console.log("loaad...")
-      const save: IProjectSave = JSON.parse(localStorage.getItem('save') as any) as IProjectSave
-      loadProject(save);
-      redrawCanvas();
-    }catch (e){
-      console.error(e)
-      console.log("Cant load save from local storage.")
-    }
 
+// Restores the autosaved project (a netlist, or a legacy JSON save from before
+// the netlist format) on startup.
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('save');
+  if (saved !== null) {
+    try {
+      const warnings = loadProjectText(saved);
+      if (warnings.length) console.warn("Autosave restored with warnings:\n" + warnings.join("\n"));
+    } catch (e) {
+      console.error("Can't load the autosaved project from local storage.", e);
+    }
   }
   // Everything now in place (blank board or restored project) — start autosaving.
   armAutosave();

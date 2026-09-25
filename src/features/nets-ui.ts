@@ -1,4 +1,5 @@
 import { State } from "../state/State";
+import { Utils } from "../utils/utils";
 
 // Sidebar "Nets" panel (solder side): the derived net list.
 // Nets are recomputed automatically on every connection/component mutation and
@@ -20,7 +21,7 @@ function renderNetInfo(): void {
     .map(n => {
       return `<div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;padding:2px 0;">
         <span style="width:10px;height:10px;border-radius:2px;flex:0 0 auto;background:${n.color || "#888"};"></span>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.name}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${Utils.escapeHtml(n.name)}</span>
       </div>`;
     })
     .join("");

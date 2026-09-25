@@ -31,10 +31,11 @@
               Save Image
             </button>
             <button id="saveProjectBtn" class="btn-accent">Save Project</button>
-            <button id="loadProjectTrigger" class="btn">Load Project</button>
+            <button id="loadProjectTrigger" class="btn" title="Open a project (.net KiCad netlist, or an older .json save)">Load Project</button>
+            <button id="partsLibraryBtn" class="btn" title="Download the parts list and netlist rules (Markdown) for writing a project by hand or with an LLM">Parts Library</button>
             <button id="resetBtn" class="btn-danger">Reset</button>
           </div>
-          <input type="file" id="loadProjectBtn" style="display:none">
+          <input type="file" id="loadProjectBtn" accept=".net,.json" style="display:none">
         </div>
       </div>
 

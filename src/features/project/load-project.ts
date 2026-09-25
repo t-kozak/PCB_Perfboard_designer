@@ -14,6 +14,11 @@ import {syncRoutingModeButtons} from "../routing";
 import {syncGridInputs} from "./resize-grid";
 import {updateSidebarVisibility} from "../sidebar-mode";
 import {assignMissingDesignators} from "../component-props";
+import {availableParts, icFromPart} from "../ic-catalog";
+import {parseNetlist} from "../../kicad/netlist";
+import {Extent, planProject, ProjectPlan} from "../../kicad/project";
+import type {CatalogPart} from "../../catalog/parts";
+import {createDotGrid} from "./resize-grid";
 
 const loadInput = Utils.getSafeHtmlElement<HTMLButtonElement>('loadProjectBtn');
 const loadTrigger = Utils.getSafeHtmlElement<HTMLButtonElement>('loadProjectTrigger');
@@ -29,17 +34,137 @@ loadInput.addEventListener('change', function(e) {
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    const contents = String(e.target?.result ?? "");
-    const data = JSON.parse(contents) as IProjectSave;
-
-    // Load the state of the canvas from the uploaded file
-    loadProject(data)
-
-    // Redraw the canvas
-    redrawCanvas();
+    try {
+      const warnings = loadProjectText(String(e.target?.result ?? ""));
+      if (warnings.length) {
+        const shown = warnings.slice(0, 20);
+        if (warnings.length > shown.length) shown.push(`…and ${warnings.length - shown.length} more (see the console).`);
+        console.warn("Project loaded with warnings:\n" + warnings.join("\n"));
+        alert(`Loaded with ${warnings.length} warning(s):\n\n${shown.join("\n")}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`Could not load ${file.name}: ${err instanceof Error ? err.message : err}`);
+    }
   };
   reader.readAsText(file);
+  // Let the same file be picked again (e.g. after editing it).
+  loadInput.value = "";
 });
+
+/**
+ * Loads a project from file / localStorage text: a KiCad netlist (the current
+ * format — see src/kicad/netlist.ts), or a legacy JSON save (v1–v5). Returns
+ * the warnings from reading a netlist (guessed parts, unmapped pins…); throws
+ * on unreadable input without touching the board.
+ */
+export function loadProjectText(text: string): string[] {
+  if (text.trimStart().startsWith("{")) {
+    loadProject(JSON.parse(text) as IProjectSave);
+    return [];
+  }
+  return loadNetlistProject(text);
+}
+
+/** Overhang of a part's drawn body past its pin footprint, in whole holes — so auto-placement leaves room for artwork. */
+function extentOf(part: CatalogPart): Extent {
+  const ic = icFromPart(part);
+  ic.topLeftDot = {x: 0, y: 0};
+  const r = ic.bodyRect();
+  const pitch = State.dotSpace;
+  const spanW = (part.widthPin - 1) * pitch;
+  const spanH = (part.heightPin - 1) * pitch;
+  // Up to half a pitch of overhang still sits between holes.
+  const holes = (px: number) => Math.max(0, Math.ceil((px - pitch / 2) / pitch));
+  return {left: holes(-r.x), top: holes(-r.y), right: holes(r.x + r.w - spanW), bottom: holes(r.y + r.h - spanH)};
+}
+
+function loadNetlistProject(text: string): string[] {
+  const netlist = parseNetlist(text);
+
+  // Custom parts carried by the file join the sidebar catalog (not localStorage), as legacy saves did.
+  for (const part of netlist.perfboard?.customParts ?? []) {
+    if (!Ic.IC_CONTAINER.some(ic => ic.partId === part.id)) Ic.IC_CONTAINER.push(icFromPart(part, true));
+  }
+  Ic.showICs();
+
+  const plan = planProject(netlist, availableParts(), {extentOf});
+  applyPlan(plan);
+  return plan.warnings;
+}
+
+/** Replaces the board with a netlist plan: grid, pads, components, connections. */
+function applyPlan(plan: ProjectPlan) {
+  const {board} = plan;
+  if (board.colLabels) State.colLabelMode = board.colLabels;
+  if (board.rowLabels) State.rowLabelMode = board.rowLabels;
+  if (board.rowsBottomUp !== undefined) State.rowLabelsBottomUp = board.rowsBottomUp;
+  State.routingMode = board.routing === "direct" ? "direct" : "orthogonal";
+  createDotGrid(board.cols, board.rows);
+  syncGridInputs(board.cols, board.rows);
+
+  const origin = State.gridGutter + State.dotSpace / 2;
+  const dotAt = new Map<string, IDot>();
+  for (const d of State.dots) dotAt.set(`${(d.x - origin) / State.dotSpace},${(d.y - origin) / State.dotSpace}`, d);
+  for (const pad of plan.pads) {
+    const dot = dotAt.get(`${pad.col},${pad.row}`);
+    if (dot) dot.color = pad.color;
+  }
+
+  const icByRef = new Map<string, Ic>();
+  State.placedIcs = [];
+  for (const c of plan.components) {
+    const ic = icFromPart(c.part, c.part.id.startsWith("custom-"));
+    for (let r = 0; r < c.rotation; r += 90) ic.rotate();
+    ic.topLeftDot = dotAt.get(`${c.col},${c.row}`) ?? null;
+    ic.label = c.label;
+    ic.config = {...c.config};
+    ic.description = c.note;
+    State.placedIcs.push(ic);
+    icByRef.set(c.ref, ic);
+  }
+  assignMissingDesignators(State.placedIcs);
+
+  // A named file net becomes a given-name INet its connections point at, so
+  // rebuildNets() keeps the name; an unnamed one is left for it to derive.
+  const netIds = plan.nets.map(n => (n.name ? crypto.randomUUID() : undefined));
+  State.nets = plan.nets.flatMap((n, i) => (n.name ? [{id: netIds[i]!, name: n.name}] : []));
+  State.connections = [];
+  for (const {a, b, net} of plan.connections) {
+    const ta: ITerminal = {icId: icByRef.get(a.ref)!.id, pin: a.pin};
+    const tb: ITerminal = {icId: icByRef.get(b.ref)!.id, pin: b.pin};
+    const conn = makeConnection(ta, tb);
+    if (conn && !State.connections.some(c => sameConnection(c, conn.a, conn.b))) {
+      conn.netId = netIds[net];
+      State.connections.push(conn);
+    }
+  }
+
+  State.lines = [];
+  State.changes = [];
+  State.changeIndex = -1;
+  finishLoad();
+}
+
+/** Selection reset + derived-state rebuild shared by both loaders. */
+function finishLoad() {
+  State.selectedPlacedIc = undefined;
+  State.selectedPlacedIcs = [];
+  State.selectedDot = undefined;
+  State.selectedConnection = undefined;
+  State.hoverConnection = undefined;
+  State.selectedIc = undefined;
+  State.pendingTerminal = undefined;
+
+  // Nets are fully derived — rebuild from the connection list.
+  rebuildNets();
+  invalidateWireCache();
+  syncRoutingModeButtons();
+
+  window.dispatchEvent(new Event('nets-changed'));
+  updateSidebarVisibility();
+  redrawCanvas();
+}
 
 export function deserializePlacedIc(data: any, migrateIds = false): Ic | null {
   if (!data || data.widthPin == null || data.heightPin == null) return null;
@@ -56,6 +181,10 @@ export function deserializePlacedIc(data: any, migrateIds = false): Ic | null {
   // imageScale*/imageOffset* are a component-definition constant (visual fit
   // of its artwork), not per-placement data — pull the current value from the
   // catalog rather than freezing whatever it was at save time (see ic.ts).
+  // Saves from before catalog ids get theirs back by (built-in) name.
+  ic.partId = data.partId
+    ? String(data.partId)
+    : Ic.IC_CONTAINER.find(c => !c.isCustom && c.name === ic.name)?.partId;
   const catalogMatch = Ic.IC_CONTAINER.find(c => c.imageSrc && c.imageSrc === ic.imageSrc);
   if (catalogMatch) {
     ic.imageScaleX = catalogMatch.imageScaleX;
@@ -163,6 +292,7 @@ function addLabelGutter(project: IProjectSave, dots: IDot[]) {
   Canvas.setBoardSize(Canvas.boardWidth + shiftX, Canvas.boardHeight + shiftY);
 }
 
+/** Loads a legacy (pre-netlist) JSON save. */
 export function loadProject(project: IProjectSave){
   const legacy = !project.version || project.version < 2;
   const preConnections = !project.version || project.version < 3;
@@ -212,6 +342,7 @@ export function loadProject(project: IProjectSave){
       const inst = unserialize(raw, Ic);
       if (!inst.isCustom) continue;
       inst.id = legacy || inst.id == null ? crypto.randomUUID() : String(inst.id);
+      inst.partId = `custom-${inst.id}`;
       if (!Ic.IC_CONTAINER.some(c => String(c.id) === String(inst.id))) {
         Ic.IC_CONTAINER.push(inst);
       }
@@ -240,19 +371,5 @@ export function loadProject(project: IProjectSave){
     State.connections = project.connections ?? [];
   }
 
-  State.selectedPlacedIc = undefined;
-  State.selectedPlacedIcs = [];
-  State.selectedDot = undefined;
-  State.selectedConnection = undefined;
-  State.selectedIc = undefined;
-  State.pendingTerminal = undefined;
-
-  // Nets are fully derived now — rebuild from the connection list.
-  rebuildNets();
-  invalidateWireCache();
-  syncRoutingModeButtons();
-
-  window.dispatchEvent(new Event('nets-changed'));
-  updateSidebarVisibility();
-  redrawCanvas();
+  finishLoad();
 }

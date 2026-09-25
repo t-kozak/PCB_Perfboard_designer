@@ -30,6 +30,13 @@ export class Ic{
   /** Reference designator ("R1", "C2", "U1") of a placed component — see component-props.ts. */
   public label?: string;
 
+  /**
+   * Stable catalog identity ("resistor", "ne555", "dip-28"…) — see
+   * src/catalog/parts.ts. Written into a project file as the component's
+   * `Perfboard:<partId>` footprint. Unset on custom parts.
+   */
+  public partId?: string;
+
   /** Typed properties of a placed component (resistance, capacitance…), keyed by the fields in component-props.ts. Empty values are not stored. */
   public config: Record<string, string> = {};
 
@@ -145,6 +152,7 @@ export class Ic{
   }
 
   static add(ic: Ic, saveToStorage = false){
+    if (ic.isCustom) ic.partId ??= `custom-${ic.id}`;
     this.IC_CONTAINER.push(ic);
     if (saveToStorage) {
       this.saveCustomIcsToLocalStorage();
@@ -225,6 +233,7 @@ export class Ic{
         if (!Ic.IC_CONTAINER.some(ic => String(ic.id) === String(data.id))) {
           const newIc = new Ic(data.widthPin, data.heightPin, data.pinDescription || {}, data.name, data.category || "Other", true, data.kind || "chip", data.imageSrc, data.imageScaleX ?? 1, data.imageScaleY ?? 1, data.imageOffsetX ?? 0, data.imageOffsetY ?? 0);
           newIc.id = String(data.id);
+          newIc.partId = `custom-${newIc.id}`;
           Ic.IC_CONTAINER.push(newIc);
         }
       }
@@ -371,7 +380,7 @@ export class Ic{
    * larger than the pin span (e.g. a wide breakout board on a single pin row) —
    * without this, such a component would be nearly impossible to grab.
    */
-  private bodyRect(): { x: number; y: number; w: number; h: number } {
+  bodyRect(): { x: number; y: number; w: number; h: number } {
     const spanW = 50 * (this.widthPin - 1);
     const spanH = 50 * (this.heightPin - 1);
     if (!this.topLeftDot) return { x: 0, y: 0, w: spanW, h: spanH };
@@ -1008,6 +1017,7 @@ export class Ic{
 
   clone(): Ic {
     const copy = new Ic(this.widthPin, this.heightPin, { ...this.pinDescription }, this.name, this.category, this.isCustom, this.kind, this.imageSrc, this.imageScaleX, this.imageScaleY, this.imageOffsetX, this.imageOffsetY);
+    copy.partId = this.partId;
     return copy;
   }
 
