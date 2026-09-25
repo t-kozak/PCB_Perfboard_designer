@@ -114,6 +114,11 @@ const DEFAULT_ICS: IcCatalogEntry[] = [
   {widthPin: 2, heightPin: 2, pinDescription: "1: 2: 3: 4:", name: "Pin Header 2x2", kind: "pin-header", category: "Connector"},
   {widthPin: 3, heightPin: 2, pinDescription: "1: 2: 3: 4: 5: 6:", name: "Pin Header 2x3", kind: "pin-header", category: "Connector"},
 
+  // Tactile push button: 2x3-hole footprint, a leg in each of the four corners
+  // (pins 1-4 run down the left side, up the right — see ic-geometry.ts's
+  // corner layout). Custom-rendered: see Ic.drawButtonBody.
+  {widthPin: 2, heightPin: 3, pinDescription: "1: 2: 3: 4:", name: "Push Button", kind: "button", category: "Switch"},
+
   // Seeed XIAO ESP32-C6: 7 pins per side, footprint 7 holes wide (only the
   // outer left/right columns are real pins — widthPin=7 just spaces them to
   // match the physical module width on the 0.1" grid).

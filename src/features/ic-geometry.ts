@@ -19,6 +19,14 @@ const LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", 
 /** Kinds laid out as a full rectangular pin grid (see isGridLayout) rather than the two-sided DIP perimeter. */
 const GRID_KINDS = ["pin-header"];
 
+/** Kinds whose pins sit only at the four corners of the footprint (see pinCountOf), e.g. a tactile button. */
+const CORNER_KINDS = ["button"];
+
+/** True for a two-sided part that only has a pin in the first and last row of each side (a 4-leg tactile button). */
+function isCornerLayout(geo: Pick<IcGeometry, "kind">): boolean {
+  return CORNER_KINDS.includes(geo.kind);
+}
+
 /**
  * True for a component whose every hole in the widthPin x heightPin footprint
  * is a pin (e.g. a 2x3 Dupont-style pin header), rather than only the two
@@ -56,6 +64,7 @@ export function pinCountOf(geo: Pick<IcGeometry, "kind" | "widthPin" | "heightPi
   if (geo.kind === "bridge") return 1;
   if (isGridLayout(geo)) return geo.widthPin * geo.heightPin;
   if (isRowLayout(geo)) return Math.max(geo.widthPin, geo.heightPin);
+  if (isCornerLayout(geo)) return 4;
   const perSide = geo.rotationAngle === 90 || geo.rotationAngle === 270 ? geo.widthPin : geo.heightPin;
   return perSide * 2;
 }
@@ -81,16 +90,29 @@ function dipDims0(geo: Pick<IcGeometry, "widthPin" | "heightPin" | "rotationAngl
   return swapped ? { w0: geo.heightPin, h0: geo.widthPin } : { w0: geo.widthPin, h0: geo.heightPin };
 }
 
-/** 0°-frame cell `(col0, row0)` of a pin (null when out of range). */
-function dipCell0(pin: number, w0: number, h0: number): { col0: number; row0: number } | null {
-  if (pin >= 1 && pin <= h0) return { col0: 0, row0: pin - 1 };
-  if (pin > h0 && pin <= 2 * h0) return { col0: w0 - 1, row0: 2 * h0 - pin };
+/**
+ * 0°-frame cell `(col0, row0)` of a pin (null when out of range). With
+ * `corners` each side carries only two pins — its first and last row — but the
+ * numbering keeps the DIP order (down the left, up the right).
+ */
+function dipCell0(pin: number, w0: number, h0: number, corners: boolean): { col0: number; row0: number } | null {
+  const perSide = corners ? 2 : h0;
+  const rowOf = (i: number) => (corners && i === 1 ? h0 - 1 : i);
+  if (pin >= 1 && pin <= perSide) return { col0: 0, row0: rowOf(pin - 1) };
+  if (pin > perSide && pin <= 2 * perSide) return { col0: w0 - 1, row0: rowOf(2 * perSide - pin) };
   return null;
 }
 
 /** Pin number sitting at a 0°-frame cell (null when the cell carries no pin). */
-function dipPinAtCell0(col0: number, row0: number, w0: number, h0: number): number | null {
+function dipPinAtCell0(col0: number, row0: number, w0: number, h0: number, corners: boolean): number | null {
   if (row0 < 0 || row0 >= h0) return null;
+  if (corners) {
+    if (row0 !== 0 && row0 !== h0 - 1) return null;
+    const i = row0 === 0 ? 0 : 1;
+    if (col0 === 0) return i + 1;
+    if (col0 === w0 - 1) return 4 - i;
+    return null;
+  }
   if (col0 === 0) return row0 + 1;
   if (col0 === w0 - 1) return 2 * h0 - row0;
   return null;
@@ -144,7 +166,7 @@ export function pinAtDot(geo: IcGeometry, dot: { x: number; y: number }): number
   const row = Math.round((dot.y - topLeftDot.y) / 50);
   if (col < 0 || col >= widthPin || row < 0 || row >= heightPin) return null;
   const { col0, row0 } = dipUnrotateCell(col, row, w0, h0, rotationAngle);
-  return dipPinAtCell0(col0, row0, w0, h0);
+  return dipPinAtCell0(col0, row0, w0, h0, isCornerLayout(geo));
 }
 
 /** pin -> pad. The inverse of `pinAtDot`. Null for a pin number outside the component's range. */
@@ -169,7 +191,7 @@ export function dotForPin(geo: IcGeometry, pin: number): { x: number; y: number 
   // DIP perimeter, any rotation: place the pin in the 0° frame, then apply the
   // rigid clockwise rotation for the current angle.
   const { w0, h0 } = dipDims0(geo);
-  const cell0 = dipCell0(pin, w0, h0);
+  const cell0 = dipCell0(pin, w0, h0, isCornerLayout(geo));
   if (!cell0) return null;
   const { col, row } = dipRotateCell(cell0.col0, cell0.row0, w0, h0, rotationAngle);
   return { x: topLeftDot.x + col * 50, y: topLeftDot.y + row * 50 };

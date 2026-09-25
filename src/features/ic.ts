@@ -120,6 +120,7 @@ export class Ic{
       case "cap-electrolytic": return "🛢️";
       case "bridge": return "•";
       case "pin-header": return "🔌";
+      case "button": return "🔘";
       case "led-red": return "🔴";
       case "led-green": return "🟢";
       case "led-blue": return "🔵";
@@ -399,6 +400,11 @@ export class Ic{
       }
       return { x: this.topLeftDot.x - pad, y: this.topLeftDot.y - pad, w: spanW + pad * 2, h: spanH + pad * 2 };
     }
+    if (this.kind === "button") {
+      // Housing overhangs the corner legs a little (rotation-safe: widthPin/heightPin swap together with the angle).
+      const pad = 8;
+      return { x: this.topLeftDot.x - pad, y: this.topLeftDot.y - pad, w: spanW + pad * 2, h: spanH + pad * 2 };
+    }
     const spanRect = { x: this.topLeftDot.x, y: this.topLeftDot.y, w: spanW, h: spanH };
     if (!this.imageSrc) return spanRect;
     const img = this.imageBounds(spanW, spanH);
@@ -656,9 +662,58 @@ export class Ic{
     }
   }
 
+  /**
+   * Draws a tactile push button: a silver housing with a black round cap
+   * (80% of the housing's short side) in the middle. The four corner legs are
+   * painted on top as amber pin markers by `redrawCanvas()`, like any other
+   * component pin. Symmetric, so like the pin header it is drawn axis-aligned
+   * without a canvas rotation.
+   */
+  private drawButtonBody(isSelected: boolean) {
+    if (!this.topLeftDot) return;
+    const ctx = Canvas.ctx;
+    const { x, y, w, h } = this.bodyRect();
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const capR = Math.min(w, h) * 0.8 / 2;
+
+    ctx.save();
+    const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+    grad.addColorStop(0, "#e5e7eb");
+    grad.addColorStop(1, "#9ca3af");
+    ctx.beginPath();
+    this.roundRectPath(x, y, w, h, 6);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#6b7280";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, capR, 0, Math.PI * 2);
+    ctx.fillStyle = "#111111";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#374151";
+    ctx.stroke();
+
+    // Soft highlight so the cap reads as a dome rather than a flat hole.
+    ctx.beginPath();
+    ctx.arc(cx - capR * 0.3, cy - capR * 0.3, capR * 0.35, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fill();
+    ctx.restore();
+  }
+
   drawBody(){
     if (!this.topLeftDot) return;
     const isSelected = this.isSelected;
+
+    if (this.kind === "button") {
+      this.drawButtonBody(isSelected);
+      if (isSelected) this.drawSelectionHandles();
+      return;
+    }
 
     if (this.isBridge) {
       this.drawBridgeBody(isSelected);
@@ -836,7 +891,7 @@ export class Ic{
     const centerX = rect.x + (rect.w / 2);
     // Leaded parts and pin headers are small enough that a centered badge
     // would fully cover the body/pins, so their label floats above it instead.
-    const labelAbove = this.isLeaded || this.kind === "pin-header";
+    const labelAbove = this.isLeaded || this.kind === "pin-header" || this.kind === "button";
     const centerY = labelAbove ? rect.y - 12 : rect.y + (rect.h / 2);
 
     const text = this.label ? `${this.label} · ${this.name}` : this.name;

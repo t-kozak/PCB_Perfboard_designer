@@ -14,6 +14,7 @@ const SHAPES: Array<{ kind: string; widthPin: number; heightPin: number }> = [
   { kind: "resistor", widthPin: 4, heightPin: 1 },
   { kind: "cap-ceramic", widthPin: 2, heightPin: 1 },
   { kind: "cap-electrolytic", widthPin: 2, heightPin: 1 },
+  { kind: "button", widthPin: 2, heightPin: 3 }, // Push Button (corner-only pins)
 ];
 const ROTATIONS = [0, 90, 180, 270];
 const topLeftDot = { x: 150, y: 250 };
@@ -101,5 +102,23 @@ describe("ic-geometry: pinDot <-> getPinPositionOnIC round trip", () => {
     expect(isRowLayout({ kind: "bridge", widthPin: 1, heightPin: 1 })).toBe(false);
     const resistor: IcGeometry = { topLeftDot, widthPin: 4, heightPin: 1, rotationAngle: 0, kind: "resistor" };
     expect(pinCountOf(resistor)).toBe(2);
+  });
+});
+
+describe("ic-geometry: corner-only layout (button)", () => {
+  const geo: IcGeometry = { topLeftDot, rotationAngle: 0, kind: "button", widthPin: 2, heightPin: 3 };
+
+  it("has four pins, one in each corner of the 2x3 footprint", () => {
+    expect(pinCountOf(geo)).toBe(4);
+    expect(dotForPin(geo, 1)).toEqual({ x: 150, y: 250 });
+    expect(dotForPin(geo, 2)).toEqual({ x: 150, y: 350 });
+    expect(dotForPin(geo, 3)).toEqual({ x: 200, y: 350 });
+    expect(dotForPin(geo, 4)).toEqual({ x: 200, y: 250 });
+  });
+
+  it("treats the middle-row holes as plain holes, not pins", () => {
+    expect(pinAtDot(geo, { x: 150, y: 300 })).toBeNull();
+    expect(pinAtDot(geo, { x: 200, y: 300 })).toBeNull();
+    expect(dotForPin(geo, 5)).toBeNull();
   });
 });

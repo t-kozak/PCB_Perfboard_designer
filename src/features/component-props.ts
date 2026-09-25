@@ -73,6 +73,7 @@ export function designatorPrefix(ic: Ic): string {
   if (ic.kind === "diode" || ic.kind.startsWith("led-")) return "D";
   if (ic.kind.startsWith("mosfet-")) return "Q";
   if (ic.kind === "pin-header") return "J";
+  if (ic.kind === "button") return "SW";
   return "U";
 }
 
