@@ -137,8 +137,9 @@ const ENTRIES: CatalogEntry[] = [
 
   // Tactile push button: 2x3-hole footprint, a leg in each of the four corners
   // (pins 1-4 run down the left side, up the right — see ic-geometry.ts's
-  // corner layout). Custom-rendered: see Ic.drawButtonBody.
-  {id: "push-button", widthPin: 2, heightPin: 3, pinDescription: "1: 2: 3: 4:", name: "Push Button", kind: "button", category: "Switch"},
+  // corner layout). The housing is drawn as a square on the 3-hole short side,
+  // with the legs sticking out past it lengthwise. Custom-rendered: see Ic.drawButtonBody.
+  {id: "push-button", widthPin: 3, heightPin: 4, pinDescription: "1: 2: 3: 4:", name: "Push Button", kind: "button", category: "Switch"},
 
   // Seeed XIAO ESP32-C6: 7 pins per side, footprint 7 holes wide (only the
   // outer left/right columns are real pins — widthPin=7 just spaces them to

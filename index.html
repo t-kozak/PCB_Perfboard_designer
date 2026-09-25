@@ -25,10 +25,6 @@
           <span class="collapse-chevron">▾</span>
         </div>
         <div class="section-body" id="projectSection">
-          <div class="board-row">
-            <select id="boardSelect" aria-label="Board" title="The board you are editing"></select>
-            <button id="addBoardBtn" class="btn" title="Add an empty board to the project">＋ Add Board</button>
-          </div>
           <div class="project-grid">
             <div class="menu-anchor">
               <button id="exportBtn" class="btn-primary" aria-haspopup="menu" aria-expanded="false">
@@ -55,6 +51,19 @@
             <button id="newProjectBtn" class="btn-danger" title="Discard every board and start over">New Project</button>
           </div>
           <input type="file" id="importInput" accept=".perfboard,.net,.json" hidden>
+        </div>
+      </div>
+
+      <!-- Boards -->
+      <div class="sidebar-section">
+        <div class="section-title" data-collapse="boardsSection">
+          <span class="section-icon">🟩</span>
+          <span>Boards</span>
+          <button id="addBoardBtn" class="ic-add-btn" title="Add an empty board to the project" aria-label="Add board" onclick="event.stopPropagation()">＋</button>
+          <span class="collapse-chevron">▾</span>
+        </div>
+        <div class="section-body" id="boardsSection">
+          <ul id="boardList" class="board-list" aria-label="Boards" title="Click to open a board, double-click to rename it"></ul>
         </div>
       </div>
 

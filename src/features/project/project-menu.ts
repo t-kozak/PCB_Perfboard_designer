@@ -1,47 +1,17 @@
 import {Utils} from "../../utils/utils";
-import {
-  activeBoardIndex, activeBoardName, addBoard, BOARDS_CHANGED, boardNames, importText, nextBoardName,
-  projectHasWork, serializeProject, switchBoard,
-} from "./boards";
+import {activeBoardName, importText, projectHasWork, serializeProject} from "./boards";
 import {downloadText, getSaveNetlist} from "./save-project";
 import {downloadAsImage} from "./save-image";
 import {isProjectFile} from "../../kicad/project-file";
 
-// The Project sidebar section: board picker + Add Board, the Export menu
-// (board → PNG, board → KiCad netlist, whole project) and Import (button or
-// drag-and-drop a file anywhere on the page).
+// The Project sidebar section: the Export menu (board → PNG, board → KiCad
+// netlist, whole project) and Import (button or drag-and-drop a file anywhere
+// on the page). The board list lives in boards-ui.ts.
 
-const boardSelect = Utils.getSafeHtmlElement<HTMLSelectElement>('boardSelect');
-const addBoardBtn = Utils.getSafeHtmlElement<HTMLButtonElement>('addBoardBtn');
 const exportBtn = Utils.getSafeHtmlElement<HTMLButtonElement>('exportBtn');
 const exportMenu = Utils.getSafeHtmlElement<HTMLDivElement>('exportMenu');
 const importBtn = Utils.getSafeHtmlElement<HTMLButtonElement>('importBtn');
 const importInput = Utils.getSafeHtmlElement<HTMLInputElement>('importInput');
-
-// --- Boards --------------------------------------------------------------
-
-function renderBoards() {
-  boardSelect.replaceChildren(...boardNames().map((name, i) => new Option(name, String(i))));
-  boardSelect.value = String(activeBoardIndex());
-}
-
-window.addEventListener(BOARDS_CHANGED, renderBoards);
-renderBoards();
-
-boardSelect.addEventListener('change', () => {
-  try {
-    reportWarnings(switchBoard(Number(boardSelect.value)), activeBoardName());
-  } catch (err) {
-    console.error(err);
-    alert(`Could not open that board: ${err instanceof Error ? err.message : err}`);
-  }
-  boardSelect.blur(); // let the canvas shortcuts have the keyboard back
-});
-
-addBoardBtn.addEventListener('click', () => {
-  const name = prompt("Name of the new board:", nextBoardName())?.trim();
-  if (name) addBoard(name);
-});
 
 // --- Export ----------------------------------------------------------------
 
@@ -87,7 +57,8 @@ document.addEventListener('keydown', e => {
 
 // --- Import ----------------------------------------------------------------
 
-function reportWarnings(warnings: string[], what: string) {
+/** Alerts (and logs) the warnings a board/project load produced. */
+export function reportWarnings(warnings: string[], what: string) {
   if (!warnings.length) return;
   const shown = warnings.slice(0, 20);
   if (warnings.length > shown.length) shown.push(`…and ${warnings.length - shown.length} more (see the console).`);

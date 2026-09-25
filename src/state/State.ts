@@ -69,6 +69,11 @@ export class State {
   static selectedPlacedIcs: Ic[] = [];
   static hoverIc?: Ic;
   static isDraggingIc = false;
+  /**
+   * Copies made by Duplicate (`d`) that are still following the cursor, waiting
+   * for the click that drops them — see features/duplicate.ts. Empty otherwise.
+   */
+  static placingDuplicates: Ic[] = [];
 
   static activeToolMode: 'select' | 'connect' | 'ic' = 'select';
   static selectedWireWidth = 4;

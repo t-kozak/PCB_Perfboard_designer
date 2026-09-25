@@ -169,6 +169,40 @@ export function addBoard(name: string) {
   notify();
 }
 
+/** Renames a board. A blank name is ignored. */
+export function renameBoard(index: number, name: string) {
+  const slot = boards[index];
+  name = name.trim();
+  if (!slot || !name || name === slot.name) return;
+  slot.name = name;
+  notify();
+}
+
+/**
+ * Removes a board. The last board can't be removed. Removing the open board
+ * opens its neighbour first (the next one, else the previous); if that board's
+ * saved text can't be read this throws and nothing is removed.
+ */
+export function removeBoard(index: number): string[] {
+  if (boards.length <= 1 || !boards[index]) return [];
+  let warnings: string[] = [];
+  if (index === active) {
+    const next = index + 1 < boards.length ? index + 1 : index - 1;
+    stashActive(); // so a failed open can put this board back
+    try {
+      warnings = openSlot(boards[next]);
+    } catch (e) {
+      openSlot(boards[index]);
+      throw e;
+    }
+    active = next;
+  }
+  boards.splice(index, 1);
+  if (active > index) active--;
+  notify();
+  return warnings;
+}
+
 /** Discards every board and starts over with one empty board. */
 export function newProject() {
   boards = [{name: "Board 1", text: ""}];

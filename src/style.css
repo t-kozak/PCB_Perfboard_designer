@@ -372,34 +372,84 @@ body {
   gap: 0.5rem;
 }
 
-/* Board picker + Add Board, above the project actions */
-.board-row {
+/* Boards section (boards-ui.ts): one row per board, trash on the right */
+.board-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.board-row select {
+.board-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.board-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.board-item.active {
+  background-color: rgba(6, 182, 212, 0.12);
+  border-color: rgba(6, 182, 212, 0.45);
+  color: var(--text-main);
+}
+
+.board-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-rename-input {
   flex: 1;
   min-width: 0;
   background-color: #1f2937;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--accent-blue);
   color: var(--text-main);
-  border-radius: 8px;
-  padding: 0.45rem 0.6rem;
-  font-size: 0.85rem;
+  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
+  font: inherit;
   outline: none;
-  cursor: pointer;
-}
-
-.board-row select:focus {
-  border-color: var(--accent-blue);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
 }
 
-.board-row button {
+.board-delete {
   flex-shrink: 0;
-  white-space: nowrap;
+  display: flex;
+  padding: 0.2rem;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.board-item:hover .board-delete,
+.board-item.active .board-delete,
+.board-delete:focus-visible {
+  opacity: 1;
+}
+
+.board-delete:hover {
+  color: #f87171;
+  background-color: rgba(248, 113, 113, 0.12);
+  transform: none;
 }
 
 /* Export drop-down (project-menu.ts) */

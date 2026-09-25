@@ -7,6 +7,7 @@ import {recordChange} from "./project/undo-redo";
 import {rebuildNets} from "../nets/rebuild";
 import {invalidateWireCache} from "./wire-cache";
 import {deletePlacedIcCascade} from "./connect";
+import {cancelDuplicatePlacement} from "./duplicate";
 
 
 // Delete line
@@ -19,6 +20,11 @@ Utils.getSafeHtmlElement<HTMLButtonElement>('deleteLineBtn').addEventListener('c
 // is gone; the Styling & Colors panel now only recolours pads.
 
 export function deleteLine(){
+  // Copies still following the cursor were never added — just drop them.
+  if (State.placingDuplicates.length) {
+    cancelDuplicatePlacement();
+    return;
+  }
   if (State.selectedConnection) {
     const index = State.connections.indexOf(State.selectedConnection);
     if (index > -1) {

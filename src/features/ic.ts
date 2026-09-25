@@ -95,6 +95,11 @@ export class Ic{
   /** Kinds rendered as 2-terminal leaded parts rather than a chip package. */
   private static LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", "led-green", "led-blue", "polyfuse", "diode"];
 
+  /** Resistor body length as a fraction of its pin-to-pin span (the rest is bare lead). */
+  private static RESISTOR_LENGTH_RATIO = 0.8;
+  /** Resistor body thickness across the leads, in canvas px (hole pitch = 50). */
+  private static RESISTOR_THICKNESS = 40;
+
   /** Body colour for each LED variant, keyed by kind. */
   private static LED_COLORS: Record<string, string> = {
     "led-red": "#ef4444",
@@ -389,7 +394,14 @@ export class Ic{
       return { x: this.topLeftDot.x - s / 2, y: this.topLeftDot.y - s / 2, w: s, h: s };
     }
     if (this.isLeaded) {
-      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? 26 : this.kind === "polyfuse" ? 18 : this.kind === "diode" ? 20 : this.kind.startsWith("led-") ? 54 : 30;
+      if (this.kind.startsWith("led-")) {
+        const { rx, ry } = Ic.ledRadii();
+        const [hw, hh] = spanW >= spanH ? [rx, ry] : [ry, rx];
+        const cx = this.topLeftDot.x + spanW / 2;
+        const cy = this.topLeftDot.y + spanH / 2;
+        return { x: cx - hw, y: cy - hh, w: hw * 2, h: hh * 2 };
+      }
+      const t = this.kind === "cap-electrolytic" ? 44 : this.kind === "resistor" ? Ic.RESISTOR_THICKNESS + 6 : this.kind === "polyfuse" ? 18 : this.kind === "diode" ? 20 : 30;
       if (spanW >= spanH) {
         return { x: this.topLeftDot.x, y: this.topLeftDot.y - t / 2, w: spanW, h: t };
       }
@@ -410,9 +422,16 @@ export class Ic{
       return { x: this.topLeftDot.x - pad, y: this.topLeftDot.y - pad, w: spanW + pad * 2, h: spanH + pad * 2 };
     }
     if (this.kind === "button") {
-      // Housing overhangs the corner legs a little (rotation-safe: widthPin/heightPin swap together with the angle).
-      const pad = 8;
-      return { x: this.topLeftDot.x - pad, y: this.topLeftDot.y - pad, w: spanW + pad * 2, h: spanH + pad * 2 };
+      // Square housing on the short pin span, centred on the footprint: its sides
+      // run through the leg columns, and the legs stick out past it along the
+      // long axis (rotation-safe: widthPin/heightPin swap together with the angle).
+      const side = Math.min(spanW, spanH);
+      return {
+        x: this.topLeftDot.x + (spanW - side) / 2,
+        y: this.topLeftDot.y + (spanH - side) / 2,
+        w: side,
+        h: side,
+      };
     }
     const spanRect = { x: this.topLeftDot.x, y: this.topLeftDot.y, w: spanW, h: spanH };
     if (!this.imageSrc) return spanRect;
@@ -449,7 +468,8 @@ export class Ic{
     const length = Math.max(spanW, spanH, 50);
     const cx = this.topLeftDot.x + spanW / 2;
     const cy = this.topLeftDot.y + spanH / 2;
-    const bodyHalf = this.kind === "cap-electrolytic" ? 12 : this.kind.startsWith("led-") ? length / 2 : Math.max(16, length * 0.3);
+    const bodyHalf = this.kind === "cap-electrolytic" ? 12 : this.kind.startsWith("led-") ? length / 2
+      : this.kind === "resistor" ? length * Ic.RESISTOR_LENGTH_RATIO / 2 : Math.max(16, length * 0.3);
 
     ctx.save();
     ctx.translate(cx, cy);
@@ -470,7 +490,7 @@ export class Ic{
     else if (this.kind === "cap-electrolytic") this.drawElectrolyticCapArt(isSelected);
     else if (this.kind === "polyfuse") this.drawPolyfuseArt(bodyHalf, isSelected);
     else if (this.kind === "diode") this.drawDiodeArt(isSelected);
-    else this.drawLedArt(bodyHalf, isSelected);
+    else this.drawLedArt(length, isSelected);
 
     // Leg markers go on top of the artwork (an LED's body reaches the pads).
     drawSolderedMarker(-length / 2, 0, 6, isSelected);
@@ -482,7 +502,7 @@ export class Ic{
   /** Beige axial resistor body with four colour bands. */
   private drawResistorArt(half: number, isSelected: boolean) {
     const ctx = Canvas.ctx;
-    const h = 20;
+    const h = Ic.RESISTOR_THICKNESS;
     ctx.beginPath();
     this.roundRectPath(-half, -h / 2, half * 2, h, 6);
     ctx.fillStyle = "#d9b382";
@@ -594,21 +614,30 @@ export class Ic{
   }
 
   /**
-   * Top-down LED body (colour by variant): a filled circle — no side profile,
+   * Part-local radii of the LED body ellipse (rx along the leads, ry across),
+   * in canvas px (hole pitch = 50) — tuned by eye against a real LED.
+   */
+  private static ledRadii(): { rx: number; ry: number } {
+    return { rx: 50, ry: 50 };
+  }
+
+  /**
+   * Top-down LED body (colour by variant): a filled ellipse (see ledRadii) — no side profile,
    * since the board is drawn from directly above — with a flat edge cut into
    * the pin-2 (+x / cathode / −) side, mirroring the flat rim real through-hole
    * LEDs carry on their cathode to hint the correct placement orientation.
    * Also carries a +/− polarity sign (pin 1 =
    * anode = +, pin 2 = cathode = −, matching the leads' local +x/-x split).
    */
-  private drawLedArt(bodyHalf: number, isSelected: boolean) {
+  private drawLedArt(length: number, isSelected: boolean) {
     const ctx = Canvas.ctx;
     const color = Ic.LED_COLORS[this.kind] ?? "#ef4444";
-    const flatX = bodyHalf * 0.9;
-    const theta = Math.acos(flatX / bodyHalf);
+    const { rx, ry } = Ic.ledRadii();
+    // ellipse() angles are parametric, so the flat sits at x = 0.9 * rx.
+    const theta = Math.acos(0.9);
 
     ctx.beginPath();
-    ctx.arc(0, 0, bodyHalf, theta, 2 * Math.PI - theta, false);
+    ctx.ellipse(0, 0, rx, ry, 0, theta, 2 * Math.PI - theta, false);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
@@ -620,8 +649,8 @@ export class Ic{
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = isSelected ? "#38bdf8" : "#e2e8f0";
-    Canvas.fillText("+", -bodyHalf, -10);
-    Canvas.fillText("−", bodyHalf, -10);
+    Canvas.fillText("+", -length / 2, -18);
+    Canvas.fillText("−", length / 2, -18);
     ctx.textBaseline = "alphabetic";
   }
 
@@ -672,8 +701,9 @@ export class Ic{
   }
 
   /**
-   * Draws a tactile push button: a silver housing with a black round cap
-   * (80% of the housing's short side) in the middle. The four corner legs are
+   * Draws a tactile push button: a square silver housing (see bodyRect) with a
+   * black round cap (80% of its side) in the middle, and a short metal leg out
+   * to each corner pin past the housing's edge. The four corner legs are
    * painted on top as amber pin markers by `redrawCanvas()`, like any other
    * component pin. Symmetric, so like the pin header it is drawn axis-aligned
    * without a canvas rotation.
@@ -687,6 +717,19 @@ export class Ic{
     const capR = Math.min(w, h) * 0.8 / 2;
 
     ctx.save();
+    // Legs: each corner pin runs straight to the nearest housing edge.
+    ctx.lineWidth = 6;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#9ca3af";
+    for (let pin = 1; pin <= this.pinCount; pin++) {
+      const p = this.pinDot(pin);
+      if (!p) continue;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(Math.min(Math.max(p.x, x), x + w), Math.min(Math.max(p.y, y), y + h));
+      ctx.stroke();
+    }
+
     const grad = ctx.createLinearGradient(x, y, x + w, y + h);
     grad.addColorStop(0, "#e5e7eb");
     grad.addColorStop(1, "#9ca3af");

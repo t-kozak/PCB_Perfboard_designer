@@ -1,7 +1,6 @@
 import {State} from "../state/State";
 import {redrawCanvas} from "./draw-canvas";
 import {Utils} from "../utils/utils";
-import {ShortcutRegistry} from "./shortcut-keys";
 import {Ic} from "./ic";
 
 // Notes belong to placed components only. To label a bare hole, place a bridge
@@ -67,7 +66,5 @@ export function removeNote(target?: Ic){
 }
 
 // Double-click opens the full properties popup (notes included) — see
-// properties-popup.ts.
+// properties-popup.ts. (`d` duplicates now — see duplicate.ts.)
 
-ShortcutRegistry.add({key: "d", event: () => addNote(), description: "Add note to component."})
-ShortcutRegistry.add({key: "D", event: () => removeNote(), description: "Remove note from component."})

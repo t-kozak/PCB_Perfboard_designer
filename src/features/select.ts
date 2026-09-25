@@ -8,6 +8,7 @@ import {assignDesignator} from "./component-props";
 import {terminalAtDot} from "../nets/derive";
 import {startIcDragAt} from "./ic-drag";
 import {Ic} from "./ic";
+import {cancelDuplicatePlacement} from "./duplicate";
 let isPanningBoard = false;
 let panLastX = 0;
 let panLastY = 0;
@@ -186,7 +187,8 @@ function setSelection(event: MouseEvent) {
   redrawCanvas();
 }
 
-ShortcutRegistry.add({key: "Escape", description: "Unselect dot or connection", event: ()=>{
+ShortcutRegistry.add({key: "Escape", description: "Unselect dot or connection / cancel a duplicate", event: ()=>{
+  cancelDuplicatePlacement();
   State.selectedDot = undefined;
   State.selectedConnection = undefined;
   State.pendingTerminal = undefined;

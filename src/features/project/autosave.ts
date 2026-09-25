@@ -1,4 +1,5 @@
 import {serializeProject} from "./boards";
+import {State} from "../../state/State";
 
 /** localStorage key of the autosaved project file (all boards). */
 export const AUTOSAVE_KEY = "project";
@@ -28,6 +29,8 @@ let armed = false;
 function flush() {
   timer = undefined;
   firstScheduledAt = 0;
+  // Never persist copies still following the cursor; the drop redraws and reschedules.
+  if (State.placingDuplicates.length) return;
   try {
     const text = serializeProject();
     if (text === lastSaved) return;

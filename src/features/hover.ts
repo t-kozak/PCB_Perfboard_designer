@@ -61,7 +61,7 @@ Canvas.c.addEventListener('mousemove', function(e) {
     ? undefined
     : State.placedIcs.find(ic => ic.containsPoint(x, y));
 
-  if (!Canvas.solderSide && State.isDraggingIc) {
+  if (!Canvas.solderSide && (State.isDraggingIc || State.placingDuplicates.length)) {
     dragIcsTo(x, y);
   }
 
