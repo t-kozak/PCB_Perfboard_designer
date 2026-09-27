@@ -2,7 +2,7 @@ import {Utils} from "../utils/utils";
 
 window.addEventListener('keydown', (event) => {
   const target = event.target as HTMLElement;
-  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
     return;
   }
 
@@ -10,8 +10,11 @@ window.addEventListener('keydown', (event) => {
   // "Delete" so the delete shortcut fires regardless of which key is pressed.
   const eventKey = event.key === 'Backspace' ? 'Delete' : event.key;
 
+  // `ctrl` shortcuts also answer to Cmd on macOS; and a plain-key shortcut
+  // must not fire on Cmd+key either (Cmd+C is copy, not "recolour pad").
+  const modifier = event.ctrlKey || event.metaKey;
   for (const shortcut of ShortcutRegistry.shortcuts) {
-    if (event.ctrlKey !== !!shortcut.ctrl) continue;
+    if (modifier !== !!shortcut.ctrl) continue;
     // Single-character keys match case-sensitively so `d` and `D` stay
     // distinct; named keys (Delete, Escape, …) stay case-insensitive.
     const match = shortcut.key.length === 1
@@ -37,7 +40,7 @@ export class ShortcutRegistry {
   }
 
   static show(){
-    Utils.getSafeHtmlElement("shortcuts").innerHTML = this.shortcuts.map(s=> `<kbd>${s.ctrl ? "ctrl + ":""}${s.key}</kbd> ${s.description}`).join("<br>")
+    Utils.getSafeHtmlElement("shortcuts").innerHTML = this.shortcuts.map(s=> `<kbd>${s.ctrl ? "ctrl/⌘ + ":""}${s.key}</kbd> ${s.description}`).join("<br>")
   }
 }
 

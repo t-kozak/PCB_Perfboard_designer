@@ -239,34 +239,6 @@ body {
   transform: rotate(-90deg);
 }
 
-/* Tool Mode Grid (2x2) */
-.tool-mode-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.tool-mode-grid .tool-mode-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 0.5rem 0.4rem;
-  font-size: 0.78rem;
-  border-radius: 8px;
-}
-
-.tool-icon {
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.tool-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
 /* Gauge visual line indicators */
 .gauge-selector {
   display: flex;
@@ -856,8 +828,8 @@ kbd {
   font-size: 0.78rem;
 }
 
-/* Tool Mode & Gauge Selector Active States */
-.tool-mode-btn.active-mode, .gauge-btn.active-mode, .routing-mode-btn.active-mode {
+/* Gauge & Routing Selector Active States */
+.gauge-btn.active-mode, .routing-mode-btn.active-mode {
   background: linear-gradient(135deg, #0284c7, #0369a1);
   border-color: #38bdf8;
   color: #ffffff;
@@ -1169,6 +1141,67 @@ body.fullscreen-active {
 .props-row textarea {
   resize: vertical;
   font-family: inherit;
+}
+
+.props-pins summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.props-pins-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.5rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.props-pin {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.props-pin > span {
+  color: var(--text-muted);
+  font-family: monospace;
+  text-align: right;
+}
+
+.props-pin input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.74rem;
+  font-family: monospace;
+  background-color: #1f2937;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-main);
+  outline: none;
+}
+
+.props-pin input[type="text"]:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.props-pin input::placeholder {
+  color: #4b5563;
+}
+
+.props-pin-tag {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.72rem;
+  margin-right: 0.35rem;
+}
+
+.props-pin-tag b {
+  color: var(--text-muted);
 }
 
 .props-warning {

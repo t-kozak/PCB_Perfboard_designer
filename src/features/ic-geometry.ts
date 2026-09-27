@@ -46,6 +46,8 @@ export function isGridLayout(geo: Pick<IcGeometry, "kind" | "widthPin" | "height
  * pin count/positions, so they're excluded here. Rotation-safe: `Ic.rotate()`
  * swaps widthPin/heightPin together with rotationAngle, so whichever of the
  * two is 1 always identifies the row's short axis, regardless of orientation.
+ * Pin order follows the same rigid clockwise rotation as the DIP layout (pin 1
+ * of a vertical row goes top → right → bottom → left), not just an axis swap.
  */
 export function isRowLayout(geo: Pick<IcGeometry, "kind" | "widthPin" | "heightPin">): boolean {
   return geo.kind !== "bridge" && !LEADED_KINDS.includes(geo.kind) && (geo.widthPin === 1 || geo.heightPin === 1);
@@ -147,16 +149,14 @@ export function pinAtDot(geo: IcGeometry, dot: { x: number; y: number }): number
   }
 
   if (isRowLayout(geo)) {
-    // One pin per hole along whichever axis currently has extent (the other is 1).
-    const n = Math.max(widthPin, heightPin);
-    if (widthPin >= heightPin) {
-      if (dot.y !== topLeftDot.y) return null;
-      const i = Math.round((dot.x - topLeftDot.x) / 50);
-      return i >= 0 && i < n ? i + 1 : null;
-    }
-    if (dot.x !== topLeftDot.x) return null;
-    const i = Math.round((dot.y - topLeftDot.y) / 50);
-    return i >= 0 && i < n ? i + 1 : null;
+    // One pin per hole along the row's long axis. Like the DIP below, the row
+    // turns rigidly: undo the rotation back to the 0° frame to read pin order.
+    const { w0, h0 } = dipDims0(geo);
+    const col = Math.round((dot.x - topLeftDot.x) / 50);
+    const row = Math.round((dot.y - topLeftDot.y) / 50);
+    if (col < 0 || col >= widthPin || row < 0 || row >= heightPin) return null;
+    const { col0, row0 } = dipUnrotateCell(col, row, w0, h0, rotationAngle);
+    return (w0 >= h0 ? col0 : row0) + 1;
   }
 
   // DIP perimeter, any rotation: undo the rigid rotation back to the 0° frame,
@@ -171,7 +171,7 @@ export function pinAtDot(geo: IcGeometry, dot: { x: number; y: number }): number
 
 /** pin -> pad. The inverse of `pinAtDot`. Null for a pin number outside the component's range. */
 export function dotForPin(geo: IcGeometry, pin: number): { x: number; y: number } | null {
-  const { topLeftDot, widthPin, heightPin, rotationAngle } = geo;
+  const { topLeftDot, widthPin, rotationAngle } = geo;
   if (!topLeftDot) return null;
   if (pin < 1 || pin > pinCountOf(geo)) return null;
 
@@ -183,9 +183,10 @@ export function dotForPin(geo: IcGeometry, pin: number): { x: number; y: number 
   }
 
   if (isRowLayout(geo)) {
-    return widthPin >= heightPin
-      ? { x: topLeftDot.x + (pin - 1) * 50, y: topLeftDot.y }
-      : { x: topLeftDot.x, y: topLeftDot.y + (pin - 1) * 50 };
+    const { w0, h0 } = dipDims0(geo);
+    const i = pin - 1;
+    const { col, row } = dipRotateCell(w0 >= h0 ? i : 0, w0 >= h0 ? 0 : i, w0, h0, rotationAngle);
+    return { x: topLeftDot.x + col * 50, y: topLeftDot.y + row * 50 };
   }
 
   // DIP perimeter, any rotation: place the pin in the 0° frame, then apply the

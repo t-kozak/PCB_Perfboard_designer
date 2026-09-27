@@ -7,6 +7,7 @@ import {updateSidebarVisibility} from "./sidebar-mode";
 import {assignDesignator} from "./component-props";
 import {terminalAtDot} from "../nets/derive";
 import {startIcDragAt} from "./ic-drag";
+import {clickPin} from "./connect";
 import {Ic} from "./ic";
 import {cancelDuplicatePlacement} from "./duplicate";
 let isPanningBoard = false;
@@ -42,8 +43,7 @@ Canvas.c.addEventListener('mousedown', function(e) {
       return;
     }
 
-    // Shift+click a component: toggle it in the multi-selection group (any
-    // tool). A lone selected component is folded into the group first, so
+    // Shift+click a component: toggle it in the multi-selection group. A lone selected component is folded into the group first, so
     // click A, then Shift+click B selects both.
     if (!solder && e.shiftKey) {
       const hit = State.placedIcs.find(ic => ic.containsPoint(x, y));
@@ -54,23 +54,37 @@ Canvas.c.addEventListener('mousedown', function(e) {
       }
     }
 
+    // No tool modes: what a press does depends on what is under it.
+    // A pin starts (or finishes) a connection; anything else drops a connection
+    // in progress and selects / drags what it landed on.
+    const pin = !solder && State.hoverDot ? terminalAtDot(State.hoverDot, State.placedIcs) : undefined;
+    if (pin) {
+      const owner = State.placedIcs.find(ic => ic.id === pin.icId);
+      // Pressing a pin arms a connection — but a part whose whole body is pins
+      // (a bridge) would then never be movable, so the press also grabs the
+      // part; only once it actually moves does it stop being a click.
+      if (clickPin(pin) && owner) {
+        startIcDragAt([owner], x, y, () => {
+          State.pendingTerminal = undefined;
+          State.selectedPlacedIcs = [];
+          State.selectedPlacedIc = owner;
+          State.selectedDot = undefined;
+          State.selectedConnection = undefined;
+        });
+      }
+      return;
+    }
+    State.pendingTerminal = undefined;
+
     // A connection (rubber band) under the cursor wins over the component body
     // it may cross. Its hit zone stops short of its end pins (hover.ts), so
-    // grabbing a component by a pin still drags it. In Connect mode a click on
-    // a pin still belongs to the Connect tool.
-    const onPin = !!State.hoverDot && !!terminalAtDot(State.hoverDot, State.placedIcs);
-    if (!solder && State.hoverConnection && !(State.activeToolMode === 'connect' && onPin)) {
+    // a pin always stays a pin.
+    if (!solder && State.hoverConnection) {
       State.selectedConnection = State.hoverConnection;
       State.selectedPlacedIc = undefined;
       State.selectedPlacedIcs = [];
       State.selectedDot = undefined;
       redrawCanvas();
-      return;
-    }
-
-    // Connect tool (component side): pin-to-pin connections are handled
-    // entirely by features/connect.ts, which listens on this same event.
-    if (State.activeToolMode === 'connect' && !solder) {
       return;
     }
 
@@ -197,5 +211,18 @@ ShortcutRegistry.add({key: "Escape", description: "Unselect dot or connection / 
   State.selectedPlacedIcs = [];
   State.isDraggingIc = false;
   updateSidebarVisibility();
+  redrawCanvas();
+}});
+
+ShortcutRegistry.add({key: "a", ctrl: true, description: "Select all components", event: (e)=>{
+  // Always swallow it — the browser's select-all would just highlight the page chrome.
+  e.preventDefault();
+  if (Canvas.solderSide || State.placingDuplicates.length || !State.placedIcs.length) return;
+  const all = [...State.placedIcs];
+  State.selectedPlacedIcs = all.length > 1 ? all : [];
+  State.selectedPlacedIc = all[all.length - 1];
+  State.selectedConnection = undefined;
+  State.selectedDot = undefined;
+  State.pendingTerminal = undefined;
   redrawCanvas();
 }});

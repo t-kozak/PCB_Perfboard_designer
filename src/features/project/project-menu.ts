@@ -2,10 +2,11 @@ import {Utils} from "../../utils/utils";
 import {activeBoardName, importText, projectHasWork, serializeProject} from "./boards";
 import {downloadText, getSaveNetlist} from "./save-project";
 import {downloadAsImage} from "./save-image";
+import {downloadProjectPdf} from "./save-pdf";
 import {isProjectFile} from "../../kicad/project-file";
 
 // The Project sidebar section: the Export menu (board → PNG, board → KiCad
-// netlist, whole project) and Import (button or drag-and-drop a file anywhere
+// netlist, whole project, project → PDF) and Import (button or drag-and-drop a file anywhere
 // on the page). The board list lives in boards-ui.ts.
 
 const exportBtn = Utils.getSafeHtmlElement<HTMLButtonElement>('exportBtn');
@@ -22,6 +23,12 @@ function fileStem(name: string): string {
 
 const exporters: Record<string, () => void> = {
   image: () => downloadAsImage(`${fileStem(activeBoardName())}.png`),
+  pdf: () => {
+    downloadProjectPdf("Perfboard project", "perfboard_project.pdf").catch(err => {
+      console.error(err);
+      alert(`Could not create the PDF: ${err instanceof Error ? err.message : err}`);
+    });
+  },
   kicad: () => downloadText(getSaveNetlist(new Date().toISOString(), activeBoardName()), `${fileStem(activeBoardName())}.net`),
   project: () => downloadText(serializeProject(new Date().toISOString()), "perfboard_project.perfboard"),
 };

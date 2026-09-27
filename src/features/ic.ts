@@ -10,6 +10,7 @@ import {updateSidebarVisibility} from "./sidebar-mode";
 import {loadDefaultIcs} from "./ic-catalog";
 import {drawSolderedMarker} from "./soldered-marker";
 import {assignDesignator} from "./component-props";
+import {parametricPart} from "../kicad/project";
 
 
 export class Ic{
@@ -120,6 +121,30 @@ export class Ic{
   /** Total number of pins this component has, across all rotations. */
   get pinCount(): number {
     return pinCountOf(this);
+  }
+
+  /**
+   * The pin names this component's part ships with. `pinDescription` is the
+   * instance's own copy (seeded from these by the constructor, then editable in
+   * the properties popup); this is what an empty popup field falls back to and
+   * what a save compares against (export.ts writes `perfboard:pins` only when
+   * they differ). A part no longer in the catalog has no other default than its
+   * own names.
+   */
+  get defaultPinDescription(): Record<number, string> {
+    if (!this.partId) return this.pinDescription;
+    return Ic.IC_CONTAINER.find(t => t.partId === this.partId)?.pinDescription
+      ?? parametricPart(this.partId)?.pinDescription
+      ?? this.pinDescription;
+  }
+
+  /** True when any pin is named differently from the part's default. */
+  get hasCustomPinLabels(): boolean {
+    const defaults = this.defaultPinDescription;
+    for (let pin = 1; pin <= this.pinCount; pin++) {
+      if ((this.pinDescription[pin] ?? "") !== (defaults[pin] ?? "")) return true;
+    }
+    return false;
   }
 
   /** Emoji shown next to the component name in the sidebar catalog. */
@@ -919,7 +944,8 @@ export class Ic{
     // Name badge and note only appear with the "Labels" view toggle on — on
     // hover the properties card (properties-popup.ts) shows them instead. Pin
     // labels also show on hover; real chips always draw theirs, since they are
-    // the whole point of the package.
+    // the whole point of the package, and so does any part whose pins were
+    // renamed in the properties popup (a labelled header).
     const showAll = State.showAllLabels;
     // With the toggle on, the name badge carries the designator too.
     if (!showAll) this.drawDesignator();
@@ -933,7 +959,7 @@ export class Ic{
       return;
     }
     if (showAll) this.drawNameBadge();
-    if (!this.isLeaded && (showAll || this === State.hoverIc || this.kind === "chip")) this.drawPinLabels();
+    if (!this.isLeaded && (showAll || this === State.hoverIc || this.kind === "chip" || this.hasCustomPinLabels)) this.drawPinLabels();
     if (showAll) this.drawNote();
   }
 
@@ -1173,14 +1199,11 @@ export function rotateSelectedIc() {
     redrawCanvas();
     return;
   }
-  if (State.hoverDot) {
-    const hoveredIc = State.placedIcs.find(ic => ic.containsPoint(State.hoverDot!.x, State.hoverDot!.y));
-    if (hoveredIc) {
-      hoveredIc.rotate();
-      State.selectedPlacedIc = hoveredIc;
-      redrawCanvas();
-      return;
-    }
+  if (State.hoverIc) {
+    State.hoverIc.rotate();
+    State.selectedPlacedIc = State.hoverIc;
+    redrawCanvas();
+    return;
   }
 }
 

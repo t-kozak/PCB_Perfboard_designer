@@ -4,11 +4,12 @@ import {Utils} from "../utils/utils";
 import {redrawCanvas} from "./draw-canvas";
 import {fieldsFor, PropField} from "./component-props";
 import {updateNoteToggleButton} from "./description";
+import {rebuildNets} from "../nets/rebuild";
 import type {Ic} from "./ic";
 
 // Component properties, two views of the same data: double-click a placed
 // component for an editable popup (label, the kind's config fields from
-// component-props.ts, notes), hover one for a read-only card. Component side
+// component-props.ts, pin names, notes), hover one for a read-only card. Component side
 // only. Edits are not undo-tracked (undo covers connections/components only).
 
 const editor = Utils.getSafeHtmlElement<HTMLDivElement>("propsEditor");
@@ -34,6 +35,37 @@ function fieldInput(field: PropField, value: string): string {
   return `<select name="${name}"><option value="">—</option>`
     + options.map(o => `<option${o === value ? " selected" : ""}>${esc(o)}</option>`).join("")
     + `</select>`;
+}
+
+/** Pin counts up to this open the pin-name section by default; a big chip keeps it folded. */
+const PINS_OPEN_MAX = 8;
+
+/**
+ * One input per pin, holding the instance's name for it. The part's default
+ * name is the placeholder: a field left empty falls back to it on apply.
+ */
+function pinsHtml(ic: Ic): string {
+  if (ic.isBridge) return "";
+  const defaults = ic.defaultPinDescription;
+  const rows = Array.from({length: ic.pinCount}, (_, i) => {
+    const pin = i + 1;
+    const fallback = defaults[pin] ?? "";
+    const own = ic.pinDescription[pin] ?? "";
+    const value = own === fallback ? "" : own;
+    return `<label class="props-pin"><span>${pin}</span>`
+      + `<input type="text" name="pin-${pin}" value="${esc(value)}" placeholder="${esc(fallback)}" autocomplete="off" spellcheck="false"></label>`;
+  }).join("");
+  const open = ic.kind === "pin-header" || ic.pinCount <= PINS_OPEN_MAX || ic.hasCustomPinLabels;
+  return `<details class="props-pins"${open ? " open" : ""}><summary>Pin names</summary>`
+    + `<div class="props-pins-grid">${rows}</div></details>`;
+}
+
+/** The named pins as a compact `1 VCC · 2 GND` list for the hover card, or "" when none are named. */
+function pinSummary(ic: Ic): string {
+  const named = Array.from({length: ic.pinCount}, (_, i) => i + 1)
+    .filter(pin => ic.pinDescription[pin])
+    .map(pin => `<span class="props-pin-tag"><b>${pin}</b> ${esc(ic.pinDescription[pin])}</span>`);
+  return named.join(" ");
 }
 
 /** Clamp a fixed-position popup into the viewport, anchored just off the given client point. */
@@ -63,6 +95,7 @@ export function openPropertiesEditor(ic: Ic, clientX: number, clientY: number) {
         <input type="text" name="label" value="${esc(ic.label ?? "")}" placeholder="e.g. R1" autocomplete="off" spellcheck="false"></label>
       <div class="props-warning" hidden>Another component already uses this label.</div>
       ${fields.map(f => `<label class="props-row"><span>${esc(f.label)}</span>${fieldInput(f, ic.config[f.key] ?? "")}</label>`).join("")}
+      ${pinsHtml(ic)}
       <label class="props-row props-row-notes"><span>Notes</span>
         <textarea name="notes" rows="3" placeholder="Longer free-form info">${esc(ic.description ?? "")}</textarea></label>
     </form>`;
@@ -106,8 +139,20 @@ function applyForm() {
     if (value) ic.config[field.key] = value;
     else delete ic.config[field.key];
   }
+  if (!ic.isBridge) {
+    // An empty field means "the part's default name".
+    const defaults = ic.defaultPinDescription;
+    const pins: Record<number, string> = {};
+    for (let pin = 1; pin <= ic.pinCount; pin++) {
+      const name = text(`pin-${pin}`) || defaults[pin];
+      if (name) pins[pin] = name;
+    }
+    ic.pinDescription = pins;
+  }
   ic.description = text("notes") || undefined;
-  // Connection lists name terminals by designator.
+  // Connection lists name terminals by designator, and a power pin name
+  // (GND / VCC) names its net.
+  rebuildNets();
   window.dispatchEvent(new Event("nets-changed"));
   updateNoteToggleButton();
   redrawCanvas();
@@ -128,6 +173,8 @@ function hoverCardHtml(ic: Ic): string {
     ["Label", value(ic.label)],
     ...fieldsFor(ic).map(f => [esc(f.label), value(ic.config[f.key])]),
   ];
+  const pins = ic.isBridge ? "" : pinSummary(ic);
+  if (pins) rows.push(["Pins", pins]);
   return headerHtml(ic)
     + `<dl class="props-list">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>`
     + (ic.description ? `<div class="props-notes">${esc(ic.description)}</div>` : "");
@@ -141,8 +188,7 @@ function hideHoverCard() {
 }
 
 function updateHoverCard(e: MouseEvent) {
-  const idle = !Canvas.solderSide && !editing && !State.isDraggingIc && !State.selectedIc
-    && State.activeToolMode !== "connect" && e.buttons === 0;
+  const idle = !Canvas.solderSide && !editing && !State.isDraggingIc && !State.selectedIc && e.buttons === 0;
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
   const ic = idle ? State.placedIcs.find(p => p.containsPoint(x, y)) : undefined;
   if (!ic) {
@@ -161,11 +207,11 @@ Canvas.c.addEventListener("mousemove", updateHoverCard);
 Canvas.c.addEventListener("mouseleave", hideHoverCard);
 Canvas.c.addEventListener("mousedown", hideHoverCard);
 
-// Components are hidden on the solder side; the Connect tool and armed
-// placement own clicks on the component side. Hit-tested directly so a stale
+// Components are hidden on the solder side; armed
+// placement owns clicks on the component side. Hit-tested directly so a stale
 // selection never opens the popup for something that isn't under the cursor.
 Canvas.c.addEventListener("dblclick", (e) => {
-  if (Canvas.solderSide || State.activeToolMode === "connect" || State.selectedIc) return;
+  if (Canvas.solderSide || State.selectedIc) return;
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
   const target = State.placedIcs.find(ic => ic.containsPoint(x, y));
   if (!target) return;

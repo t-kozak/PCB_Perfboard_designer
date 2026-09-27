@@ -163,6 +163,9 @@ though `src/features/` is otherwise untested (§7).
 
 ### Component side — the Connect tool
 
+> **Superseded:** tool modes were later removed — pressing a pin starts a connection and
+> pressing a second pin completes it, with no mode switch. The text below is the original design.
+
 The `wire` tool mode becomes `connect` (`State.activeToolMode`,
 [State.ts](../src/state/State.ts)). Its behaviour:
 

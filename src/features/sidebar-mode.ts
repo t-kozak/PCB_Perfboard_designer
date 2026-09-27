@@ -6,21 +6,18 @@ import {Canvas} from "../state/Canvas";
  * just the component/solder side split (already handled by the
  * *PanelWrap `hidden` toggles in the solder-side handler in index.ts).
  *
- * - Styling & Colors is dropped while placing a component or using the
- *   Connect tool — both component-side-only activities where colour
- *   picking is a distraction.
+ * - Styling & Colors is dropped while placing a component — a
+ *   component-side-only activity where colour picking is a distraction.
  * - Grid Configuration is solder-side-only clutter — resizing the board
  *   is a component-side concern.
- * - On the solder side the Tools section keeps only Undo/Redo — the
- *   Select/Connect tool-mode buttons and Add Note are component-side
- *   concerns there.
+ * - On the solder side the Tools section keeps only Undo/Redo — Add Note
+ *   is a component-side concern.
  */
 export function updateSidebarVisibility() {
   const solder = Canvas.solderSide;
-  const placingOrConnecting = !solder && (State.activeToolMode === 'connect' || !!State.selectedIc);
+  const placing = !solder && !!State.selectedIc;
 
-  document.getElementById('colorPanelWrap')?.toggleAttribute('hidden', placingOrConnecting);
+  document.getElementById('colorPanelWrap')?.toggleAttribute('hidden', placing);
   document.getElementById('gridPanelWrap')?.toggleAttribute('hidden', solder);
-  document.getElementById('toolModeSelector')?.toggleAttribute('hidden', solder);
   document.getElementById('addNoteWrap')?.toggleAttribute('hidden', solder);
 }

@@ -290,6 +290,11 @@ describe("project: value and properties", () => {
     const { c } = only(comp("U1", "Perfboard:dip-4", "", { properties: { [PROP_PINS]: "1:IN 4:VCC" } }));
     expect(c.part.pinDescription).toEqual({ 1: "IN", 4: "VCC" });
   });
+
+  it("keeps a colon inside a perfboard:pins name", () => {
+    const { c } = only(comp("J1", "Perfboard:pin-header-1x2", "", { properties: { [PROP_PINS]: "1:A:B 2:SDA" } }));
+    expect(c.part.pinDescription).toEqual({ 1: "A:B", 2: "SDA" });
+  });
 });
 
 describe("project: labels and refs", () => {

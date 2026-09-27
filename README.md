@@ -20,7 +20,7 @@ The **PCB Perfboard Designer** is an advanced, user-friendly web CAD application
 - 🖱 **Middle Mouse Button Board Panning**: Pan across large perfboard grids by holding the middle mouse wheel button and dragging.
 - 🔍 **Smooth Board Zooming**: Zoom in and out smoothly from `20%` up to `300%` using `Ctrl + Mouse Wheel` or dedicated zoom buttons.
 - 💾 **Full Progress & Project File Persistence**: Your progress is autosaved to the browser's local storage on every change and restored on reload; a project holds any number of boards (board picker + `＋ Add Board`). `Export` saves the current board as a PNG or a KiCad netlist, or the whole project as one `.perfboard` file; `Import` (or drop a file on the page) opens a project or adds a board from a KiCad netlist.
-- 🛠 **Dedicated Tool Modes**: Toggle between `🖐 Select` (inspection only) and `🔗 Connect` for wiring pins; delete and annotate via right-click or keyboard shortcuts.
+- 🔗 **Modeless editing**: click a component pin, then another pin, to connect them; click a component body to select or drag it. No tool to switch. Delete and annotate via keyboard shortcuts.
 - 🖱 **Right-Click Context Menu**: Quick access to color changes, text note editing, and component deletion.
 
 ---

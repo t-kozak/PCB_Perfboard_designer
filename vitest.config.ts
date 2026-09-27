@@ -10,6 +10,7 @@ export default defineConfig({
       "src/nets/derive.test.ts",
       "src/features/ic-geometry.test.ts",
       "src/kicad/**/*.test.ts",
+      "src/pdf/**/*.test.ts",
     ],
     environment: "node",
   },

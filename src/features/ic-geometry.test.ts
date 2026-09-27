@@ -11,6 +11,7 @@ const SHAPES: Array<{ kind: string; widthPin: number; heightPin: number }> = [
   { kind: "chip", widthPin: 4, heightPin: 8 }, // DIP-16 Logic
   { kind: "chip", widthPin: 4, heightPin: 14 }, // ATmega328P
   { kind: "chip", widthPin: 6, heightPin: 1 }, // NAU7802 (single-row header)
+  { kind: "mosfet-standing", widthPin: 1, heightPin: 3 }, // MOSFET (single-row, 3 pins)
   { kind: "resistor", widthPin: 4, heightPin: 1 },
   { kind: "cap-ceramic", widthPin: 2, heightPin: 1 },
   { kind: "cap-electrolytic", widthPin: 2, heightPin: 1 },
@@ -44,6 +45,19 @@ describe("ic-geometry: pinDot <-> getPinPositionOnIC round trip", () => {
       });
     }
   }
+
+  // A single-row part turns rigidly too — it must not just flip between
+  // vertical and horizontal with pin 1 always top/left (the MOSFET bug).
+  it("MOSFET (1x3) gate walks top -> right -> bottom -> left through the rotations", () => {
+    const base = { topLeftDot, kind: "mosfet-standing" as const };
+    const gate = (rotationAngle: number, swapped: boolean) =>
+      dotForPin({ ...base, rotationAngle, widthPin: swapped ? 3 : 1, heightPin: swapped ? 1 : 3 }, 1);
+
+    expect(gate(0, false)).toEqual({ x: 150, y: 250 }); // top
+    expect(gate(90, true)).toEqual({ x: 150 + 2 * 50, y: 250 }); // right
+    expect(gate(180, false)).toEqual({ x: 150, y: 250 + 2 * 50 }); // bottom
+    expect(gate(270, true)).toEqual({ x: 150, y: 250 }); // left
+  });
 
   // A DIP turns as a rigid body: Ic.rotate() steps 90° clockwise, so pin 1
   // travels top-left -> top-right -> bottom-right -> bottom-left, tracking the

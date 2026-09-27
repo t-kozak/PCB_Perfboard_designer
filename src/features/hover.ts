@@ -9,13 +9,16 @@ import {dragIcsTo} from "./ic-drag";
 Canvas.c.addEventListener('mousemove', function(e) {
   const {x, y} = Canvas.screenToBoard(e.clientX, e.clientY);
 
-  // Check if mouse is within a dot
+  // Check if mouse is within a dot. Only while placing a component (which snaps
+  // to the nearest hole) is the generous radius wanted; otherwise the hit zone is
+  // just the drawn pad, so a connection running close to a pin stays clickable.
+  const hitRadius = !Canvas.solderSide && State.selectedIc ? State.dotSelectionRadius : State.dotRadius;
   State.hoverDot = undefined;
   for(let i = 0; i < State.dots.length; i++) {
     const dot = State.dots[i];
     const dx = x - dot.x;
     const dy = y - dot.y;
-    if(dx * dx + dy * dy < State.dotSelectionRadius * State.dotSelectionRadius){
+    if(dx * dx + dy * dy < hitRadius * hitRadius){
       State.hoverDot = dot;
       break;
     }
@@ -46,8 +49,8 @@ Canvas.c.addEventListener('mousemove', function(e) {
       // A band beats the component body it crosses (select.ts), so use a true
       // perpendicular distance — the ellipse test above widens to ~30px mid-span
       // on a long band and would swallow body clicks. Right on an end pin the
-      // pin (component drag / Connect tool) wins.
-      const nearPin = Math.min(Math.hypot(a.x - x, a.y - y), Math.hypot(b.x - x, b.y - y)) < State.dotRadius * 2;
+      // pin (connect / drag) wins.
+      const nearPin = Math.min(Math.hypot(a.x - x, a.y - y), Math.hypot(b.x - x, b.y - y)) < State.dotRadius;
       if (!nearPin && distanceToSegment(x, y, a, b) < State.lineSelectTolerance + 1) {
         State.hoverConnection = conn;
         break;

@@ -160,6 +160,25 @@ export function switchBoard(index: number): string[] {
   }
 }
 
+/**
+ * Opens every board in turn and calls `fn` while it is the open board (so
+ * `fn` reads `State` / `Canvas` as usual), then reopens the board that was
+ * open before. A board whose saved text can't be read makes this throw.
+ */
+export function mapBoards<T>(fn: (name: string, index: number) => T): T[] {
+  const start = active;
+  const out: T[] = [];
+  try {
+    for (let i = 0; i < boards.length; i++) {
+      switchBoard(i);
+      out.push(fn(boards[i].name, i));
+    }
+  } finally {
+    switchBoard(start);
+  }
+  return out;
+}
+
 /** Adds an empty board and opens it. */
 export function addBoard(name: string) {
   stashActive();

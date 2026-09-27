@@ -30,7 +30,7 @@ function renderConnectionsInfo(): void {
   if (!el) return;
 
   if (State.connections.length === 0) {
-    el.innerHTML = `<div style="font-size:0.75rem;color:var(--text-muted);">No connections yet — use the Connect tool on two pins.</div>`;
+    el.innerHTML = `<div style="font-size:0.75rem;color:var(--text-muted);">No connections yet — click one pin, then another.</div>`;
     return;
   }
 

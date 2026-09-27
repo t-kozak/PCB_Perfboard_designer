@@ -12,6 +12,7 @@ import {Ic} from "./ic";
 let dragged: {ic: Ic; start: IDot}[] = [];
 let anchor: IDot | undefined;
 let padAt = new Map<string, IDot>();
+let onFirstMove: (() => void) | undefined;
 
 const key = (x: number, y: number) => `${x},${y}`;
 
@@ -25,7 +26,12 @@ function nearestDot(x: number, y: number): IDot | undefined {
   return best;
 }
 
-export function startIcDragAt(ics: Ic[], x: number, y: number): void {
+/**
+ * `moved` fires once, the first time the grab actually displaces the parts — so
+ * a press that might be a click (a pin) can tell a click from a drag.
+ */
+export function startIcDragAt(ics: Ic[], x: number, y: number, moved?: () => void): void {
+  onFirstMove = moved;
   dragged = ics.filter(ic => ic.topLeftDot).map(ic => ({ic, start: ic.topLeftDot!}));
   anchor = nearestDot(x, y);
   padAt = new Map(State.dots.map(d => [key(d.x, d.y), d]));
@@ -40,4 +46,9 @@ export function dragIcsTo(x: number, y: number): void {
   const moved = dragged.map(({start}) => padAt.get(key(start.x + dx, start.y + dy)));
   if (moved.some(d => !d)) return;
   dragged.forEach(({ic}, i) => { ic.topLeftDot = moved[i]!; });
+  if (onFirstMove && (dx || dy)) {
+    const fire = onFirstMove;
+    onFirstMove = undefined;
+    fire();
+  }
 }

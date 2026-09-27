@@ -111,21 +111,6 @@ saveIcBtn?.addEventListener('click', () => {
   if (modal) modal.style.display = 'none';
 });
 
-// Tool Mode Selector Listener
-document.querySelectorAll('#toolModeSelector .tool-mode-btn').forEach((btn) => {
-  btn.addEventListener('click', (e) => {
-    document.querySelectorAll('#toolModeSelector .tool-mode-btn').forEach(b => b.classList.remove('active-mode'));
-    const target = e.currentTarget as HTMLElement;
-    target.classList.add('active-mode');
-    const mode = target.getAttribute('data-mode') as 'select' | 'connect' | 'ic';
-    if (mode) {
-      State.activeToolMode = mode;
-      updateNoteToggleButton();
-      updateSidebarVisibility();
-    }
-  });
-});
-
 // Wire Gauge Selector Listener
 document.querySelectorAll('#wireGaugeSelector .gauge-btn').forEach((btn) => {
   btn.addEventListener('click', (e) => {

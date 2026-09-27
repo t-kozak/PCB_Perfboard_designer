@@ -419,7 +419,10 @@ export function planProject(netlist: Netlist, parts: CatalogPart[], opts: PlanOp
     if (pinNames) {
       const pinDescription: Record<number, string> = {};
       for (const pair of pinNames.trim().split(/\s+/)) {
-        const [n, label = ""] = pair.split(":");
+        // Split on the first colon only — a pin name may contain one.
+        const colon = pair.indexOf(":");
+        const n = colon < 0 ? pair : pair.slice(0, colon);
+        const label = colon < 0 ? "" : pair.slice(colon + 1);
         if (Number(n) >= 1) pinDescription[Number(n)] = label;
       }
       part = {...part, pinDescription};

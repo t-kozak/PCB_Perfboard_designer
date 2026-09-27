@@ -1,6 +1,6 @@
 import {Canvas} from "../../state/Canvas";
 import {ShortcutRegistry} from "../shortcut-keys";
-import {redrawCanvas} from "../draw-canvas";
+import {renderBoardSides} from "./board-render";
 
 /** Board-unit gap between the two panels and the caption strip above each. */
 const PANEL_GAP = 40;
@@ -10,12 +10,9 @@ const SURROUND = "#0f172a";
 
 export function downloadAsImage(fileName = 'canvas.png'){
   // Export at 100% zoom so the PNG is the true board size (still at device
-  // resolution via the render transform), regardless of the current view zoom.
-  const viewZoom = Canvas.zoom;
-  const viewSolder = Canvas.solderSide;
-  Canvas.setZoom(1);
-
-  const scale = Canvas.renderScale;
+  // resolution), regardless of the current view zoom.
+  const sides = renderBoardSides();
+  const scale = sides.scale;
   const boardW = Canvas.boardWidth;
   const boardH = Canvas.boardHeight;
 
@@ -30,23 +27,17 @@ export function downloadAsImage(fileName = 'canvas.png'){
   octx.fillStyle = SURROUND;
   octx.fillRect(0, 0, outW, outH);
 
-  const renderSide = (solder: boolean, topY: number, caption: string) => {
-    Canvas.setSolderSide(solder);
-    redrawCanvas();
+  const drawSide = (image: HTMLCanvasElement, topY: number, caption: string) => {
     octx.fillStyle = '#e5e7eb';
     octx.font = 'bold 22px Inter, Arial, sans-serif';
     octx.textAlign = 'left';
     octx.textBaseline = 'middle';
     octx.fillText(caption, MARGIN, topY + CAPTION_H / 2);
-    octx.drawImage(Canvas.c, MARGIN, topY + CAPTION_H, boardW, boardH);
+    octx.drawImage(image, MARGIN, topY + CAPTION_H, boardW, boardH);
   };
 
-  renderSide(false, MARGIN, 'Component side');
-  renderSide(true, MARGIN + CAPTION_H + boardH + PANEL_GAP, 'Solder side');
-
-  Canvas.setSolderSide(viewSolder);
-  Canvas.setZoom(viewZoom);
-  redrawCanvas();
+  drawSide(sides.component, MARGIN, 'Component side');
+  drawSide(sides.solder, MARGIN + CAPTION_H + boardH + PANEL_GAP, 'Solder side');
 
   const link = document.createElement('a');
   link.download = fileName;

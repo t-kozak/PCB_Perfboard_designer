@@ -46,7 +46,7 @@ export class State {
   static connections: IConnection[] = [];
   static selectedConnection?: IConnection;
   static hoverConnection?: IConnection;
-  /** Connect tool: the first terminal clicked, awaiting a second. */
+  /** A connection being made: the first pin pressed, awaiting a second. */
   static pendingTerminal?: ITerminal;
 
   /** Logical net layer, derived from `connections` on demand. See src/nets/. */
@@ -75,7 +75,6 @@ export class State {
    */
   static placingDuplicates: Ic[] = [];
 
-  static activeToolMode: 'select' | 'connect' | 'ic' = 'select';
   static selectedWireWidth = 4;
   /** Last colour chosen in the Styling & Colors panel — applied to pads only
    *  (wire colour is always the net colour, never user-set). */
