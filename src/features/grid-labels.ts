@@ -124,7 +124,7 @@ export function drawGridLabels(): void {
 
   ctx.save();
   ctx.font = "bold 12px Inter, Arial";
-  ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
+  ctx.fillStyle = Canvas.printStyle ? "#000000" : "rgba(226, 232, 240, 0.75)";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 

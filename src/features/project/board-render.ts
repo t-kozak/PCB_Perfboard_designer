@@ -13,9 +13,10 @@ export interface BoardSides {
  * Snapshots both faces of the open board into two offscreen canvases, at
  * `scale` device pixels per board unit (the live view's own DPR by default),
  * independent of the current zoom. Hover and selection highlights are
- * suppressed for the snapshot; the view is restored afterwards.
+ * suppressed for the snapshot; the view is restored afterwards. `print`
+ * renders in `Canvas.printStyle` (white board, faint holes — for paper).
  */
-export function renderBoardSides(scale = Canvas.dpr): BoardSides {
+export function renderBoardSides(scale = Canvas.dpr, print = false): BoardSides {
   const viewZoom = Canvas.zoom;
   const viewSolder = Canvas.solderSide;
   const saved = {
@@ -30,6 +31,7 @@ export function renderBoardSides(scale = Canvas.dpr): BoardSides {
     selectedPlacedIc: undefined, selectedPlacedIcs: [], pendingTerminal: undefined,
   });
   Canvas.setZoom(scale / Canvas.dpr);
+  Canvas.printStyle = print;
 
   const snapshot = (solder: boolean) => {
     Canvas.setSolderSide(solder);
@@ -44,6 +46,7 @@ export function renderBoardSides(scale = Canvas.dpr): BoardSides {
   try {
     return {component: snapshot(false), solder: snapshot(true), scale: Canvas.renderScale};
   } finally {
+    Canvas.printStyle = false;
     Object.assign(State, saved);
     Canvas.setSolderSide(viewSolder);
     Canvas.setZoom(viewZoom);

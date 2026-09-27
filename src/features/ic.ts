@@ -870,6 +870,9 @@ export class Ic{
     Canvas.ctx.save();
     Canvas.ctx.font = "600 9px monospace, sans-serif";
     Canvas.ctx.fillStyle = "#cbd5e1";
+    // Row/grid labels sit beside the holes, on the board itself — black on
+    // print style's white board. DIP labels sit on the dark package and stay light.
+    if (Canvas.printStyle && (isRowLayout(this) || isGridLayout(this))) Canvas.ctx.fillStyle = "#000000";
 
     if (isRowLayout(this)) {
       // Single-row header (see ic-geometry.ts): one label per pin, spaced along

@@ -25,6 +25,13 @@ export class Canvas {
    */
   static solderSide = false;
 
+  /**
+   * Print style (set only while the PDF export snapshots a board): white
+   * instead of the green board, faint empty holes, black text beside the
+   * pins, and light net colours darkened so they survive a laser printer.
+   */
+  static printStyle = false;
+
   /** Physical device pixels per CSS pixel. Read live so it tracks monitor moves. */
   static get dpr(): number {
     return window.devicePixelRatio || 1;

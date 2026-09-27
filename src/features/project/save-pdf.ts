@@ -74,7 +74,7 @@ interface BoardSnapshot {
 function snapshotBoard(name: string, date: string): BoardSnapshot {
   const width = Canvas.boardWidth;
   const height = Canvas.boardHeight;
-  const sides = renderBoardSides(Math.min(SNAPSHOT_SCALE, Math.sqrt(MAX_PIXELS / (width * height))));
+  const sides = renderBoardSides(Math.min(SNAPSHOT_SCALE, Math.sqrt(MAX_PIXELS / (width * height))), true);
   const rows = componentRows();
   const bridges = State.placedIcs.filter(ic => ic.isBridge).length;
   const subtitle = [

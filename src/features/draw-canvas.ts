@@ -2,6 +2,7 @@ import {resetCanvas} from "./reset-canvas";
 import {State} from "../state/State";
 import {Canvas} from "../state/Canvas";
 import {IDot} from "../interfaces/dot.interface";
+import {Utils} from "../utils/utils";
 import {ILine} from "../interfaces/line.interface";
 import {wiresOfNet, netAtTerminal, dotKey, resolveTerminal, terminalAtDot} from "../nets/derive";
 import {drawGridLabels} from "./grid-labels";
@@ -16,6 +17,11 @@ function netColor(netId: string | undefined): string | undefined {
 
 /** The colour every pad is created with — treated as "no explicit colour" so a net tint can show through. */
 const DEFAULT_PAD_COLOR = "#a4a0a0";
+/** An empty hole in print style: the same grey at 20% opacity, just enough to count holes by. */
+const PRINT_PAD_COLOR = "rgba(164, 160, 160, 0.2)";
+
+/** A net/wire colour as painted: darkened for paper in print style (see `Utils.printInk`). */
+const ink = (color: string) => Canvas.printStyle ? Utils.printInk(color) : color;
 
 /** The hovered hole, but only when a component pin sits in it — empty holes get no hover ring. Set per paint. */
 let hoverPinDot: IDot | undefined;
@@ -27,7 +33,7 @@ function drawDot(dot: IDot, onHoverNet: boolean, netFill?: string){
   const userColor = dot.color && dot.color !== DEFAULT_PAD_COLOR ? dot.color : undefined;
   Canvas.ctx.beginPath();
   Canvas.ctx.arc(dot.x, dot.y, State.dotRadius, 0, Math.PI*2);
-  Canvas.ctx.fillStyle = userColor || netFill || DEFAULT_PAD_COLOR;
+  Canvas.ctx.fillStyle = userColor || (netFill && ink(netFill)) || (Canvas.printStyle ? PRINT_PAD_COLOR : DEFAULT_PAD_COLOR);
   Canvas.ctx.fill();
 
   if (dot === State.selectedDot) {
@@ -63,7 +69,7 @@ function drawDot(dot: IDot, onHoverNet: boolean, netFill?: string){
 function drawLine(line: ILine, onHoverNet: boolean){
   const baseWidth = line.width || 4;
   // A wire's colour is its connection's colour (see wire-cache.ts).
-  const stroke = line.color || "#777676";
+  const stroke = ink(line.color || "#777676");
   const isSelected = !!line.connId && line.connId === State.selectedConnection?.id;
   const isHover = !!line.connId && line.connId === State.hoverConnection?.id;
 
@@ -124,7 +130,7 @@ function drawRubberBand(a: {x: number; y: number}, b: {x: number; y: number}, co
   const ctx = Canvas.ctx;
   ctx.save();
   ctx.setLineDash([6, 4]);
-  ctx.strokeStyle = emphasis === "selected" ? "#38bdf8" : emphasis === "hover" ? "#94a3b8" : color;
+  ctx.strokeStyle = emphasis === "selected" ? "#38bdf8" : emphasis === "hover" ? "#94a3b8" : ink(color);
   ctx.lineWidth = emphasis === "none" ? 2 : 3;
   ctx.globalAlpha = emphasis === "none" ? 0.8 : 1;
   ctx.lineCap = "round";
