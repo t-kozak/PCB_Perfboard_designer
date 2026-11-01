@@ -17,10 +17,51 @@ export interface IcGeometry {
 const LEADED_KINDS = ["resistor", "cap-ceramic", "cap-electrolytic", "led-red", "led-green", "led-blue", "polyfuse", "diode"];
 
 /** Kinds laid out as a full rectangular pin grid (see isGridLayout) rather than the two-sided DIP perimeter. */
-const GRID_KINDS = ["pin-header"];
+const GRID_KINDS = ["pin-header", "pin-header-interleaved", "jst-xh"];
+
+/**
+ * A header whose holes form a full grid like "pin-header", but numbered in
+ * pairs down each column (row 1 = 1,3,5…, row 2 = 2,4,6…), as on a flex/LCD
+ * adapter whose connector numbers its two contacts per column that way. Always
+ * two rows tall in its 0° frame; it turns rigidly like a DIP.
+ */
+const INTERLEAVED_KINDS = ["pin-header-interleaved"];
+
+/** True for any Dupont-style header kind (plain grid or interleaved numbering). */
+export function isPinHeaderKind(kind: string): boolean {
+  return GRID_KINDS.includes(kind);
+}
+
+function isInterleavedLayout(geo: Pick<IcGeometry, "kind">): boolean {
+  return INTERLEAVED_KINDS.includes(geo.kind);
+}
 
 /** Kinds whose pins sit only at the four corners of the footprint (see pinCountOf), e.g. a tactile button. */
 const CORNER_KINDS = ["button"];
+
+/**
+ * Kinds with one row of pins along the bottom edge (0° frame) of a wider,
+ * taller footprint — a SOT-23 soldered to a perfboard adapter, whose pins are
+ * the last row of a widthPin x heightPin board. The adapter is silkscreened
+ * with its pin numbers in a shifted order — left to right (0° frame) 2, 3, 1 —
+ * so the numbers follow the board markings, not hole order (see edgePinOfCol).
+ */
+const EDGE_ROW_KINDS = ["sot23-adapter"];
+
+/** Pin number printed on the adapter above column `col` of the edge row (0°-frame, `w0` wide): 2, 3, 1. */
+function edgePinOfCol(col: number, w0: number): number {
+  return ((col + 1) % w0) + 1;
+}
+
+/** Inverse of `edgePinOfCol`: the column carrying `pin`. */
+function edgeColOfPin(pin: number, w0: number): number {
+  return (pin + 1) % w0;
+}
+
+/** True for a part whose only pins are one row along an edge of its footprint (see EDGE_ROW_KINDS). */
+export function isEdgeRowLayout(geo: Pick<IcGeometry, "kind">): boolean {
+  return EDGE_ROW_KINDS.includes(geo.kind);
+}
 
 /** True for a two-sided part that only has a pin in the first and last row of each side (a 4-leg tactile button). */
 function isCornerLayout(geo: Pick<IcGeometry, "kind">): boolean {
@@ -66,6 +107,7 @@ export function pinCountOf(geo: Pick<IcGeometry, "kind" | "widthPin" | "heightPi
   if (geo.kind === "bridge") return 1;
   if (isGridLayout(geo)) return geo.widthPin * geo.heightPin;
   if (isRowLayout(geo)) return Math.max(geo.widthPin, geo.heightPin);
+  if (isEdgeRowLayout(geo)) return dipDims0(geo).w0;
   if (isCornerLayout(geo)) return 4;
   const perSide = geo.rotationAngle === 90 || geo.rotationAngle === 270 ? geo.widthPin : geo.heightPin;
   return perSide * 2;
@@ -136,10 +178,39 @@ function dipUnrotateCell(col: number, row: number, w0: number, h0: number, rot: 
   return { col0: col, row0: row };
 }
 
+/**
+ * Hole cells (relative to the top-left pad, inclusive) covered by the green
+ * board drawn behind an interleaved header, in the current frame; null for any
+ * other kind. In the 0° frame the board is 10 holes wide and 11 tall: centred
+ * across the connector's 6 columns (2 holes spare each side) and ending one
+ * hole below the connector's bottom row, so it rises 8 holes above the top row.
+ */
+export function lcdBoardCells(
+  geo: Pick<IcGeometry, "kind" | "widthPin" | "heightPin" | "rotationAngle">,
+): { minCol: number; minRow: number; maxCol: number; maxRow: number } | null {
+  if (!isInterleavedLayout(geo)) return null;
+  const { w0, h0 } = dipDims0(geo);
+  const a = dipRotateCell(-2, 1 + 1 - 10, w0, h0, geo.rotationAngle);
+  const b = dipRotateCell(w0 - 1 + 2, h0 - 1 + 1, w0, h0, geo.rotationAngle);
+  return {
+    minCol: Math.min(a.col, b.col), minRow: Math.min(a.row, b.row),
+    maxCol: Math.max(a.col, b.col), maxRow: Math.max(a.row, b.row),
+  };
+}
+
 /** pad -> pin. The inverse of `dotForPin`. Null when the dot is not one of this component's pins. */
 export function pinAtDot(geo: IcGeometry, dot: { x: number; y: number }): number | null {
   const { topLeftDot, widthPin, heightPin, rotationAngle } = geo;
   if (!topLeftDot) return null;
+
+  if (isInterleavedLayout(geo)) {
+    const { w0, h0 } = dipDims0(geo);
+    const col = Math.round((dot.x - topLeftDot.x) / 50);
+    const row = Math.round((dot.y - topLeftDot.y) / 50);
+    if (col < 0 || col >= widthPin || row < 0 || row >= heightPin) return null;
+    const { col0, row0 } = dipUnrotateCell(col, row, w0, h0, rotationAngle);
+    return col0 * 2 + row0 + 1;
+  }
 
   if (isGridLayout(geo)) {
     const col = Math.round((dot.x - topLeftDot.x) / 50);
@@ -159,6 +230,15 @@ export function pinAtDot(geo: IcGeometry, dot: { x: number; y: number }): number
     return (w0 >= h0 ? col0 : row0) + 1;
   }
 
+  if (isEdgeRowLayout(geo)) {
+    const { w0, h0 } = dipDims0(geo);
+    const col = Math.round((dot.x - topLeftDot.x) / 50);
+    const row = Math.round((dot.y - topLeftDot.y) / 50);
+    if (col < 0 || col >= widthPin || row < 0 || row >= heightPin) return null;
+    const { col0, row0 } = dipUnrotateCell(col, row, w0, h0, rotationAngle);
+    return row0 === h0 - 1 ? edgePinOfCol(col0, w0) : null;
+  }
+
   // DIP perimeter, any rotation: undo the rigid rotation back to the 0° frame,
   // then read the pin off the two-column layout.
   const { w0, h0 } = dipDims0(geo);
@@ -175,6 +255,12 @@ export function dotForPin(geo: IcGeometry, pin: number): { x: number; y: number 
   if (!topLeftDot) return null;
   if (pin < 1 || pin > pinCountOf(geo)) return null;
 
+  if (isInterleavedLayout(geo)) {
+    const { w0, h0 } = dipDims0(geo);
+    const { col, row } = dipRotateCell(Math.floor((pin - 1) / 2), (pin - 1) % 2, w0, h0, rotationAngle);
+    return { x: topLeftDot.x + col * 50, y: topLeftDot.y + row * 50 };
+  }
+
   if (isGridLayout(geo)) {
     const idx = pin - 1;
     const col = idx % widthPin;
@@ -186,6 +272,12 @@ export function dotForPin(geo: IcGeometry, pin: number): { x: number; y: number 
     const { w0, h0 } = dipDims0(geo);
     const i = pin - 1;
     const { col, row } = dipRotateCell(w0 >= h0 ? i : 0, w0 >= h0 ? 0 : i, w0, h0, rotationAngle);
+    return { x: topLeftDot.x + col * 50, y: topLeftDot.y + row * 50 };
+  }
+
+  if (isEdgeRowLayout(geo)) {
+    const { w0, h0 } = dipDims0(geo);
+    const { col, row } = dipRotateCell(edgeColOfPin(pin, w0), h0 - 1, w0, h0, rotationAngle);
     return { x: topLeftDot.x + col * 50, y: topLeftDot.y + row * 50 };
   }
 

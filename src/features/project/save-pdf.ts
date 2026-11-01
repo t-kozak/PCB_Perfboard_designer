@@ -5,7 +5,7 @@ import {renderBoardSides} from "./board-render";
 import {billOfMaterials, type BomRow, type ComponentRow, componentRows} from "./component-list";
 import {mapBoards} from "./boards";
 
-// Project → PDF: for every board, one portrait page with both faces at 150%
+// Project → PDF: for every board, one portrait page with both faces at 300%
 // life size and, below them, a table of its components and their properties
 // (spilling onto further pages only if long); then one bill of materials over
 // the whole project.
@@ -19,13 +19,13 @@ const HEADER_FILL: Rgb = [30, 41, 59];
 const ZEBRA: Rgb = [241, 245, 249];
 
 /**
- * Print size: boards are drawn at 150% of life size. One pad pitch
+ * Print size: boards are drawn at 300% of life size. One pad pitch
  * (`State.dotSpace` board units) is 2.54 mm on a real perfboard.
  */
-const PRINT_ZOOM = 1.5;
+const PRINT_ZOOM = 3;
 const PT_PER_UNIT = (2.54 / 25.4) * 72 * PRINT_ZOOM / State.dotSpace;
-/** Snapshot device pixels per board unit — ≈ 420 dpi at the print size above. */
-const SNAPSHOT_SCALE = 1.25;
+/** Snapshot device pixels per board unit — ≈ 330 dpi at the print size above. */
+const SNAPSHOT_SCALE = 2;
 /** Cap per face, to keep memory and file size sane on huge boards. */
 const MAX_PIXELS = 16_000_000;
 
@@ -104,7 +104,7 @@ interface FaceLayout {
 /**
  * Picks the most compact arrangement of the two faces within `maxW × maxH`:
  * each face as drawn or turned 90°, the two side by side or stacked. The board
- * is printed at `PT_PER_UNIT` (150% life size) when some arrangement fits,
+ * is printed at `PT_PER_UNIT` (300% life size) when some arrangement fits,
  * otherwise shrunk as little as needed; of the arrangements at that size the
  * one using the least page height wins, leaving the most room for the table.
  */

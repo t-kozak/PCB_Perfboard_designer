@@ -5,13 +5,17 @@ import {ShortcutRegistry} from "./shortcut-keys";
 import {Utils} from "../utils/utils";
 import {fuzzyMatch} from "../utils/fuzzy";
 import {redrawCanvas} from "./draw-canvas";
-import {dotForPin, isGridLayout, isRowLayout, pinAtDot, pinCountOf} from "./ic-geometry";
+import {dotForPin, isEdgeRowLayout, isGridLayout, isPinHeaderKind, isRowLayout, lcdBoardCells, pinAtDot, pinCountOf} from "./ic-geometry";
 import {updateSidebarVisibility} from "./sidebar-mode";
 import {loadDefaultIcs} from "./ic-catalog";
 import {drawSolderedMarker} from "./soldered-marker";
 import {assignDesignator} from "./component-props";
 import {parametricPart} from "../kicad/project";
 
+/** Distance between adjacent perfboard holes, in canvas px. */
+const PITCH = 50;
+/** Half a pitch — the gap from a hole to the edge of the cell it owns. */
+const HALF_PITCH = PITCH / 2;
 
 export class Ic{
   static IC_CONTAINER: Ic[] = [];
@@ -156,13 +160,16 @@ export class Ic{
       case "cap-ceramic": return "🔵";
       case "cap-electrolytic": return "🛢️";
       case "bridge": return "•";
-      case "pin-header": return "🔌";
+      case "pin-header":
+      case "pin-header-interleaved":
+      case "jst-xh": return "🔌";
       case "button": return "🔘";
       case "led-red": return "🔴";
       case "led-green": return "🟢";
       case "led-blue": return "🔵";
       case "mosfet-standing":
       case "mosfet-flat":
+      case "sot23-adapter":
         return "⚡";
       default: return "📦";
     }
@@ -411,8 +418,8 @@ export class Ic{
    * without this, such a component would be nearly impossible to grab.
    */
   bodyRect(): { x: number; y: number; w: number; h: number } {
-    const spanW = 50 * (this.widthPin - 1);
-    const spanH = 50 * (this.heightPin - 1);
+    const spanW = PITCH * (this.widthPin - 1);
+    const spanH = PITCH * (this.heightPin - 1);
     if (!this.topLeftDot) return { x: 0, y: 0, w: spanW, h: spanH };
     if (this.isBridge) {
       const s = 16;
@@ -432,7 +439,34 @@ export class Ic{
       }
       return { x: this.topLeftDot.x - t / 2, y: this.topLeftDot.y, w: t, h: spanH };
     }
-    if (this.kind === "pin-header") {
+    const board = lcdBoardCells(this);
+    if (board) {
+      return {
+        x: this.topLeftDot.x + board.minCol * PITCH - HALF_PITCH,
+        y: this.topLeftDot.y + board.minRow * PITCH - HALF_PITCH,
+        w: (board.maxCol - board.minCol + 1) * PITCH,
+        h: (board.maxRow - board.minRow + 1) * PITCH,
+      };
+    }
+    if (this.kind === "jst-xh") {
+      // White housing: half a pitch past the ends of the row, half a pitch on
+      // the "above" side and a full pitch on the "below" side (the mating
+      // side, which turns with the part: down at 0°, left at 90°, up at 180°,
+      // right at 270°).
+      const overhang = PITCH;
+      const above = PITCH;
+      const belowDepth = 1.3 * PITCH;
+      const spanLong = PITCH * (Math.max(this.widthPin, this.heightPin) - 1);
+      const length = spanLong + overhang * 2;
+      const depth = above + belowDepth;
+      if (this.heightPin === 1) {
+        const top = this.rotationAngle === 180 ? belowDepth : above;
+        return { x: this.topLeftDot.x - overhang, y: this.topLeftDot.y - top, w: length, h: depth };
+      }
+      const left = this.rotationAngle === 90 ? belowDepth : above;
+      return { x: this.topLeftDot.x - left, y: this.topLeftDot.y - overhang, w: depth, h: length };
+    }
+    if (isPinHeaderKind(this.kind)) {
       const pad = 6;
       const t = 24; // header body thickness across a single-row strip
       if (this.widthPin === 1 && this.heightPin === 1) {
@@ -444,6 +478,10 @@ export class Ic{
       if (this.widthPin === 1) {
         return { x: this.topLeftDot.x - t / 2, y: this.topLeftDot.y - pad, w: t, h: spanH + pad * 2 };
       }
+      return { x: this.topLeftDot.x - pad, y: this.topLeftDot.y - pad, w: spanW + pad * 2, h: spanH + pad * 2 };
+    }
+    if (isEdgeRowLayout(this)) {
+      const pad = 14;
       return { x: this.topLeftDot.x - pad, y: this.topLeftDot.y - pad, w: spanW + pad * 2, h: spanH + pad * 2 };
     }
     if (this.kind === "button") {
@@ -488,9 +526,9 @@ export class Ic{
   private drawLeadedBody(isSelected: boolean) {
     if (!this.topLeftDot) return;
     const ctx = Canvas.ctx;
-    const spanW = 50 * (this.widthPin - 1);
-    const spanH = 50 * (this.heightPin - 1);
-    const length = Math.max(spanW, spanH, 50);
+    const spanW = PITCH * (this.widthPin - 1);
+    const spanH = PITCH * (this.heightPin - 1);
+    const length = Math.max(spanW, spanH, PITCH);
     const cx = this.topLeftDot.x + spanW / 2;
     const cy = this.topLeftDot.y + spanH / 2;
     const bodyHalf = this.kind === "cap-electrolytic" ? 12 : this.kind.startsWith("led-") ? length / 2
@@ -706,16 +744,34 @@ export class Ic{
   private drawPinHeaderBody(isSelected: boolean) {
     if (!this.topLeftDot) return;
     const ctx = Canvas.ctx;
-    const { x, y, w, h } = this.bodyRect();
+    let { x, y, w, h } = this.bodyRect();
+
+    if (lcdBoardCells(this)) {
+      // Green board behind the connector; the black strip below is the connector itself.
+      ctx.save();
+      ctx.beginPath();
+      this.roundRectPath(x, y, w, h, 6);
+      ctx.fillStyle = Canvas.printStyle ? "#9fd3a8" : "#14803c";
+      ctx.fill();
+      ctx.lineWidth = isSelected ? 3 : 2;
+      ctx.strokeStyle = isSelected ? "#38bdf8" : "#0b4f25";
+      ctx.stroke();
+      ctx.restore();
+      x = this.topLeftDot.x - 6;
+      y = this.topLeftDot.y - 6;
+      w = PITCH * (this.widthPin - 1) + 12;
+      h = PITCH * (this.heightPin - 1) + 12;
+    }
     const r = Math.min(6, w / 4, h / 4);
 
     ctx.save();
     ctx.beginPath();
     this.roundRectPath(x, y, w, h, r);
-    ctx.fillStyle = isSelected ? "#1e2b52" : "#0b0b0d";
+    const jst = this.kind === "jst-xh";
+    ctx.fillStyle = jst ? (isSelected ? "#dbeafe" : "#f8fafc") : isSelected ? "#1e2b52" : "#0b0b0d";
     ctx.fill();
     ctx.lineWidth = isSelected ? 3 : 2;
-    ctx.strokeStyle = isSelected ? "#38bdf8" : "#4b5563";
+    ctx.strokeStyle = isSelected ? "#38bdf8" : jst ? "#94a3b8" : "#4b5563";
     ctx.stroke();
     ctx.restore();
 
@@ -733,6 +789,60 @@ export class Ic{
    * component pin. Symmetric, so like the pin header it is drawn axis-aligned
    * without a canvas rotation.
    */
+  /**
+   * Adapter board with a small SOT-23 package on it and a trace from each pin
+   * of the edge row to the package. Drawn in the current (rotated) frame:
+   * `inward` is the unit vector from the pin row toward the rest of the board.
+   */
+  private drawEdgeRowBody(isSelected: boolean) {
+    if (!this.topLeftDot) return;
+    const ctx = Canvas.ctx;
+    const { x, y, w, h } = this.bodyRect();
+    const pins: Array<{ x: number; y: number }> = [];
+    for (let pin = 1; pin <= this.pinCount; pin++) {
+      const p = this.pinDot(pin);
+      if (p) pins.push(p);
+    }
+    if (pins.length === 0) return;
+    const mx = pins.reduce((a, p) => a + p.x, 0) / pins.length;
+    const my = pins.reduce((a, p) => a + p.y, 0) / pins.length;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const horizontalRow = pins.every(p => p.y === pins[0].y);
+    const inward = horizontalRow ? { x: 0, y: Math.sign(cy - my) } : { x: Math.sign(cx - mx), y: 0 };
+    const chipW = horizontalRow ? 44 : 30;
+    const chipH = horizontalRow ? 30 : 44;
+    const chipX = mx + inward.x * PITCH * 1.5;
+    const chipY = my + inward.y * PITCH * 1.5;
+
+    ctx.save();
+    this.roundRectPath(x, y, w, h, 6);
+    ctx.fillStyle = "#1e3a8a";
+    ctx.fill();
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.strokeStyle = isSelected ? "#38bdf8" : "#60a5fa";
+    ctx.stroke();
+
+    ctx.lineWidth = 6;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#d4a017";
+    for (const p of pins) {
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(horizontalRow ? p.x : chipX, horizontalRow ? chipY : p.y);
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    this.roundRectPath(chipX - chipW / 2, chipY - chipH / 2, chipW, chipH, 3);
+    ctx.fillStyle = "#111111";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#374151";
+    ctx.stroke();
+    ctx.restore();
+  }
+
   private drawButtonBody(isSelected: boolean) {
     if (!this.topLeftDot) return;
     const ctx = Canvas.ctx;
@@ -786,6 +896,12 @@ export class Ic{
     if (!this.topLeftDot) return;
     const isSelected = this.isSelected;
 
+    if (isEdgeRowLayout(this)) {
+      this.drawEdgeRowBody(isSelected);
+      if (isSelected) this.drawSelectionHandles();
+      return;
+    }
+
     if (this.kind === "button") {
       this.drawButtonBody(isSelected);
       if (isSelected) this.drawSelectionHandles();
@@ -804,14 +920,14 @@ export class Ic{
       return;
     }
 
-    if (this.kind === "pin-header") {
+    if (isPinHeaderKind(this.kind)) {
       this.drawPinHeaderBody(isSelected);
       if (isSelected) this.drawSelectionHandles();
       return;
     }
 
-    const w = 50 * (this.widthPin - 1);
-    const h = 50 * (this.heightPin - 1);
+    const w = PITCH * (this.widthPin - 1);
+    const h = PITCH * (this.heightPin - 1);
     const x = this.topLeftDot.x;
     const y = this.topLeftDot.y;
 
@@ -874,7 +990,27 @@ export class Ic{
     // print style's white board. DIP labels sit on the dark package and stay light.
     if (Canvas.printStyle && (isRowLayout(this) || isGridLayout(this))) Canvas.ctx.fillStyle = "#000000";
 
-    if (isRowLayout(this)) {
+    if (isEdgeRowLayout(this)) {
+      // Pin row on one edge of an adapter board: labels sit just outside the
+      // row, on the side away from the board's centre.
+      const rect = this.bodyRect();
+      const cx = rect.x + rect.w / 2;
+      const cy = rect.y + rect.h / 2;
+      for (let pin = 1; pin <= this.pinCount; pin++) {
+        const p = this.pinDot(pin);
+        if (!p) continue;
+        const desc = this.pinDescription[pin];
+        const label = desc ? `${pin}:${desc}` : `${pin}`;
+        if (this.widthPin >= this.heightPin) {
+          Canvas.ctx.textAlign = "center";
+          Canvas.fillText(label, p.x, p.y + (p.y >= cy ? 20 : -14));
+        } else {
+          const right = p.x >= cx;
+          Canvas.ctx.textAlign = right ? "left" : "right";
+          Canvas.fillText(label, p.x + (right ? 10 : -10), p.y + 3);
+        }
+      }
+    } else if (isRowLayout(this)) {
       // Single-row header (see ic-geometry.ts): one label per pin, spaced along
       // whichever axis has extent, instead of the two-sided DIP layout below.
       const horizontal = this.widthPin >= this.heightPin;
@@ -972,7 +1108,7 @@ export class Ic{
     const centerX = rect.x + (rect.w / 2);
     // Leaded parts and pin headers are small enough that a centered badge
     // would fully cover the body/pins, so their label floats above it instead.
-    const labelAbove = this.isLeaded || this.kind === "pin-header" || this.kind === "button";
+    const labelAbove = this.isLeaded || isPinHeaderKind(this.kind) || this.kind === "button";
     const centerY = labelAbove ? rect.y - 12 : rect.y + (rect.h / 2);
 
     const text = this.label ? `${this.label} · ${this.name}` : this.name;
@@ -1028,8 +1164,8 @@ export class Ic{
       const onPin = this.pinCount > 1 && Array.from({length: this.pinCount}, (_, i) => this.pinDot(i + 1))
         .some(p => p && Math.abs(p.x - cx) < 8 && Math.abs(p.y - cy) < 8);
       if (onPin) {
-        if (this.widthPin >= this.heightPin) cx += 25;
-        else cy += 25;
+        if (this.widthPin >= this.heightPin) cx += HALF_PITCH;
+        else cy += HALF_PITCH;
       }
       ctx.textAlign = "center";
       // Twice: one blurred halo alone is too faint over light bodies.
@@ -1110,7 +1246,7 @@ export class Ic{
     }
 
     const relativeY = dot.y - this.topLeftDot.y;
-    const pinNumber = Math.floor(relativeY / 50) + 1;
+    const pinNumber = Math.floor(relativeY / PITCH) + 1;
 
     if (pinNumber > 0 && pinNumber <= this.widthPin) {
       return { pin: pinNumber, info: this.pinDescription[pinNumber]};

@@ -14,7 +14,8 @@ export interface BoardSides {
  * `scale` device pixels per board unit (the live view's own DPR by default),
  * independent of the current zoom. Hover and selection highlights are
  * suppressed for the snapshot; the view is restored afterwards. `print`
- * renders in `Canvas.printStyle` (white board, faint holes — for paper).
+ * renders in `Canvas.printStyle` (white board, faint holes — for paper) and
+ * always with straight "direct" wires, whatever the board's own routing mode.
  */
 export function renderBoardSides(scale = Canvas.dpr, print = false): BoardSides {
   const viewZoom = Canvas.zoom;
@@ -30,6 +31,8 @@ export function renderBoardSides(scale = Canvas.dpr, print = false): BoardSides 
     selectedDot: undefined, selectedConnection: undefined,
     selectedPlacedIc: undefined, selectedPlacedIcs: [], pendingTerminal: undefined,
   });
+  const viewRouting = State.routingMode;
+  if (print) State.routingMode = 'direct'; // the wire cache re-derives on the mode change
   Canvas.setZoom(scale / Canvas.dpr);
   Canvas.printStyle = print;
 
@@ -47,6 +50,7 @@ export function renderBoardSides(scale = Canvas.dpr, print = false): BoardSides 
     return {component: snapshot(false), solder: snapshot(true), scale: Canvas.renderScale};
   } finally {
     Canvas.printStyle = false;
+    State.routingMode = viewRouting;
     Object.assign(State, saved);
     Canvas.setSolderSide(viewSolder);
     Canvas.setZoom(viewZoom);

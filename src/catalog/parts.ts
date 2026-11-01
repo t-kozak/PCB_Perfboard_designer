@@ -94,7 +94,7 @@ const ENTRIES: CatalogEntry[] = [
 
   // Static 2-terminal parts. The value goes into the part's typed properties.
   {id: "resistor", widthPin: 4, heightPin: 1, pinDescription: "1: 2:", name: "Resistor", kind: "resistor", category: "Passive"},
-  {id: "polyfuse", widthPin: 4, heightPin: 1, pinDescription: "1: 2:", name: "Polyfuse", kind: "polyfuse", category: "Passive"},
+  {id: "polyfuse", widthPin: 3, heightPin: 1, pinDescription: "1: 2:", name: "Polyfuse", kind: "polyfuse", category: "Passive"},
   {id: "cap-ceramic", widthPin: 2, heightPin: 1, pinDescription: "1: 2:", name: "Ceramic Capacitor", kind: "cap-ceramic", category: "Passive"},
   {id: "cap-electrolytic", widthPin: 2, heightPin: 1, pinDescription: "1:+ 2:-", name: "Electrolytic Capacitor", kind: "cap-electrolytic", category: "Passive"},
 
@@ -123,6 +123,15 @@ const ENTRIES: CatalogEntry[] = [
     imageSrc: svgDataUri(MOSFET_FLAT_SVG), imageScaleX: 43.75, imageScaleY: 1.85, imageOffsetX: -175,
   },
 
+  // Any 3-pin SOT-23 chip (MOSFET, BJT, regulator, diode…) soldered to a
+  // SOT-23 -> perfboard adapter: a 3 wide x 4 tall board whose three pins are
+  // the bottom row (marked 2, 3, 1 left to right). The chip type and the pin
+  // names are set per instance in the properties popup. See ic-geometry.ts (edge row).
+  {
+    id: "sot23-adapter", widthPin: 3, heightPin: 4, pinDescription: "1: 2: 3:",
+    name: "SOT-23 adapter", kind: "sot23-adapter", category: "Transistor",
+  },
+
   // Dupont-style male pin headers: bare legs soldered into the perfboard to
   // take a female Dupont connector. Custom-rendered (see Ic.drawPinHeaderBody)
   // as a black base with a silver pin at every hole. Ids read rows x columns;
@@ -134,6 +143,24 @@ const ENTRIES: CatalogEntry[] = [
   {id: "pin-header-1x4", widthPin: 4, heightPin: 1, pinDescription: "1: 2: 3: 4:", name: "Pin Header 1x4", kind: "pin-header", category: "Connector"},
   {id: "pin-header-2x2", widthPin: 2, heightPin: 2, pinDescription: "1: 2: 3: 4:", name: "Pin Header 2x2", kind: "pin-header", category: "Connector"},
   {id: "pin-header-2x3", widthPin: 3, heightPin: 2, pinDescription: "1: 2: 3: 4: 5: 6:", name: "Pin Header 2x3", kind: "pin-header", category: "Connector"},
+
+  // JST-XH (2.54 mm) board-edge connectors, 2-6 pins in one row. Same pin model
+  // as a 1xN pin header; the white housing (see Ic.bodyRect) reaches a pitch
+  // past the pins on the mating side and half a pitch on the other three.
+  {id: "jst-xh-2", widthPin: 2, heightPin: 1, pinDescription: "1: 2:", name: "JST-XH 2-pin", kind: "jst-xh", category: "Connector"},
+  {id: "jst-xh-3", widthPin: 3, heightPin: 1, pinDescription: "1: 2: 3:", name: "JST-XH 3-pin", kind: "jst-xh", category: "Connector"},
+  {id: "jst-xh-4", widthPin: 4, heightPin: 1, pinDescription: "1: 2: 3: 4:", name: "JST-XH 4-pin", kind: "jst-xh", category: "Connector"},
+  {id: "jst-xh-5", widthPin: 5, heightPin: 1, pinDescription: "1: 2: 3: 4: 5:", name: "JST-XH 5-pin", kind: "jst-xh", category: "Connector"},
+  {id: "jst-xh-6", widthPin: 6, heightPin: 1, pinDescription: "1: 2: 3: 4: 5: 6:", name: "JST-XH 6-pin", kind: "jst-xh", category: "Connector"},
+
+  // 12-pin LCD adapter (SPI display): a 6-column x 2-row hole grid, but the
+  // connector numbers its contacts in pairs per column — row 1 = 1,3,5…11,
+  // row 2 = 2,4,6…12 (see ic-geometry.ts, pin-header-interleaved).
+  {
+    id: "lcd-adapter-12", widthPin: 6, heightPin: 2,
+    pinDescription: "1:GND 2:RESET 3:SDA 4:SCL 5:CS 6:D/C 7:GND 8:GND 9:VDD 10:LEDA 11:LEDK 12:GND",
+    name: "LCD adapter (12-pin)", kind: "pin-header-interleaved", category: "Display",
+  },
 
   // Tactile push button: 2x3-hole footprint, a leg in each of the four corners
   // (pins 1-4 run down the left side, up the right — see ic-geometry.ts's

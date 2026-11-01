@@ -137,7 +137,7 @@ export function clearBoard() {
   State.nets = [];
   State.changes = [];
   State.changeIndex = -1;
-  State.routingMode = 'orthogonal';
+  State.routingMode = 'direct';
   const size = readGridInputs() ?? {cols: 10, rows: 10};
   createDotGrid(size.cols, size.rows);
   finishLoad();

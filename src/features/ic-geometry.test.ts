@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pinAtDot, dotForPin, pinCountOf, isRowLayout, type IcGeometry } from "./ic-geometry";
+import { pinAtDot, dotForPin, pinCountOf, isRowLayout, lcdBoardCells, type IcGeometry } from "./ic-geometry";
 
 // Every shape in the built-in catalog (see src/catalog/parts.ts), by kind
 // and pin footprint, so the round trip is checked against real components
@@ -15,6 +15,8 @@ const SHAPES: Array<{ kind: string; widthPin: number; heightPin: number }> = [
   { kind: "resistor", widthPin: 4, heightPin: 1 },
   { kind: "cap-ceramic", widthPin: 2, heightPin: 1 },
   { kind: "cap-electrolytic", widthPin: 2, heightPin: 1 },
+  { kind: "sot23-adapter", widthPin: 3, heightPin: 4 }, // any 3-pin chip on a SOT-23 adapter (pins on one edge)
+  { kind: "pin-header-interleaved", widthPin: 6, heightPin: 2 }, // 12-pin LCD adapter
   { kind: "button", widthPin: 2, heightPin: 3 }, // Push Button (corner-only pins)
 ];
 const ROTATIONS = [0, 90, 180, 270];
@@ -134,5 +136,19 @@ describe("ic-geometry: corner-only layout (button)", () => {
     expect(pinAtDot(geo, { x: 150, y: 300 })).toBeNull();
     expect(pinAtDot(geo, { x: 200, y: 300 })).toBeNull();
     expect(dotForPin(geo, 5)).toBeNull();
+  });
+});
+
+describe("ic-geometry: LCD adapter board", () => {
+  const lcd = { kind: "pin-header-interleaved", widthPin: 6, heightPin: 2, rotationAngle: 0 };
+  it("is 10 x 11 holes, centred on the connector, one hole below it", () => {
+    expect(lcdBoardCells(lcd)).toEqual({ minCol: -2, minRow: -8, maxCol: 7, maxRow: 2 });
+  });
+  it("turns with the connector (90°: 11 wide, 10 tall)", () => {
+    const b = lcdBoardCells({ ...lcd, widthPin: 2, heightPin: 6, rotationAngle: 90 })!;
+    expect([b.maxCol - b.minCol + 1, b.maxRow - b.minRow + 1]).toEqual([11, 10]);
+  });
+  it("is null for other kinds", () => {
+    expect(lcdBoardCells({ ...lcd, kind: "pin-header" })).toBeNull();
   });
 });

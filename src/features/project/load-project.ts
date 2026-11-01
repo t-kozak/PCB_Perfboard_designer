@@ -66,7 +66,7 @@ function applyPlan(plan: ProjectPlan) {
   if (board.colLabels) State.colLabelMode = board.colLabels;
   if (board.rowLabels) State.rowLabelMode = board.rowLabels;
   if (board.rowsBottomUp !== undefined) State.rowLabelsBottomUp = board.rowsBottomUp;
-  State.routingMode = board.routing === "direct" ? "direct" : "orthogonal";
+  State.routingMode = board.routing === "orthogonal" ? "orthogonal" : "direct";
   createDotGrid(board.cols, board.rows);
   syncGridInputs(board.cols, board.rows);
 
@@ -285,7 +285,7 @@ export function loadProject(project: IProjectSave){
   // Wires are stateless now — nothing to rehydrate. The first solder-side
   // repaint re-derives them from the connection list (see wire-cache.ts).
   State.lines = [];
-  State.routingMode = project.routingMode === "direct" ? "direct" : "orthogonal";
+  State.routingMode = project.routingMode === "orthogonal" ? "orthogonal" : "direct";
 
   // v1/v2 migration matches wires against the (gutter-shifted) canonical dots.
   const dotByCoord = new Map<string, IDot>();

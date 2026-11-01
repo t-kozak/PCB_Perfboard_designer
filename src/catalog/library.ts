@@ -39,7 +39,9 @@ const EXAMPLE = `(export (version "E")
 function pinLayout(p: CatalogPart): string {
   const n = pinCountOf({...p, rotationAngle: 0});
   if (p.kind === "bridge") return "1 pin — a single hole";
-  if (p.kind === "pin-header") return `${p.heightPin} x ${p.widthPin} grid, numbered row by row, left to right`;
+  if (p.kind === "pin-header" || p.kind === "jst-xh") return `${p.heightPin} x ${p.widthPin} grid, numbered row by row, left to right`;
+  if (p.kind === "pin-header-interleaved") return `${p.heightPin} rows x ${p.widthPin} columns; row 1 holds the odd pins (1, 3, 5…), row 2 the even pins (2, 4, 6…)`;
+  if (p.kind === "sot23-adapter") return `${p.widthPin} pins in one row along the bottom edge of a ${p.widthPin} x ${p.heightPin} adapter board: left to right they are marked 2, 3, 1`;
   if (p.kind === "button") return "4 legs, one in each corner: 1 top-left, 2 bottom-left, 3 bottom-right, 4 top-right";
   if (n === 2) return "2 leads, one at each end";
   if (p.widthPin === 1 || p.heightPin === 1) return `${n} pins in a single row`;

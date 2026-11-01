@@ -6,6 +6,7 @@ import {Utils} from "../utils/utils";
 import {ILine} from "../interfaces/line.interface";
 import {wiresOfNet, netAtTerminal, dotKey, resolveTerminal, terminalAtDot} from "../nets/derive";
 import {drawGridLabels} from "./grid-labels";
+import {isPinHeaderKind} from "./ic-geometry";
 import {scheduleAutosave} from "./project/autosave";
 import {drawSolderedMarker, SOLDERED_FILL} from "./soldered-marker";
 import {refreshWireCache, DEFAULT_WIRE_COLOR} from "./wire-cache";
@@ -280,7 +281,7 @@ export function redrawCanvas() {
   if (!solder) {
     const dotByKey = new Map<string, IDot>(State.dots.map((dot) => [dotKey(dot), dot]));
     for (const ic of State.placedIcs) {
-      if (ic.isLeaded || ic.isBridge || ic.kind === "pin-header") continue;
+      if (ic.isLeaded || ic.isBridge || isPinHeaderKind(ic.kind)) continue;
       for (let pin = 1; pin <= ic.pinCount; pin++) {
         const coord = ic.pinDot(pin);
         const dot = coord && dotByKey.get(dotKey(coord));

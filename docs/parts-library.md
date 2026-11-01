@@ -93,12 +93,19 @@ Rules:
 | `led-blue` | LED (Blue) | Passive | 2 | — |
 | `mosfet-standing` | MOSFET (Standing) | Transistor | 3 | `partNumber` |
 | `mosfet-flat` | MOSFET (Flat) | Transistor | 3 | `partNumber` |
+| `sot23-adapter` | SOT-23 adapter | Transistor | 3 | `partNumber` |
 | `pin-header-1x1` | Pin Header 1x1 | Connector | 1 | — |
 | `pin-header-1x2` | Pin Header 1x2 | Connector | 2 | — |
 | `pin-header-1x3` | Pin Header 1x3 | Connector | 3 | — |
 | `pin-header-1x4` | Pin Header 1x4 | Connector | 4 | — |
 | `pin-header-2x2` | Pin Header 2x2 | Connector | 4 | — |
 | `pin-header-2x3` | Pin Header 2x3 | Connector | 6 | — |
+| `jst-xh-2` | JST-XH 2-pin | Connector | 2 | — |
+| `jst-xh-3` | JST-XH 3-pin | Connector | 3 | — |
+| `jst-xh-4` | JST-XH 4-pin | Connector | 4 | — |
+| `jst-xh-5` | JST-XH 5-pin | Connector | 5 | — |
+| `jst-xh-6` | JST-XH 6-pin | Connector | 6 | — |
+| `lcd-adapter-12` | LCD adapter (12-pin) | Display | 12 | — |
 | `push-button` | Push Button | Switch | 4 | `partNumber` |
 | `xiao-esp32c6` | XIAO seeed ESP32-C6 | Microcontroller | 14 | `partNumber` |
 | `nau7802` | NAU7802 | ADC | 6 | `partNumber` |
@@ -131,7 +138,7 @@ Rules:
 ### `polyfuse` — Polyfuse
 
 - Category: Passive · Designator: F1, F2…
-- Footprint: 4 x 1 holes; 2 leads, one at each end
+- Footprint: 3 x 1 holes; 2 leads, one at each end
 - Pins: 1 · 2
 - Properties:
   - `holdCurrent` — **the value** (goes in `value`) — Hold current: e.g. 500mA
@@ -218,6 +225,15 @@ Rules:
   - `channel` — Channel: one of `N-channel`, `P-channel`
   - `partNumber` — **the value** (goes in `value`) — Part number: e.g. IRLZ44N
 
+### `sot23-adapter` — SOT-23 adapter
+
+- Category: Transistor · Designator: Q1, Q2…
+- Footprint: 3 x 4 holes; 3 pins in one row along the bottom edge of a 3 x 4 adapter board: left to right they are marked 2, 3, 1
+- Pins: 1 · 2 · 3
+- Properties:
+  - `chipType` — Chip type: one of `N-MOSFET`, `P-MOSFET`, `NPN`, `PNP`, `Voltage regulator`, `Diode`, `Other`
+  - `partNumber` — **the value** (goes in `value`) — Part number: e.g. AO3400A
+
 ### `pin-header-1x1` — Pin Header 1x1
 
 - Category: Connector · Designator: J1, J2…
@@ -272,10 +288,64 @@ Rules:
   - `function` — Function: e.g. UART, I²C, power in
 - Value: the part name ("Pin Header 2x3")
 
+### `jst-xh-2` — JST-XH 2-pin
+
+- Category: Connector · Designator: J1, J2…
+- Footprint: 2 x 1 holes; 1 x 2 grid, numbered row by row, left to right
+- Pins: 1 · 2
+- Properties:
+  - `function` — Function: e.g. UART, I²C, power in
+- Value: the part name ("JST-XH 2-pin")
+
+### `jst-xh-3` — JST-XH 3-pin
+
+- Category: Connector · Designator: J1, J2…
+- Footprint: 3 x 1 holes; 1 x 3 grid, numbered row by row, left to right
+- Pins: 1 · 2 · 3
+- Properties:
+  - `function` — Function: e.g. UART, I²C, power in
+- Value: the part name ("JST-XH 3-pin")
+
+### `jst-xh-4` — JST-XH 4-pin
+
+- Category: Connector · Designator: J1, J2…
+- Footprint: 4 x 1 holes; 1 x 4 grid, numbered row by row, left to right
+- Pins: 1 · 2 · 3 · 4
+- Properties:
+  - `function` — Function: e.g. UART, I²C, power in
+- Value: the part name ("JST-XH 4-pin")
+
+### `jst-xh-5` — JST-XH 5-pin
+
+- Category: Connector · Designator: J1, J2…
+- Footprint: 5 x 1 holes; 1 x 5 grid, numbered row by row, left to right
+- Pins: 1 · 2 · 3 · 4 · 5
+- Properties:
+  - `function` — Function: e.g. UART, I²C, power in
+- Value: the part name ("JST-XH 5-pin")
+
+### `jst-xh-6` — JST-XH 6-pin
+
+- Category: Connector · Designator: J1, J2…
+- Footprint: 6 x 1 holes; 1 x 6 grid, numbered row by row, left to right
+- Pins: 1 · 2 · 3 · 4 · 5 · 6
+- Properties:
+  - `function` — Function: e.g. UART, I²C, power in
+- Value: the part name ("JST-XH 6-pin")
+
+### `lcd-adapter-12` — LCD adapter (12-pin)
+
+- Category: Display · Designator: J1, J2…
+- Footprint: 6 x 2 holes; 2 rows x 6 columns; row 1 holds the odd pins (1, 3, 5…), row 2 the even pins (2, 4, 6…)
+- Pins: 1 `GND` · 2 `RESET` · 3 `SDA` · 4 `SCL` · 5 `CS` · 6 `D/C` · 7 `GND` · 8 `GND` · 9 `VDD` · 10 `LEDA` · 11 `LEDK` · 12 `GND`
+- Properties:
+  - `function` — Function: e.g. UART, I²C, power in
+- Value: the part name ("LCD adapter (12-pin)")
+
 ### `push-button` — Push Button
 
 - Category: Switch · Designator: SW1, SW2…
-- Footprint: 2 x 3 holes; 4 legs, one in each corner: 1 top-left, 2 bottom-left, 3 bottom-right, 4 top-right
+- Footprint: 3 x 4 holes; 4 legs, one in each corner: 1 top-left, 2 bottom-left, 3 bottom-right, 4 top-right
 - Pins: 1 · 2 · 3 · 4
 - Properties:
   - `partNumber` — **the value** (goes in `value`) — Part number: e.g. LM358

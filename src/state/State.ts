@@ -53,7 +53,7 @@ export class State {
   static nets: INet[] = [];
 
   /** Global solder-side routing style: orthogonal (A*) or direct (straight). */
-  static routingMode: 'orthogonal' | 'direct' = 'orthogonal';
+  static routingMode: 'orthogonal' | 'direct' = 'direct';
 
   static changes: IChange[] = []
   static changeIndex = -1;

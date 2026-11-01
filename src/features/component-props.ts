@@ -57,6 +57,10 @@ const FIELDS: Record<string, PropField[]> = {
     {key: "channel", label: "Channel", options: ["N-channel", "P-channel"]},
     {key: "partNumber", label: "Part number", placeholder: "e.g. IRLZ44N", value: true},
   ],
+  "sot23-adapter": [
+    {key: "chipType", label: "Chip type", options: ["N-MOSFET", "P-MOSFET", "NPN", "PNP", "Voltage regulator", "Diode", "Other"]},
+    {key: "partNumber", label: "Part number", placeholder: "e.g. AO3400A", value: true},
+  ],
   "pin-header": [
     {key: "function", label: "Function", placeholder: "e.g. UART, I²C, power in"},
   ],
@@ -67,6 +71,7 @@ const FIELDS: Record<string, PropField[]> = {
 export function fieldsForKind(kind: string): PropField[] {
   if (kind.startsWith("led-")) return FIELDS["led"];
   if (kind.startsWith("mosfet-")) return FIELDS["mosfet"];
+  if (kind === "pin-header-interleaved" || kind === "jst-xh") return FIELDS["pin-header"];
   return FIELDS[kind] ?? [PART_NUMBER];
 }
 
@@ -87,8 +92,8 @@ export function designatorPrefixForKind(kind: string): string {
   if (kind === "polyfuse") return "F";
   if (kind.startsWith("cap-")) return "C";
   if (kind === "diode" || kind.startsWith("led-")) return "D";
-  if (kind.startsWith("mosfet-")) return "Q";
-  if (kind === "pin-header") return "J";
+  if (kind.startsWith("mosfet-") || kind === "sot23-adapter") return "Q";
+  if (kind === "pin-header" || kind === "pin-header-interleaved" || kind === "jst-xh") return "J";
   if (kind === "button") return "SW";
   return "U";
 }

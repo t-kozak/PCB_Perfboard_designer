@@ -5,6 +5,7 @@ import {redrawCanvas} from "./draw-canvas";
 import {fieldsFor, PropField} from "./component-props";
 import {updateNoteToggleButton} from "./description";
 import {rebuildNets} from "../nets/rebuild";
+import {isPinHeaderKind} from "./ic-geometry";
 import type {Ic} from "./ic";
 
 // Component properties, two views of the same data: double-click a placed
@@ -55,7 +56,7 @@ function pinsHtml(ic: Ic): string {
     return `<label class="props-pin"><span>${pin}</span>`
       + `<input type="text" name="pin-${pin}" value="${esc(value)}" placeholder="${esc(fallback)}" autocomplete="off" spellcheck="false"></label>`;
   }).join("");
-  const open = ic.kind === "pin-header" || ic.pinCount <= PINS_OPEN_MAX || ic.hasCustomPinLabels;
+  const open = isPinHeaderKind(ic.kind) || ic.pinCount <= PINS_OPEN_MAX || ic.hasCustomPinLabels;
   return `<details class="props-pins"${open ? " open" : ""}><summary>Pin names</summary>`
     + `<div class="props-pins-grid">${rows}</div></details>`;
 }
