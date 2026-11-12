@@ -83,7 +83,8 @@ function applyPlan(plan: ProjectPlan) {
   for (const c of plan.components) {
     const ic = icFromPart(c.part, c.part.id.startsWith("custom-"));
     for (let r = 0; r < c.rotation; r += 90) ic.rotate();
-    ic.topLeftDot = dotAt.get(`${c.col},${c.row}`) ?? null;
+    ic.topLeftDot = dotAt.get(`${c.col},${c.row}`) ??
+      (c.row < 0 && dotAt.has(`${c.col},0`) ? {x: origin + c.col * State.dotSpace, y: origin + c.row * State.dotSpace} : null);
     ic.label = c.label;
     ic.config = {...c.config};
     ic.description = c.note;

@@ -61,6 +61,9 @@ const FIELDS: Record<string, PropField[]> = {
     {key: "chipType", label: "Chip type", options: ["N-MOSFET", "P-MOSFET", "NPN", "PNP", "Voltage regulator", "Diode", "Other"]},
     {key: "partNumber", label: "Part number", placeholder: "e.g. AO3400A", value: true},
   ],
+  "attiny-soic8": [
+    {key: "partNumber", label: "Variant", options: ["ATtiny202", "ATtiny212", "ATtiny402", "ATtiny412"], value: true},
+  ],
   "pin-header": [
     {key: "function", label: "Function", placeholder: "e.g. UART, I²C, power in"},
   ],

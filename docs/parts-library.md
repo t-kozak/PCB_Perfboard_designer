@@ -115,6 +115,7 @@ Rules:
 | `dip14-logic` | DIP-14 Logic | Logic IC | 14 | `partNumber` |
 | `cd4013be` | CD4013BE | Flip-Flop | 14 | `partNumber` |
 | `dip16-logic` | DIP-16 Logic | Logic IC | 16 | `partNumber` |
+| `attiny-soic8` | ATtiny SOIC-8 | Microcontroller | 8 | `partNumber` |
 | `atmega328p` | ATmega328P | Microcontroller | 28 | `partNumber` |
 
 ### `bridge` — Bridge
@@ -413,6 +414,14 @@ Rules:
 - Pins: 1 `EN` · 2 `1D` · 3 `1Q` · 4 `2D` · 5 `2Q` · 6 · 7 · 8 `GND` · 9 · 10 · 11 · 12 · 13 · 14 · 15 · 16 `VCC`
 - Properties:
   - `partNumber` — **the value** (goes in `value`) — Part number: e.g. LM358
+
+### `attiny-soic8` — ATtiny SOIC-8
+
+- Category: Microcontroller · Designator: U1, U2…
+- Footprint: 4 x 4 holes; DIP layout — pins 1–4 down the left side, 5–8 up the right side
+- Pins: 1 `VCC` · 2 `PA6` · 3 `PA7` · 4 `PA1` · 5 `PA2` · 6 `PA0/UPDI` · 7 `PA3` · 8 `GND`
+- Properties:
+  - `partNumber` — **the value** (goes in `value`) — Variant: one of `ATtiny202`, `ATtiny212`, `ATtiny402`, `ATtiny412`
 
 ### `atmega328p` — ATmega328P
 

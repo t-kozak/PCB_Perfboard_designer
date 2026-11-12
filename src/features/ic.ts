@@ -164,6 +164,7 @@ export class Ic{
       case "pin-header-interleaved":
       case "jst-xh": return "🔌";
       case "button": return "🔘";
+      case "attiny-soic8": return "🔲";
       case "led-red": return "🔴";
       case "led-green": return "🟢";
       case "led-blue": return "🔵";
@@ -775,10 +776,40 @@ export class Ic{
     ctx.stroke();
     ctx.restore();
 
+    if (jst) this.drawJstLatch(x, y, w, h);
+
     for (let pin = 1; pin <= this.pinCount; pin++) {
       const p = this.pinDot(pin);
       if (p) drawSolderedMarker(p.x, p.y, 6, isSelected);
     }
+  }
+
+  /**
+   * The latch side of a JST-XH housing — the half-pitch strip "above" the pins,
+   * opposite the mating face (up at 0°, right at 90°, down at 180°, left at
+   * 270°): one grey bar on a 2-pin part, two on anything longer.
+   */
+  private drawJstLatch(x: number, y: number, w: number, h: number) {
+    const ctx = Canvas.ctx;
+    const horizontal = this.heightPin === 1;
+    const long = horizontal ? w : h;
+    const thickness = 6;
+    const length = HALF_PITCH + 5;
+    const inset = HALF_PITCH / 2; // bar centre's distance in from the housing edge
+    const fractions = this.pinCount === 2 ? [0.5] : [0.25, 0.75];
+    ctx.save();
+    ctx.fillStyle = "#6b7280";
+    for (const f of fractions) {
+      const along = f * long - length / 2;
+      if (horizontal) {
+        const top = this.rotationAngle === 180 ? y + h - inset - thickness / 2 : y + inset - thickness / 2;
+        ctx.fillRect(x + along, top, length, thickness);
+      } else {
+        const left = this.rotationAngle === 90 ? x + w - inset - thickness / 2 : x + inset - thickness / 2;
+        ctx.fillRect(left, y + along, thickness, length);
+      }
+    }
+    ctx.restore();
   }
 
   /**
@@ -985,10 +1016,8 @@ export class Ic{
     if (!this.topLeftDot) return;
     Canvas.ctx.save();
     Canvas.ctx.font = "600 9px monospace, sans-serif";
-    Canvas.ctx.fillStyle = "#cbd5e1";
-    // Row/grid labels sit beside the holes, on the board itself — black on
-    // print style's white board. DIP labels sit on the dark package and stay light.
-    if (Canvas.printStyle && (isRowLayout(this) || isGridLayout(this))) Canvas.ctx.fillStyle = "#000000";
+    // Bloody red, on every layout and in print style too, so pin labels stand out.
+    Canvas.ctx.fillStyle = "#ff0000";
 
     if (isEdgeRowLayout(this)) {
       // Pin row on one edge of an adapter board: labels sit just outside the
@@ -1098,7 +1127,7 @@ export class Ic{
       return;
     }
     if (showAll) this.drawNameBadge();
-    if (!this.isLeaded && (showAll || this === State.hoverIc || this.kind === "chip" || this.hasCustomPinLabels)) this.drawPinLabels();
+    if (!this.isLeaded && (showAll || this === State.hoverIc || this.kind === "chip" || this.kind === "attiny-soic8" || this.hasCustomPinLabels)) this.drawPinLabels();
     if (showAll) this.drawNote();
   }
 

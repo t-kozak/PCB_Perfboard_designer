@@ -203,6 +203,14 @@ const ENTRIES: CatalogEntry[] = [
     name: "CD4013BE", category: "Flip-Flop",
   },
   {id: "dip16-logic", widthPin: 4, heightPin: 8, pinDescription: "1:EN 2:1D 3:1Q 4:2D 5:2Q 8:GND 16:VCC", name: "DIP-16 Logic", category: "Logic IC"},
+  // ATtiny202/212/402/412 (tinyAVR 0/1-series, 8-pin SOIC) on a SOIC-8 → DIP
+  // adapter, so the 8 legs sit on a 4x4 footprint like the NE555. Pinout per
+  // the datasheet; the exact variant is picked in the properties popup.
+  {
+    id: "attiny-soic8", widthPin: 4, heightPin: 4,
+    pinDescription: "1:VCC 2:PA6 3:PA7 4:PA1 5:PA2 6:PA0/UPDI 7:PA3 8:GND",
+    name: "ATtiny SOIC-8", kind: "attiny-soic8", category: "Microcontroller",
+  },
   {id: "atmega328p", widthPin: 4, heightPin: 14, pinDescription: "1:RESET 2:RX 3:TX 7:VCC 8:GND 22:GND 20:AVCC", name: "ATmega328P", category: "Microcontroller"},
 ];
 

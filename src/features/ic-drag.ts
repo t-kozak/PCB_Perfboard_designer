@@ -14,6 +14,10 @@ let anchor: IDot | undefined;
 let padAt = new Map<string, IDot>();
 let onFirstMove: (() => void) | undefined;
 
+/** How many pitches above the board a part's anchor may be dragged. */
+const MAX_OVERHANG = 20;
+const topRowY = () => Math.min(...State.dots.map(d => d.y));
+
 const key = (x: number, y: number) => `${x},${y}`;
 
 function nearestDot(x: number, y: number): IDot | undefined {
@@ -43,7 +47,16 @@ export function dragIcsTo(x: number, y: number): void {
   if (!anchor || !target) return;
   const dx = target.x - anchor.x;
   const dy = target.y - anchor.y;
-  const moved = dragged.map(({start}) => padAt.get(key(start.x + dx, start.y + dy)));
+  const moved = dragged.map(({start}) => {
+    const x = start.x + dx;
+    const y = start.y + dy;
+    const pad = padAt.get(key(x, y));
+    if (pad) return pad;
+    // Above the first row the anchor may leave the board (the part hangs off the
+    // top edge); every other overshoot is still ignored.
+    return y < topRowY() && y >= topRowY() - MAX_OVERHANG * State.dotSpace && padAt.has(key(x, topRowY()))
+      ? {x, y} : undefined;
+  });
   if (moved.some(d => !d)) return;
   dragged.forEach(({ic}, i) => { ic.topLeftDot = moved[i]!; });
   if (onFirstMove && (dx || dy)) {
